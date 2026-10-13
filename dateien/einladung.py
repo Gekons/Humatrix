@@ -1082,7 +1082,7 @@ def seite_verwaltung(nutzer, hinweis='', geheim=None):
         if u['gesperrt']:
             taten = knopf('/entsperren', 'Entsperren')
         else:
-            taten = knopf('/passwort', 'Passwort neu')
+            taten = knopf('/passwort', 'Passwort neu', ' gefahr')
             if not ich:
                 taten += (knopf('/verwalter', 'Verwalter aus', richtung='nein') if u['verwalter']
                           else knopf('/verwalter', 'Verwalter an', richtung='ja'))
@@ -1168,6 +1168,33 @@ def seite_verwaltung(nutzer, hinweis='', geheim=None):
       <a class="knopf still" href="/zweitfaktor">Zweiter Faktor</a>
       <a class="knopf still" href="/eigene">Meine eigenen Einladungen</a>
       <a class="knopf still" href="/abmelden">Abmelden</a>""")
+
+
+def seite_passwort_sicher(kennung, selbst):
+    """Rueckfrage vor dem Zuruecksetzen - das neue Passwort erscheint nur einmal.
+
+    Ohne diese Seite reichte ein Fehlklick: Der Verwalter setzte sich selbst ein
+    Passwort, klickte die Anzeige weg und stand ausgesperrt da.
+    """
+    kurz = html.escape(kennung.split(':')[0].lstrip('@'))
+    wen = 'dein eigenes Passwort' if selbst else f'das Passwort von {kurz}'
+    folge = ('<b>Du wirst sofort überall abgemeldet</b> \u2014 auf dem Handy, im Browser, auch hier. '
+             'Das neue Passwort siehst du <b>genau einmal</b>; notiere es, bevor du weiterklickst.'
+             if selbst else
+             f'<b>{kurz} wird auf allen Geräten abgemeldet</b> und braucht das neue Passwort von dir. '
+             'Es wird <b>genau einmal</b> angezeigt.')
+    return seite('Passwort', f"""
+      <h1>Wirklich {wen} zurücksetzen?</h1>
+      <div class="karte">
+        <p>{folge}</p>
+        <p class="leise" style="margin-top:10px">Verschlüsselte Nachrichten bleiben lesbar, sobald
+           das Konto auf einem Gerät wieder angemeldet und die Schlüsselsicherung eingegeben ist.</p>
+        <form method="post" action="/passwort-ja">
+          <input type="hidden" name="nutzer" value="{html.escape(kennung)}">
+          <button type="submit" class="gefahrgross">Ja, zurücksetzen</button>
+        </form>
+        <a class="knopf still" href="/verwaltung">Abbrechen</a>
+      </div>""")
 
 
 def seite_sperren_sicher(kennung):
@@ -1331,7 +1358,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.erzeugen()
         if pfad in ('/kontingent', '/standard'):
             return self.kontingent_aendern(pfad)
-        if pfad in ('/anlegen', '/passwort', '/sperren', '/sperren-ja',
+        if pfad in ('/anlegen', '/passwort', '/passwort-ja', '/sperren', '/sperren-ja',
                     '/entsperren', '/verwalter'):
             return self.konten_verwalten(pfad)
         self.antwort(seite('Nicht gefunden', '<h1>Nicht gefunden</h1>'), 404)
@@ -1542,6 +1569,10 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             kurz = ziel.split(':')[0].lstrip('@')
 
             if pfad == '/passwort':
+                # Erst fragen. Das Zuruecksetzen selbst macht /passwort-ja.
+                return self.antwort(seite_passwort_sicher(ziel, ziel == nutzer))
+
+            if pfad == '/passwort-ja':
                 pw = passwort_neu(ziel)
                 # Eigenes Passwort: die Sperre traefe auch diese Sitzung - frischer Keks.
                 frisch = self.keks_setzen(nutzer) if ziel == nutzer else None
