@@ -199,7 +199,7 @@ anderen anlegen (`chown root:matrix-synapse`, `chmod 640`), danach
 | Anrufe kommen nicht zustande | UDP blockiert | `ufw status` prüfen; bei Hetzner auch die Cloud-Firewall |
 | „Zu viele Versuche" beim Anmelden | Synapse drosselt nach wenigen Versuchen | eine Minute warten. Das Passwort ist meist richtig. |
 | Kunde hat sein Telefon verloren (2FA) | — | `python3 /opt/einladung/einladung.py --zweitfaktor-aus <name>` als root auf dem Server; der Benutzername reicht, die volle Kennung geht auch |
-| Kunde hat sein Passwort vergessen | — | über die Verwaltung zurücksetzen („Passwort neu"). Betrifft es das Verwalterkonto selbst, als root über die Admin-Schnittstelle, siehe unten. `register_new_matrix_user` taugt dafür **nicht** — es legt nur neue Konten an und bricht bei vergebener Kennung ab |
+| Kunde hat sein Passwort vergessen | — | über die Verwaltung zurücksetzen („Passwort neu" — mit Rückfrage; das neue Passwort erscheint **genau einmal**, sofort notieren und weitergeben). Betrifft es das Verwalterkonto selbst, als root über die Admin-Schnittstelle, siehe unten. `register_new_matrix_user` taugt dafür **nicht** — es legt nur neue Konten an und bricht bei vergebener Kennung ab |
 | Einzelnen Abschnitt wiederholen | — | `./install.sh --domain … --mail … --nur turn` |
 | Eigene Firewall-Regeln (WireGuard, eingeschränktes SSH) | — | bleiben bei Wiederholungsläufen erhalten: `ufw` wird nur zurückgesetzt, solange es noch nicht aktiv ist; danach setzt die Härtung nur ihre eigenen Regeln und nimmt den SSH-Port aus der laufenden `sshd`-Konfiguration |
 
