@@ -18,6 +18,9 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/einladung
+# Dort legt die Verwaltung den Update-Auftrag ab ("Jetzt aktualisieren"), mehr
+# nicht. Das '-' laesst den Dienst auch starten, falls der Ordner noch fehlt.
+ReadWritePaths=-/var/lib/messenger/auftraege
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictAddressFamilies=AF_INET AF_INET6

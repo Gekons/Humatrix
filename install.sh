@@ -4,7 +4,8 @@
 #
 # Baut auf einem frischen Debian 13 in einem Durchgang:
 #   Synapse auf PostgreSQL · TLS · .well-known-Delegation · coturn fuer Anrufe
-#   Element Web · Verwaltungsoberflaeche · Einladungsseite · Sicherung · Haertung
+#   Element Web · Verwaltungsoberflaeche · Einladungsseite · Sicherung
+#   Update-Pruefung (einspielen nur auf Klick) · Haertung
 #
 # Aufruf:   sudo ./install.sh --domain beispieldomain.de --mail du@example.de --verwalter anna
 # Hilfe:    ./install.sh --hilfe
@@ -59,7 +60,7 @@ Messenger-Installer
                        und 443 der oeffentlichen Adresse jemand anderem gehoeren.
   --nur <abschnitt>    Nur einen Abschnitt wiederholen:
                        pakete datenbank synapse web turn element
-                       einladung sicherung haertung
+                       einladung sicherung updates haertung
   --hilfe              Diese Hilfe.
 
 Vorher einzurichten (der Installer prueft es und bricht sonst ab):
@@ -90,8 +91,8 @@ done
 # Ein Tippfehler bei --nur liess vorher ALLE Abschnitte aus und meldete am Ende
 # trotzdem "Fertig" - der Nutzer glaubte, sein Abschnitt sei erneuert worden.
 case "$NUR" in
-  ""|pakete|datenbank|synapse|web|turn|element|einladung|sicherung|haertung) ;;
-  *) ende "Unbekannter Abschnitt: $NUR  (moeglich: pakete datenbank synapse web turn element einladung sicherung haertung)" ;;
+  ""|pakete|datenbank|synapse|web|turn|element|einladung|sicherung|updates|haertung) ;;
+  *) ende "Unbekannter Abschnitt: $NUR  (moeglich: pakete datenbank synapse web turn element einladung sicherung updates haertung)" ;;
 esac
 # Der Verwaltername wird zur Matrix-Kennung @name:domain und steht ungeschuetzt
 # in einer SQL-Abfrage. Synapse laesst nur Kleinbuchstaben, Ziffern und . _ = - /
@@ -704,33 +705,14 @@ fi
 # ================================================================ ELEMENT WEB
 if lauf element; then
 schritt "Element Web"
-VER=$(curl -sL https://api.github.com/repos/element-hq/element-web/releases/latest | jq -r .tag_name)
-[ -n "$VER" ] && [ "$VER" != "null" ] || ende "Element-Fassung nicht ermittelbar."
-if [ "$(cat /var/www/element/.version 2>/dev/null)" != "$VER" ]; then
-  rm -rf /tmp/el; mkdir -p /tmp/el /var/www/element
-  curl -fsSL "https://github.com/element-hq/element-web/releases/download/$VER/element-$VER.tar.gz" -o /tmp/el/p.tgz
-  tar xzf /tmp/el/p.tgz -C /tmp/el
-  QUELLE=$(find /tmp/el -name index.html -printf '%d %h\n' | sort -n | head -1 | cut -d' ' -f2-)
-  rm -rf /var/www/element/*; cp -a "$QUELLE"/. /var/www/element/
-  printf '%s\n' "$VER" > /var/www/element/.version
-  rm -rf /tmp/el
-  melde "Element Web $VER ausgeliefert."
-else
-  melde "Element Web ist schon auf $VER."
-fi
-cat > /var/www/element/config.json <<EOF
-{
-  "default_server_config": {
-    "m.homeserver": { "base_url": "https://$MATRIX_HOST", "server_name": "$DOMAIN" }
-  },
-  "disable_custom_urls": true,
-  "disable_guests": true,
-  "default_country_code": "DE",
-  "setting_defaults": { "language": "de" },
-  "room_directory": { "servers": ["$DOMAIN"] }
-}
-EOF
-chmod 644 /var/www/element/config.json
+# Holen, Entpacken und config.json stehen in einem eigenen Skript: der
+# Update-Lauf aus der Verwaltung (Abschnitt 'updates') erneuert Element
+# damit ebenfalls, ohne den Installer aufrufen zu muessen.
+[ -f "$HIER/dateien/messenger-element-erneuern.sh" ] || ende "dateien/messenger-element-erneuern.sh fehlt neben dem Installer."
+install -m 755 "$HIER/dateien/messenger-element-erneuern.sh" /usr/local/sbin/messenger-element-erneuern.sh
+ausgabe=$(/usr/local/sbin/messenger-element-erneuern.sh "$DOMAIN" 2>>"$LOG") \
+  || ende "Element Web konnte nicht erneuert werden. Grund steht in $LOG"
+while IFS= read -r zeile; do [ -z "$zeile" ] || melde "$zeile"; done <<< "$ausgabe"
 gruen "   Element bereit."
 fi
 
@@ -743,6 +725,12 @@ id einladung >/dev/null 2>&1 || useradd --system --home /opt/einladung --shell /
 mkdir -p /opt/einladung /etc/einladung /var/lib/einladung
 chmod 755 /opt/einladung; chmod 750 /etc/einladung /var/lib/einladung
 chgrp einladung /etc/einladung; chown einladung:einladung /var/lib/einladung
+# Der Auftragsordner fuer "Jetzt aktualisieren" (Abschnitt 'updates') muss
+# VOR dem Dienststart da sein: ReadWritePaths bindet nur ein, was beim Start
+# existiert - spaeter angelegt bliebe er fuer den laufenden Dienst unsichtbar.
+mkdir -p /var/lib/messenger/auftraege
+chmod 755 /var/lib/messenger
+chown einladung:einladung /var/lib/messenger/auftraege; chmod 750 /var/lib/messenger/auftraege
 install -m 755 "$HIER/dateien/einladung.py" /opt/einladung/einladung.py
 
 GEHEIM=$(grep -oP 'registration_shared_secret: "\K[^"]+' /etc/matrix-synapse/conf.d/05-secrets.yaml 2>/dev/null) \
@@ -894,6 +882,94 @@ else
   melde "Taeglich 03:30 nach /var/backups/messenger (14 Tage). Auswaerts: --sicherung angeben."
   gruen "   Sicherung eingerichtet."
 fi
+fi
+
+# ================================================================ AKTUALISIERUNGEN
+# Grundsatz: nichts wird blind aktualisiert. Ein Timer PRUEFT taeglich und
+# legt den Befund in updates.json ab; die Verwaltung zeigt ihn an. EINGESPIELT
+# wird erst, wenn ein Verwalter dort klickt: der Dienst legt dann eine
+# Auftragsdatei ab, eine Path-Unit sieht sie und startet den Update-Lauf als
+# root. Die Datei ist nur ein Klingelknopf - ihr Inhalt wird nie ausgewertet.
+if lauf updates; then
+schritt "Aktualisierungen: taeglich pruefen, einspielen nur auf Klick"
+id einladung >/dev/null 2>&1 || ende "Benutzer 'einladung' fehlt - erst den Abschnitt einladung laufen lassen."
+for d in messenger-update-pruefen.sh messenger-update-ausfuehren.sh messenger-element-erneuern.sh; do
+  [ -f "$HIER/dateien/$d" ] || ende "dateien/$d fehlt neben dem Installer."
+  install -m 755 "$HIER/dateien/$d" "/usr/local/sbin/$d"
+done
+
+# Befund lesbar fuer den Dienst (644 in 755), Auftragsordner gehoert ihm (750).
+mkdir -p /var/lib/messenger/auftraege
+chmod 755 /var/lib/messenger
+chown einladung:einladung /var/lib/messenger/auftraege; chmod 750 /var/lib/messenger/auftraege
+
+# Der Dienst darf nur dort schreiben (ProtectSystem=strict). Die Freigabe steht
+# in dateien/einladung.service; auf einem BESTEHENDEN Server mit '--nur updates'
+# kaeme sie sonst nie an - deshalb die Unit hier nachziehen, aber nur neu
+# starten, wenn sie sich wirklich geaendert hat.
+if [ -f "$HIER/dateien/einladung.service" ] \
+   && ! cmp -s "$HIER/dateien/einladung.service" /etc/systemd/system/einladung.service; then
+  install -m 644 "$HIER/dateien/einladung.service" /etc/systemd/system/einladung.service
+  systemctl daemon-reload
+  systemctl try-restart einladung >>"$LOG" 2>&1 || true
+  melde "einladung.service nachgezogen (Schreibrecht auf den Auftragsordner)."
+fi
+
+cat > /etc/systemd/system/messenger-update-pruefen.service <<'EOF'
+[Unit]
+Description=Pruefen, ob Aktualisierungen fuer den Messenger vorliegen
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/messenger-update-pruefen.sh
+EOF
+cat > /etc/systemd/system/messenger-update-pruefen.timer <<'EOF'
+[Unit]
+Description=Taegliche Pruefung auf Aktualisierungen (nur pruefen, nie einspielen)
+[Timer]
+OnCalendar=*-*-* 06:00:00
+RandomizedDelaySec=3600
+Persistent=true
+[Install]
+WantedBy=timers.target
+EOF
+cat > /etc/systemd/system/messenger-update.path <<'EOF'
+[Unit]
+Description=Wartet auf einen Update-Auftrag aus der Verwaltung
+[Path]
+PathExists=/var/lib/messenger/auftraege/update
+Unit=messenger-update.service
+[Install]
+WantedBy=multi-user.target
+EOF
+cat > /etc/systemd/system/messenger-update.service <<'EOF'
+[Unit]
+Description=Aktualisierung des Messengers auf Auftrag aus der Verwaltung
+# Kein Startlimit: faellt der Dienst mehrmals kurz hintereinander, ginge sonst
+# auch die Path-Unit dauerhaft in 'failed' und kein Klick kaeme mehr an. Eine
+# Schleife droht nicht: die Auftragsdatei wird unten entfernt, und das Skript
+# selbst laesst nur einen Lauf zu (Sperre).
+StartLimitIntervalSec=0
+[Service]
+Type=oneshot
+# Erst den Auftrag entfernen - sonst zuendet die Path-Unit sofort wieder.
+# Sein Inhalt wird nie gelesen: er ist ein Klingelknopf, kein Befehl. '-rf',
+# falls der Dienstbenutzer statt einer Datei einen Ordner abgelegt hat, und
+# '-' davor: scheitert das Entfernen, laeuft der Dienst trotzdem.
+ExecStartPre=-/bin/rm -rf /var/lib/messenger/auftraege/update
+ExecStart=/usr/local/sbin/messenger-update-ausfuehren.sh
+EOF
+systemctl daemon-reload
+systemctl enable --now messenger-update-pruefen.timer >>"$LOG" 2>&1
+systemctl enable --now messenger-update.path >>"$LOG" 2>&1
+melde "Taegliche Pruefung ab 06:00, Einspielen nur auf Klick in der Verwaltung."
+
+# Erstlauf sofort, damit die Verwaltung nicht bis morgen "noch nicht geprueft" zeigt.
+if befund=$(/usr/local/sbin/messenger-update-pruefen.sh 2>>"$LOG"); then
+  melde "$befund"
+else
+  melde "WARNUNG: erste Pruefung fehlgeschlagen - der Timer versucht es taeglich erneut. Siehe $LOG"
+fi
+gruen "   Aktualisierungen eingerichtet."
 fi
 
 # ================================================================ HAERTUNG

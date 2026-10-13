@@ -67,6 +67,12 @@ SCHLUESSEL_DATEI = '/etc/einladung/datenschluessel'   # verschluesselt die TOTP-
 CODE_FRIST_MIN = 5          # so lange gilt die halbe Sitzung zwischen Passwort und Code
 VERSUCHE_MAX = 5            # falsche Codes, bevor gebremst wird
 VERSUCHE_FENSTER = 900      # Sekunden, ueber die gezaehlt wird
+# Befund der taeglichen Update-Pruefung (schreibt root, liest dieser Dienst) und
+# der Auftragsordner, in dem "Jetzt aktualisieren" seine Datei ablegt.
+UPDATES_DATEI = '/var/lib/messenger/updates.json'
+AUFTRAG_DATEI = '/var/lib/messenger/auftraege/update'
+UPDATES_FRIST = 3 * 86400   # aelter gilt als "nicht geprueft" - der Timer laeuft dann nicht
+LAUF_FRIST = 2 * 3600       # laenger "laeuft" kein Einspielen - dann ist der Lauf abgebrochen
 
 # ---------------------------------------------------------------- Ablage
 
@@ -1136,6 +1142,7 @@ def seite_verwaltung(nutzer, hinweis='', geheim=None):
     return seite('Verwaltung', f"""
       <h1>Verwaltung</h1>
       {meldung}
+      {karte_updates()}
       <div class="karte">
         <h2>Vorgabe für neue Konten</h2>
         <p class="leise">So viele Einladungen bekommt, wer neu dazukommt.
@@ -1212,6 +1219,285 @@ def seite_sperren_sicher(kennung):
           <button type="submit" class="gefahrgross">Ja, sperren</button>
         </form>
         <a class="knopf still" href="/">Abbrechen</a>
+      </div>""")
+
+
+# ---------------------------------------------------------------- Aktualisierungen
+# Grundsatz: nichts wird blind aktualisiert. root prueft taeglich und legt den
+# Befund in UPDATES_DATEI ab; dieser Dienst zeigt ihn nur an. Klickt ein
+# Verwalter "Jetzt aktualisieren" und bestaetigt, legt der Dienst eine
+# Auftragsdatei ab - mehr nicht. Einspielen, Neustart, Element: alles root,
+# angestossen durch eine Path-Unit. Hier gibt es kein apt und kein Netz.
+
+def updates_stand():
+    """Befund der taeglichen Pruefung: (daten, frisch).
+
+    daten ist None, wenn die Datei fehlt oder unlesbar ist. frisch ist False,
+    wenn der Befund aelter als UPDATES_FRIST ist - dann laeuft der Timer
+    offenbar nicht, und ein alter Stand darf nicht als aktuell durchgehen.
+    Nichts hier darf die Seite blockieren: jeder Zugriff abgefangen.
+    """
+    try:
+        with open(UPDATES_DATEI) as d:
+            daten = json.load(d)
+        if not isinstance(daten, dict):
+            return (None, False)
+        frisch = time.time() - int(daten.get('geprueft') or 0) <= UPDATES_FRIST
+        return (daten, frisch)
+    except Exception:
+        return (None, False)
+
+
+def objekt(wert):
+    """Nur ein JSON-Objekt zaehlt; alles andere (kaputte updates.json) gilt als leer.
+
+    Die Datei schreibt root, aber die Seite darf an keinem Inhalt scheitern.
+    """
+    return wert if isinstance(wert, dict) else {}
+
+
+def zahl(wert):
+    """Ganzzahl aus dem Befund, bei Unsinn 0 - jede Zahl fuer sich, damit ein
+    kaputtes Feld nicht die Nachbarn mit auf 0 zieht."""
+    try:
+        return int(wert or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def updates_ausstehend(daten):
+    """Gibt es etwas einzuspielen? Rein, ohne Dateizugriff - fuer Karte und Test."""
+    if not isinstance(daten, dict):
+        return False
+    pakete = objekt(daten.get('pakete'))
+    synapse = objekt(daten.get('synapse'))
+    element = objekt(daten.get('element'))
+    if zahl(pakete.get('gesamt')) > 0:
+        return True
+    if synapse.get('neu') and synapse.get('neu') != synapse.get('ist'):
+        return True
+    # 'unbekannt' schreibt die Pruefung, wenn GitHub nicht antwortete - das ist
+    # kein Update, sondern eine Luecke im Befund.
+    if element.get('neu') not in (None, '', 'unbekannt') and element.get('neu') != element.get('ist'):
+        return True
+    return False
+
+
+def vor_zeit(zeitpunkt):
+    """'gerade eben', 'vor 5 Minuten', 'vor 3 Stunden', 'vor 2 Tagen'."""
+    try:
+        s = int(time.time() - int(zeitpunkt))
+    except (TypeError, ValueError):
+        return 'unbekannt'
+    if s < 90:
+        return 'gerade eben'
+    if s < 3600:
+        m = s // 60
+        return f'vor {m} Minute{"" if m == 1 else "n"}'
+    if s < 86400:
+        h = s // 3600
+        return f'vor {h} Stunde{"" if h == 1 else "n"}'
+    t = s // 86400
+    return f'vor {t} Tag{"" if t == 1 else "en"}'
+
+
+def auftrag_liegt_vor():
+    # Nur eine Datei ist ein Auftrag. Ein Ordner gleichen Namens ist Unfug, den
+    # die Update-Unit beim naechsten Start wegraeumt - er darf nicht blockieren.
+    try:
+        return os.path.isfile(AUFTRAG_DATEI)
+    except Exception:
+        return False
+
+
+def lauf_stand(daten):
+    """'letzter_lauf' aus dem Befund, bereinigt: (lauf, laeuft).
+
+    laeuft ist nur dann True, wenn das Ausfuehrskript es gesetzt hat UND der
+    Beginn juenger als LAUF_FRIST ist. Ein aelteres "laeuft" stammt von einem
+    Lauf, der nie zu Ende kam (Neustart, Stromausfall) - er wird als
+    abgebrochen gezeigt, und der Knopf steht wieder zur Verfuegung. Sonst
+    bliebe die Karte fuer immer gesperrt.
+    """
+    lauf = objekt(objekt(daten).get('letzter_lauf'))
+    if not lauf.get('laeuft'):
+        return (lauf, False)
+    try:
+        frisch = time.time() - int(lauf.get('begonnen')) <= LAUF_FRIST
+    except (TypeError, ValueError):
+        frisch = False            # ohne brauchbaren Beginn ist nichts belegt
+    if frisch:
+        return (lauf, True)
+    return (dict(lauf, laeuft=False, status='abgebrochen'), False)
+
+
+def auftrag_laeuft(daten):
+    """Setzt das Ausfuehrskript, solange es arbeitet - auch in einem alten Befund gueltig."""
+    return lauf_stand(daten)[1]
+
+
+def auftrag_schreiben():
+    """Legt die Auftragsdatei ab. Inhalt: nur der Zeitpunkt - er wird nie ausgewertet.
+
+    Erst in eine Nebendatei, dann umbenennen: die Path-Unit zuendet, sobald der
+    Name auftaucht, und soll nie eine halb geschriebene Datei vorfinden.
+    """
+    tmp = AUFTRAG_DATEI + '.neu'
+    try:
+        if os.path.isdir(AUFTRAG_DATEI):
+            # os.replace wuerde hier mit IsADirectoryError abbrechen; lieber
+            # klar benennen, was im Weg liegt.
+            protokoll('update_auftrag_fehler', '', 'Am Auftragspfad liegt ein Ordner')
+            return False
+        with open(tmp, 'w') as d:
+            d.write(f'{int(time.time())}\n')
+        os.replace(tmp, AUFTRAG_DATEI)
+        return True
+    except Exception as f:
+        protokoll('update_auftrag_fehler', '', str(f)[:120])
+        try:
+            os.remove(tmp)        # keine Nebendatei liegen lassen
+        except Exception:
+            pass
+        return False
+
+
+def karte_updates():
+    """Die Karte 'Aktualisierungen' oben auf der Verwaltungsseite."""
+    daten, frisch = updates_stand()
+    lauf, laeuft = lauf_stand(daten)
+
+    # Ergebnis des letzten Einspielens - auch dann, wenn der Befund selbst alt ist.
+    lauf_teil = ''
+    if laeuft:
+        lauf_teil = (f'<p style="margin-top:12px"><b>Aktualisierung läuft gerade</b> '
+                     f'<span class="leise">(begonnen {vor_zeit(lauf.get("begonnen"))}). Der Chat '
+                     f'kann dabei kurz nicht erreichbar sein; lade diese Seite in ein paar Minuten '
+                     f'neu.</span></p>')
+    elif lauf.get('status'):
+        gut = lauf.get('status') == 'ok'
+        farbe = 'var(--eigen)' if gut else 'var(--warn)'
+        grund = html.escape(str(lauf.get('fehlgeschlagen') or ''))
+        if gut:
+            text = 'erfolgreich'
+        elif lauf.get('status') == 'abgebrochen':
+            text = (f'abgebrochen <span class="leise">(nicht zu Ende gekommen, etwa durch einen '
+                    f'Neustart - einfach erneut anstoßen)</span>')
+        else:
+            text = f'mit Fehlern{(" (" + grund + ")") if grund else ""}'
+        zeilen = lauf.get('protokoll') or []
+        proto = ''
+        if isinstance(zeilen, list) and zeilen:
+            proto = ('<details style="margin-top:6px"><summary class="leise">Protokoll</summary>'
+                     '<pre class="mono" style="white-space:pre-wrap;margin:6px 0 0">'
+                     + html.escape('\n'.join(str(z) for z in zeilen[-40:])) + '</pre></details>')
+        # Ein abgebrochener Lauf hat kein Ende - dann zaehlt sein Beginn.
+        wann = vor_zeit(lauf.get('beendet') if lauf.get('beendet') is not None else lauf.get('begonnen'))
+        lauf_teil = (f'<p style="margin-top:12px">Letzte Aktualisierung '
+                     f'{wann}: <b style="color:{farbe}">{text}</b></p>{proto}')
+
+    if not daten or not frisch:
+        if daten:
+            hinweis = (f'Zuletzt geprüft {vor_zeit(daten.get("geprueft"))} — die tägliche Prüfung '
+                       f'läuft offenbar nicht mehr. Sag {html.escape(BETREIBER)} Bescheid.')
+        else:
+            hinweis = 'Die tägliche Prüfung hat noch kein Ergebnis abgelegt. Schau morgen wieder herein.'
+        return (f'<div class="karte"><h2>Aktualisierungen</h2><p><b>Noch nicht geprüft.</b></p>'
+                f'<p class="leise">{hinweis}</p>{lauf_teil}</div>')
+
+    # Kaputte Teile (kein Objekt, keine Liste) blockieren die Seite nicht: sie
+    # erscheinen als "unbekannt", der Rest wird normal gezeigt.
+    synapse = daten.get('synapse')
+    element = daten.get('element')
+    pakete = daten.get('pakete')
+
+    def zeile(was, teil):
+        if not isinstance(teil, dict):
+            return (f'<tr><td>{was}</td><td class="leise">unbekannt</td>'
+                    f'<td style="text-align:right"><span class="leise">Befund unlesbar</span></td></tr>')
+        ist, neu = teil.get('ist'), teil.get('neu')
+        ist_html = (html.escape(str(ist)) if ist
+                    else '<span class="leise">nicht installiert</span>')
+        if not neu or neu == 'unbekannt':
+            stand = '<span class="leise">neueste Fassung gerade nicht ermittelbar</span>'
+        elif neu == ist:
+            stand = '<span class="ok">aktuell</span>'
+        else:
+            stand = f'<span style="color:var(--warn)">neu: {html.escape(str(neu))}</span>'
+        return (f'<tr><td>{was}</td><td class="mono" style="font-size:14px">{ist_html}</td>'
+                f'<td style="text-align:right">{stand}</td></tr>')
+
+    gesamt = zahl(objekt(pakete).get('gesamt'))
+    sicher = zahl(objekt(pakete).get('sicherheit'))
+    if not isinstance(pakete, dict):
+        p_stand = '<span class="leise">unbekannt</span>'
+    elif gesamt == 0:
+        p_stand = '<span class="ok">alles aktuell</span>'
+    else:
+        p_stand = (f'<span style="color:var(--warn)">{gesamt} ausstehend'
+                   + (f', davon {sicher} Sicherheit' if sicher else '') + '</span>')
+    liste = objekt(pakete).get('liste')
+    namen = ', '.join(html.escape(str(p.get('name', '')))
+                      for p in (liste if isinstance(liste, list) else [])
+                      if isinstance(p, dict) and p.get('name'))
+    liste_teil = (f'<details><summary class="leise">Welche Pakete</summary>'
+                  f'<p class="leise mono">{namen}</p></details>') if namen else ''
+    zeilen = (zeile('Synapse (Chat-Server)', synapse)
+              + zeile('Element (Chat im Browser)', element)
+              + f'<tr><td>Systempakete</td><td></td><td style="text-align:right">{p_stand}</td></tr>')
+
+    tat = ''
+    if updates_ausstehend(daten):
+        if laeuft:
+            pass                                  # steht schon oben in lauf_teil
+        elif auftrag_liegt_vor():
+            tat = ('<p class="leise" style="margin-top:12px">Ein Auftrag liegt vor und wird '
+                   'gleich ausgeführt.</p>')
+        else:
+            tat = ('<form method="post" action="/update">'
+                   '<button type="submit" class="gefahrgross">Jetzt aktualisieren</button></form>'
+                   '<p class="leise" style="margin-top:8px">Vorher wird nachgefragt. '
+                   'Von allein wird nie etwas eingespielt.</p>')
+
+    return (f'<div class="karte"><h2>Aktualisierungen</h2>'
+            f'<p class="leise">Geprüft {vor_zeit(daten.get("geprueft"))}. '
+            f'Eingespielt wird nur auf Klick.</p>'
+            f'<table>{zeilen}</table>{liste_teil}{tat}{lauf_teil}</div>')
+
+
+def seite_update_sicher(daten):
+    """Rueckfrage vor dem Einspielen - wie seite_passwort_sicher, ohne JavaScript."""
+    synapse = objekt(daten.get('synapse'))
+    element = objekt(daten.get('element'))
+    pakete = objekt(daten.get('pakete'))
+    gesamt = zahl(pakete.get('gesamt'))
+    sicher = zahl(pakete.get('sicherheit'))
+    punkte = []
+    if gesamt:
+        davon = f' (davon {sicher} Sicherheitsupdate{"" if sicher == 1 else "s"})' if sicher else ''
+        punkte.append(f'<li><b>{gesamt} Systempaket{"" if gesamt == 1 else "e"}</b>{davon} '
+                      f'werden eingespielt.</li>')
+    if synapse.get('neu') and synapse.get('neu') != synapse.get('ist'):
+        punkte.append(f'<li><b>Synapse</b> (der Chat-Server) wird auf '
+                      f'{html.escape(str(synapse["neu"]))} gebracht und <b>startet neu</b> — '
+                      f'der Chat ist dabei kurz nicht erreichbar. Apps verbinden sich danach '
+                      f'von selbst wieder.</li>')
+    if element.get('neu') not in (None, '', 'unbekannt') and element.get('neu') != element.get('ist'):
+        punkte.append(f'<li><b>Element</b> (Chat im Browser) wird auf '
+                      f'{html.escape(str(element["neu"]))} gebracht — wer die Seite offen hat, '
+                      f'lädt sie einmal neu.</li>')
+    return seite('Aktualisieren', f"""
+      <h1>Jetzt wirklich aktualisieren?</h1>
+      <div class="karte">
+        <p>Das passiert dann im Hintergrund:</p>
+        <ul style="margin:8px 0 0;padding-left:22px">{''.join(punkte)}</ul>
+        <p class="leise" style="margin-top:10px">Das dauert einige Minuten. Das Ergebnis
+           erscheint danach oben auf der Verwaltungsseite; bis dahin wird kein zweiter
+           Auftrag angenommen.</p>
+        <form method="post" action="/update-ja">
+          <button type="submit" class="gefahrgross">Ja, jetzt aktualisieren</button>
+        </form>
+        <a class="knopf still" href="/verwaltung">Abbrechen</a>
       </div>""")
 
 
@@ -1361,6 +1647,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         if pfad in ('/anlegen', '/passwort', '/passwort-ja', '/sperren', '/sperren-ja',
                     '/entsperren', '/verwalter'):
             return self.konten_verwalten(pfad)
+        if pfad in ('/update', '/update-ja'):
+            return self.aktualisieren(pfad)
         self.antwort(seite('Nicht gefunden', '<h1>Nicht gefunden</h1>'), 404)
 
     # -------------------------------------------------- Vorgaenge
@@ -1618,6 +1906,37 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         except Exception:
             return self.antwort(seite_verwaltung(nutzer,
                 'Das hat nicht geklappt. Bitte nochmal.'), 502)
+
+    def aktualisieren(self, pfad):
+        """'/update' fragt nach, '/update-ja' legt den Auftrag ab - mehr tut der Dienst nicht.
+
+        Das Einspielen selbst macht root (messenger-update.service), angestossen
+        ueber die Auftragsdatei. Hier laeuft kein apt, kein Netz, kein Neustart:
+        der Dienst hat dafuer weder Rechte noch soll er sie haben.
+        """
+        nutzer = self.wer()
+        if not nutzer:
+            return self.weiter('/')
+        if not ist_verwalter(nutzer):
+            return self.antwort(seite('Verwaltung', '<h1>Kein Zugriff</h1>'), 403)
+        daten, frisch = updates_stand()
+        if auftrag_laeuft(daten) or auftrag_liegt_vor():
+            return self.antwort(seite_verwaltung(nutzer,
+                'Eine Aktualisierung ist schon beauftragt oder läuft gerade. '
+                'Das Ergebnis erscheint hier.'), 409)
+        if not frisch or not updates_ausstehend(daten):
+            return self.antwort(seite_verwaltung(nutzer,
+                'Es liegt nichts an, das eingespielt werden müsste.'), 400)
+        if pfad == '/update':
+            return self.antwort(seite_update_sicher(daten))
+        if not auftrag_schreiben():
+            protokoll('update_auftrag_fehlgeschlagen', nutzer)
+            return self.antwort(seite_verwaltung(nutzer,
+                f'Der Auftrag ließ sich nicht ablegen. Sag {BETREIBER} Bescheid.'), 500)
+        protokoll('update_beauftragt', nutzer)
+        return self.antwort(seite_verwaltung(nutzer,
+            'Auftrag angenommen. Die Aktualisierung läuft im Hintergrund und dauert '
+            'einige Minuten; das Ergebnis erscheint hier oben.'))
 
     def einladung_zeigen(self, code):
         with db() as v:

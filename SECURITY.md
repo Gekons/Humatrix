@@ -1,63 +1,65 @@
-# Sicherheit
+**English** | [Deutsch](SECURITY.de.md)
 
-## Was dieses Projekt ist
+# Security
 
-Ein **gepflegtes Nebenprojekt**, kein Produkt mit Bereitschaftsdienst. Das steht hier, damit
-du weißt, worauf du dich einlässt — bei Software, die Chats absichert, ist eine ehrliche
-Erwartung mehr wert als ein großes Versprechen.
+## What this project is
 
-## Lücken melden
+A **maintained side project**, not a product with an on-call service. This is stated
+here so you know what you are getting into — with software that secures chats, an
+honest expectation is worth more than a big promise.
 
-**Bitte nicht als öffentliches Ticket.** Stattdessen:
+## Reporting vulnerabilities
 
-- **E-Mail:** `gumbert@gekons.de`
-- oder über die private Meldefunktion von GitHub („Report a vulnerability" im Reiter
-  „Security"). Der Knopf ist nur da, wenn die Funktion im Repository eingeschaltet ist
-  (Settings → Code security → „Private vulnerability reporting") — das muss, wer das
-  Repository betreibt, selbst erledigen. Fehlt der Knopf: bitte die E-Mail, kein Ticket.
+**Please not as a public ticket.** Instead:
 
-Hilfreich ist: was betroffen ist, wie es sich nachstellen lässt, welche Fassung du benutzt.
+- **E-mail:** `gumbert@gekons.de`
+- or via GitHub's private reporting ("Report a vulnerability" in the "Security"
+  tab). The button is only there if the feature is enabled in the repository
+  (Settings → Code security → "Private vulnerability reporting") — whoever runs the
+  repository has to do that themselves. If the button is missing: please e-mail, no ticket.
 
-## Was du erwarten kannst
+Helpful: what is affected, how it can be reproduced, which version you are using.
+
+## What you can expect
 
 | | |
 |---|---|
-| Erste Rückmeldung | in der Regel **binnen 7 Tagen** |
-| Einschätzung | binnen 14 Tagen |
-| Behebung | je nach Schwere — kritische Fehler haben Vorrang vor allem anderen |
-| Nennung | auf Wunsch, gern mit Namen |
+| First response | usually **within 7 days** |
+| Assessment | within 14 days |
+| Fix | depending on severity — critical bugs take precedence over everything else |
+| Credit | on request, gladly by name |
 
-Wenn ich im Urlaub bin, dauert es länger. Das ist die ehrliche Antwort.
+If I'm on holiday, it takes longer. That is the honest answer.
 
-## Was dieses Projekt nicht absichert
+## What this project does not secure
 
-Der Installer richtet Matrix, Synapse, coturn und nginx ein. **Lücken in diesen Programmen
-sind dort zu melden**, nicht hier:
+The installer sets up Matrix, Synapse, coturn and nginx. **Vulnerabilities in those
+programs are to be reported there**, not here:
 
-- Synapse und Matrix: https://matrix.org/security-disclosure-policy/
+- Synapse and Matrix: https://matrix.org/security-disclosure-policy/
 - Debian: https://www.debian.org/security/
 
-Hier gehören hin: Fehler im Installer, in der Einladungsseite, in den Voreinstellungen —
-also alles, was dieses Projekt selbst entscheidet oder schreibt.
+What belongs here: bugs in the installer, in the invitation page, in the defaults —
+that is, everything this project itself decides or writes.
 
-## Bekannte Grenzen
+## Known limits
 
-Kein Fehler, sondern Entwurf — damit niemand etwas annimmt, das nicht stimmt:
+Not bugs, but design — so nobody assumes something that isn't true:
 
-- **Nutzer haben kein 2FA.** Matrix kann das nicht; nur die Verwaltungsseite hat einen
-  zweiten Faktor. Für 2FA bei allen bräuchte es einen Umbau auf den
+- **Users have no 2FA.** Matrix can't do that; only the admin page has a second
+  factor. 2FA for everyone would require a rebuild on top of the
   Matrix Authentication Service.
-- **Metadaten sind sichtbar.** Wer wann mit wem schreibt, steht auf dem Server.
-  Inhalte nicht. Siehe README.
-- **Föderation ist offen voreingestellt.** Eure Leute erreichen das weltweite Netz; andere
-  Server erfahren dadurch Raum-Metadaten. Abschalten: in
-  `/etc/matrix-synapse/conf.d/50-eigene.yaml` die Zeile `federation_domain_whitelist: []`
-  eintragen (leere Liste = kein fremder Server) und `systemctl restart matrix-synapse`.
-  Diese Datei fasst der Installer nie an; `20-betrieb.yaml` dagegen schreibt er bei
-  jedem Lauf neu, Änderungen dort gehen verloren (siehe docs/betreiber.md, „Betrieb").
-- **Der Betreiber ist mächtig.** Er kann Konten anlegen, sperren und Passwörter setzen —
-  und damit theoretisch ein Konto übernehmen. Lesen kann er alte Nachrichten trotzdem nicht,
-  die Schlüssel liegen auf den Geräten. Die Geräteprüfung per Emoji würde so einen Versuch
-  sichtbar machen.
-- **Keine automatischen Updates für Synapse und Element Web.** Bewusst — aber jemand muss
-  sie anstoßen (`apt` bzw. `./install.sh … --nur element`, siehe docs/betreiber.md).
+- **Metadata is visible.** Who writes to whom and when is on the server.
+  Content is not. See the README.
+- **Federation is open by default.** Your people can reach the worldwide network; other
+  servers learn room metadata as a result. To turn it off: in
+  `/etc/matrix-synapse/conf.d/50-eigene.yaml` add the line `federation_domain_whitelist: []`
+  (empty list = no outside server) and `systemctl restart matrix-synapse`.
+  The installer never touches this file; `20-betrieb.yaml`, on the other hand, is
+  rewritten on every run, changes there are lost (see docs/operator.md, "Operation").
+- **The operator is powerful.** They can create accounts, suspend them and set passwords —
+  and thus, in theory, take over an account. They still can't read old messages,
+  the keys are on the devices. The emoji device verification would make such an
+  attempt visible.
+- **No automatic updates for Synapse and Element Web.** Deliberately — but someone has
+  to trigger them (`apt` or `./install.sh … --nur element`, see docs/operator.md).

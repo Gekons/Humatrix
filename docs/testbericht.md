@@ -1,3 +1,5 @@
+[English](test-report.md) | **Deutsch**
+
 # Testbericht
 
 Stand: 13. Oktober 2026
@@ -255,7 +257,7 @@ wichtigsten:
 
 Das Verfahren ist nicht unfehlbar — es findet, was man ihm an Blickwinkeln gibt.
 Aber es hat in einem Durchgang mehr gefunden als zwei Tage Entwicklung und Test
-davor. Wer weitere Blickwinkel beisteuern will: `CONTRIBUTING.md`.
+davor. Wer weitere Blickwinkel beisteuern will: `CONTRIBUTING.de.md`.
 
 ## Was dieser Bericht NICHT belegt
 
@@ -277,7 +279,7 @@ Ehrlichkeit über die Grenzen gehört dazu:
   Pi) und Windows sind nicht Gegenstand dieses Berichts — für ARM gibt es von
   matrix.org gar kein Synapse-Paket, der Installer bricht dort begründet ab.
 - **Kein Angriffstest.** Dies ist ein Funktions- und Lasttest, keine
-  Sicherheitsprüfung. Wer Schwächen sucht: siehe `SECURITY.md`.
+  Sicherheitsprüfung. Wer Schwächen sucht: siehe `SECURITY.de.md`.
 - **Die Prüfung „Mitglieder kommen und gehen"** aus dem Lasttest wurde vorzeitig
   abgebrochen (Bedienfehler beim Testlauf, nicht am Server). Derselbe Punkt ist
   im Funktionstest enthalten und dort bestanden.

@@ -1,3 +1,5 @@
+[English](operator.md) | **Deutsch**
+
 # Betreiber-Anleitung — einen Kundenserver aufsetzen
 
 Für dich. Von der Bestellung bis zur Übergabe. Rechne mit **30 Minuten**, davon
@@ -126,6 +128,8 @@ Sicherungsziel erreichbar ist. Sind alle grün, ist der Server fertig.
 | `/root/.sicherung_passwort` | Schlüssel der verschlüsselten Sicherung — **ins Vaultwarden** |
 | `/root/kundenanleitung-<domain>.html` | fertig befüllte Anleitung — **für den Kunden** |
 | `/var/log/messenger-installer.log` | Protokoll, falls etwas schiefging |
+| `/var/lib/messenger/updates.json` | Befund der täglichen Update-Prüfung (zeigt die Verwaltung an) |
+| `/var/log/messenger-update.log` | Protokoll jedes eingespielten Updates |
 
 ## Schritt 6 — Übergabe
 
@@ -174,8 +178,10 @@ wem — nicht was. Steht so auch in der Anleitung. Diese Offenheit ist Teil des 
 | Was | Wie oft | Wie |
 |---|---|---|
 | Sicherheitsupdates | automatisch | nur Debian-Security, alles andere bewusst |
-| Synapse aktualisieren | bewusst | `apt update && apt install matrix-synapse-py3`, danach `systemctl status matrix-synapse` |
-| Element Web aktualisieren | bewusst, z. B. monatlich | `./install.sh --domain … --mail … --nur element`; der Installer vergleicht mit `/var/www/element/.version` und zieht nur bei neuerer Fassung nach. Der Browser-Client bekommt keine Debian-Sicherheitsupdates. |
+| Alles andere: Systempakete, Synapse, Element Web | täglich geprüft, eingespielt nur auf Klick | Ein Timer (`messenger-update-pruefen.timer`, ab 06:00) prüft und legt den Befund in `/var/lib/messenger/updates.json` ab; die Verwaltung zeigt ihn oben in der Karte „Aktualisierungen". Klickt der Kunde dort „Jetzt aktualisieren" und bestätigt die Rückfrage, legt der Dienst eine Auftragsdatei unter `/var/lib/messenger/auftraege/` ab; `messenger-update.path` sieht sie und startet den Lauf als root (apt-get upgrade, Synapse-Neustart nur bei neuem Paket, Element Web). Das Ergebnis steht danach in der Verwaltung und in `/var/log/messenger-update.log`. |
+| Dasselbe von Hand | bei Bedarf | als root `messenger-update-ausfuehren.sh` — gleicher Lauf, gleiches Protokoll; `messenger-update-pruefen.sh` erneuert nur den Befund |
+| Synapse allein | bewusst | `apt update && apt install matrix-synapse-py3`, danach `systemctl status matrix-synapse` |
+| Element Web allein | bewusst, z. B. monatlich | `./install.sh --domain … --mail … --nur element` (ruft `messenger-element-erneuern.sh` auf); verglichen wird mit `/var/www/element/.version`, nachgezogen nur bei neuerer Fassung. Der Browser-Client bekommt keine Debian-Sicherheitsupdates. |
 | Sicherung prüfen | monatlich | `systemctl list-timers messenger-sicherung*` und nachsehen, ob Dateien ankommen |
 | **Wiederherstellung üben** | **jährlich** | Eine Sicherung, die nie zurückgespielt wurde, ist keine. |
 | Zertifikate | automatisch | certbot erneuert; coturn bekommt seine Kopien über einen Haken mit |
@@ -201,6 +207,8 @@ anderen anlegen (`chown root:matrix-synapse`, `chmod 640`), danach
 | Kunde hat sein Telefon verloren (2FA) | — | `python3 /opt/einladung/einladung.py --zweitfaktor-aus <name>` als root auf dem Server; der Benutzername reicht, die volle Kennung geht auch |
 | Kunde hat sein Passwort vergessen | — | über die Verwaltung zurücksetzen („Passwort neu" — mit Rückfrage; das neue Passwort erscheint **genau einmal**, sofort notieren und weitergeben). Betrifft es das Verwalterkonto selbst, als root über die Admin-Schnittstelle, siehe unten. `register_new_matrix_user` taugt dafür **nicht** — es legt nur neue Konten an und bricht bei vergebener Kennung ab |
 | Einzelnen Abschnitt wiederholen | — | `./install.sh --domain … --mail … --nur turn` |
+| Verwaltung zeigt „Noch nicht geprüft" | Timer läuft nicht oder die Prüfung scheitert | `systemctl status messenger-update-pruefen.timer`, dann `messenger-update-pruefen.sh` von Hand — der Fehler steht auf dem Bildschirm. Bestehender Server ohne diese Karte: den Installer **komplett** erneut laufen lassen (er ist wiederholbar) — so bekommt auch der Einladungsdienst die neue Fassung |
+| „Jetzt aktualisieren" tut nichts | Path-Unit nicht aktiv oder der Dienst darf nicht in den Auftragsordner | `systemctl status messenger-update.path`, `ls -ld /var/lib/messenger/auftraege` (gehört `einladung`, 750), `journalctl -u messenger-update -n 50` |
 | Eigene Firewall-Regeln (WireGuard, eingeschränktes SSH) | — | bleiben bei Wiederholungsläufen erhalten: `ufw` wird nur zurückgesetzt, solange es noch nicht aktiv ist; danach setzt die Härtung nur ihre eigenen Regeln und nimmt den SSH-Port aus der laufenden `sshd`-Konfiguration |
 
 **Passwort als root neu setzen** — für jedes Konto, auch das Verwalterkonto. Der bessere
@@ -231,6 +239,7 @@ openssl rand -base64 48 > /etc/einladung/sitzungsschluessel
 
 - **Keine Überwachung.** Du erfährst nicht von allein, wenn ein Kundenserver steht.
   Für mehr als zwei, drei Kunden brauchst du eine Erreichbarkeitsprüfung.
-- **Keine automatischen Updates für Synapse und Element Web.** Bewusst — aber jemand muss
-  sie anstoßen (siehe Betrieb).
+- **Keine automatischen Updates für Synapse und Element Web.** Bewusst — geprüft wird
+  täglich, angestoßen wird nur auf Klick in der Verwaltung oder von dir per Skript
+  (siehe Betrieb).
 - **Kein Mehrmandanten-Betrieb.** Ein Server, ein Kunde.

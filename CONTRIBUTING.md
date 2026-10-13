@@ -1,39 +1,41 @@
-# Mitmachen
+**English** | [Deutsch](CONTRIBUTING.de.md)
 
-Danke, dass du dir das ansiehst.
+# Contributing
 
-## Fehler melden
+Thanks for taking a look.
 
-Ein Ticket mit: was du gemacht hast, was passiert ist, was du erwartet hast. Dazu
-Debian-Fassung und der Teil aus `/var/log/messenger-installer.log`, der dazu passt.
+## Reporting bugs
 
-**Sicherheitslücken nicht hier**, sondern wie in [SECURITY.md](SECURITY.md) beschrieben.
+A ticket with: what you did, what happened, what you expected. Plus the Debian
+version and the matching part of `/var/log/messenger-installer.log`.
 
-## Änderungen vorschlagen
+**Security vulnerabilities not here**, but as described in [SECURITY.md](SECURITY.md).
 
-Gern — kleine Schritte sind leichter zu prüfen als große. Vorher kurz ein Ticket aufmachen,
-wenn es etwas Größeres ist; dann spart ihr euch Arbeit, die vielleicht nicht passt.
+## Proposing changes
 
-## Wie der Code hier aussieht
+Gladly — small steps are easier to review than big ones. If it is something larger,
+open a ticket first; that saves you work that might not fit.
 
-Damit Beiträge sich einfügen:
+## What the code here looks like
 
-- **Deutsch.** Kommentare, Variablennamen, Oberfläche, Dokumentation. Das ist Absicht —
-  das Projekt richtet sich an Leute, die keine englischen Anleitungen lesen wollen.
-- **Keine Fremdpakete ohne guten Grund.** Die Einladungsseite kommt mit dem aus, was Python
-  und Debian mitbringen. Jede Abhängigkeit ist etwas, das jemand pflegen muss.
-- **Kommentare erklären das Warum, nicht das Was.** Dass eine Zeile ein Token erzeugt, sieht
-  man. Warum ohne die Zeichen O, 0, I und l — das nicht.
-- **Nichts selbst verschlüsseln.** Krypto kommt aus geprüften Bibliotheken.
-- **Der Installer bleibt wiederholbar.** Zweimal laufen lassen darf nicht schaden. Das gilt
-  auch für die Firewall: `ufw` wird nur zurückgesetzt, solange es noch nicht aktiv ist;
-  danach setzt die Härtung nur ihre eigenen Regeln und lässt fremde stehen. Der SSH-Port
-  kommt aus der laufenden `sshd`-Konfiguration, nicht fest aus dem Skript.
-- **Prüfen vor Ändern.** Was nicht stimmt, bricht ab, bevor etwas angefasst wurde.
+So that contributions fit in:
 
-## Was nicht ins Projekt kommt
+- **German.** Comments, variable names, interface, documentation. That is deliberate —
+  the project is aimed at people who don't want to read English manuals.
+- **No third-party packages without good reason.** The invitation page gets by with
+  what Python and Debian bring along. Every dependency is something somebody has to maintain.
+- **Comments explain the why, not the what.** That a line generates a token is obvious.
+  Why without the characters O, 0, I and l — that isn't.
+- **Don't encrypt anything yourself.** Crypto comes from vetted libraries.
+- **The installer stays repeatable.** Running it twice must not do harm. That also
+  applies to the firewall: `ufw` is only reset while it is not yet active; after that
+  the hardening only sets its own rules and leaves others in place. The SSH port
+  comes from the running `sshd` configuration, not hard-coded in the script.
+- **Check before changing.** Whatever is wrong aborts before anything is touched.
 
-- Mehrmandanten-Betrieb (ein Server, eine Gemeinschaft)
-- Eine eigene Chat-App (es gibt gute, und sie sollen nicht von uns sein)
-- Eigene Kryptografie
-- Funktionen, die nur mit zusätzlichen Diensten im Hintergrund laufen
+## What won't go into the project
+
+- Multi-tenant operation (one server, one community)
+- A chat app of our own (good ones exist, and they shouldn't be ours)
+- Our own cryptography
+- Features that only work with additional services running in the background
