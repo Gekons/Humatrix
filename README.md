@@ -105,6 +105,9 @@ Dieses Projekt schließt beide Lücken.
   „unklar“. Das ist so gewollt: lieber eine ehrliche Lücke als ein falscher Eintrag. Von Hand angelegte Konten und das Verwalterkonto haben keinen
   Ketteneintrag. Und: **Abmelden** auf der Einladungsseite beendet alle Sitzungen
   dieses Kontos dort, auch auf anderen Geräten
+- **Zurückziehen**: Eine offene Einladung lässt sich mit dem ✕ an ihrer Zeile zurückziehen —
+  der Code wird beim Server gelöscht, der Link meldet „zurückgezogen“, das Kontingent ist
+  wieder frei. Für die doppelt verschickte Einladung, nicht für die eingelöste.
 - **Vernünftige Voreinstellungen**: Verschlüsselung an, Registrierung nur per Einladung,
   keine Vorschauen von fremden Seiten, zwischengespeicherte Medien fremder Server
   werden nach 90 Tagen geräumt
