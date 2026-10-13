@@ -1,0 +1,1088 @@
+#!/usr/bin/env bash
+#
+# Messenger-Installer — ein eigener Matrix-Server fuer den eigenen Kreis.
+#
+# Baut auf einem frischen Debian 13 in einem Durchgang:
+#   Synapse auf PostgreSQL · TLS · .well-known-Delegation · coturn fuer Anrufe
+#   Element Web · Verwaltungsoberflaeche · Einladungsseite · Sicherung · Haertung
+#
+# Aufruf:   sudo ./install.sh --domain beispieldomain.de --mail du@example.de --verwalter anna
+# Hilfe:    ./install.sh --hilfe
+#
+# Entwurfsgrundsaetze:
+#   - Es wird nichts geraten. Was nicht stimmt, bricht VOR der ersten Aenderung ab.
+#   - Jeder Abschnitt ist wiederholbar: nochmal laufen lassen schadet nicht.
+#   - Geheimnisse landen in /root/zugangsdaten-messenger.txt, nie auf dem Bildschirm.
+#
+set -euo pipefail
+
+# Ausdrueckliche Grundmaske. Vorher erbte das Skript die der Sitzung, und ein
+# 'umask 077' fuer eine Geheimnisdatei galt ab da fuer ALLES - mit der Folge,
+# dass nginx seine eigene Konfiguration, die Delegation und Elements
+# config.json nicht mehr lesen konnte. Jede enge Maske steht ab jetzt in
+# einer Unterschale und endet mit ihr.
+umask 022
+
+# ---------------------------------------------------------------- Vorgaben
+DOMAIN=""; MAIL=""; VERWALTER="verwalter"
+SICHERUNG_ZIEL=""            # z.B. u123456@u123456.your-storagebox.de:/messenger
+BETREIBER=""                 # steht in der Kundenanleitung: "Name, mail@example.de"
+NUR=""                       # einzelnen Abschnitt wiederholen
+HINTER_PROXY=nein            # TLS macht ein vorgelagerter Reverse-Proxy
+LOG=/var/log/messenger-installer.log
+ZUGANG=/root/zugangsdaten-messenger.txt
+
+# ---------------------------------------------------------------- Ausgabe
+rot()  { printf '\033[31m%s\033[0m\n' "$*"; }
+gruen(){ printf '\033[32m%s\033[0m\n' "$*"; }
+grau() { printf '\033[90m%s\033[0m\n' "$*"; }
+schritt(){ printf '\n\033[1m== %s\033[0m\n' "$*"; echo "[$(date '+%F %T')] == $*" >>"$LOG"; }
+melde(){ printf '   %s\n' "$*"; echo "[$(date '+%F %T')]    $*" >>"$LOG"; }
+ende()  { rot "ABBRUCH: $*"; echo "[$(date '+%F %T')] ABBRUCH: $*" >>"$LOG"; exit 1; }
+
+hilfe() {
+  cat <<'HILFE'
+Messenger-Installer
+
+  --domain  <name>     Pflicht. Die nackte Domain, z.B. beispieldomain.de
+                       Kennungen werden daraus: @name:beispieldomain.de
+  --mail    <adresse>  Pflicht. Fuer die Zertifikate (Let's Encrypt benachrichtigt dort).
+  --verwalter <name>   Name des ersten Kontos mit Verwaltungsrechten. Vorgabe: verwalter
+  --sicherung <ziel>   Optional. SSH-Ziel fuer die taegliche Sicherung,
+                       z.B. u123456@u123456.your-storagebox.de:/messenger
+  --betreiber <text>   Optional. Wer den Server betreut - steht in der Kundenanleitung.
+                       z.B. "Vorname Nachname, hilfe@example.de"
+  --hinter-proxy       Dieser Server steht hinter einem vorhandenen Reverse-Proxy
+                       (Nginx Proxy Manager, Traefik, Caddy ...). Dann holt der
+                       Installer KEIN Zertifikat und liefert alles auf Port 80 aus -
+                       um TLS kuemmert sich der Proxy. Noetig, sobald die Ports 80
+                       und 443 der oeffentlichen Adresse jemand anderem gehoeren.
+  --nur <abschnitt>    Nur einen Abschnitt wiederholen:
+                       pakete datenbank synapse web turn element
+                       einladung sicherung haertung
+  --hilfe              Diese Hilfe.
+
+Vorher einzurichten (der Installer prueft es und bricht sonst ab):
+  A-Eintraege auf die IP dieses Servers fuer:  (mit --hinter-proxy: auf den Proxy)
+     <domain>  matrix.<domain>  chat.<domain>  einladung.<domain>
+     verwaltung.<domain>  turn.<domain>
+HILFE
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --domain)    DOMAIN="${2:-}"; shift 2 ;;
+    --mail)      MAIL="${2:-}"; shift 2 ;;
+    --verwalter) VERWALTER="${2:-}"; shift 2 ;;
+    --sicherung) SICHERUNG_ZIEL="${2:-}"; shift 2 ;;
+    --betreiber) BETREIBER="${2:-}"; shift 2 ;;
+    --hinter-proxy) HINTER_PROXY=ja; shift ;;
+    --nur)       NUR="${2:-}"; shift 2 ;;
+    --hilfe|-h)  hilfe; exit 0 ;;
+    *) ende "Unbekannte Angabe: $1  (--hilfe zeigt die Moeglichkeiten)" ;;
+  esac
+done
+
+[ -n "$DOMAIN" ] || { hilfe; ende "--domain fehlt"; }
+# Ohne eigenes Zertifikat braucht Let's Encrypt auch keine Adresse.
+[ -n "$MAIL" ] || [ "$HINTER_PROXY" = ja ] || { hilfe; ende "--mail fehlt"; }
+[ "$(id -u)" = 0 ] || ende "Bitte als root ausfuehren (sudo)."
+# Ein Tippfehler bei --nur liess vorher ALLE Abschnitte aus und meldete am Ende
+# trotzdem "Fertig" - der Nutzer glaubte, sein Abschnitt sei erneuert worden.
+case "$NUR" in
+  ""|pakete|datenbank|synapse|web|turn|element|einladung|sicherung|haertung) ;;
+  *) ende "Unbekannter Abschnitt: $NUR  (moeglich: pakete datenbank synapse web turn element einladung sicherung haertung)" ;;
+esac
+# Der Verwaltername wird zur Matrix-Kennung @name:domain und steht ungeschuetzt
+# in einer SQL-Abfrage. Synapse laesst nur Kleinbuchstaben, Ziffern und . _ = - /
+# zu; alles andere scheiterte erst spaet bei register_new_matrix_user.
+# LC_ALL=C, weil [a-z] in einer deutschen Spracheinstellung auch Umlaute
+# durchlaesst (Vergleich nach Sortierreihenfolge, nicht nach Zeichen).
+printf '%s' "$VERWALTER" | LC_ALL=C grep -qE '^[a-z0-9._=/-]+$' \
+  || ende "--verwalter darf nur Kleinbuchstaben, Ziffern und . _ = - / enthalten (nicht leer): '$VERWALTER'"
+
+MATRIX_HOST="matrix.$DOMAIN"
+CHAT_HOST="chat.$DOMAIN"
+EINLADUNG_HOST="einladung.$DOMAIN"
+VERWALTUNG_HOST="verwaltung.$DOMAIN"
+TURN_HOST="turn.$DOMAIN"
+HIER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+lauf() { [ -z "$NUR" ] || [ "$NUR" = "$1" ]; }
+
+# ================================================================ PRUEFEN
+schritt "Voraussetzungen pruefen"
+
+. /etc/os-release 2>/dev/null || ende "Kein /etc/os-release — unbekanntes System."
+
+# Die Architektur zuerst. matrix.org liefert Synapse NUR fuer amd64 und i386 -
+# fuer arm64 und armhf gibt es dort gar keine Paketliste. Auf einem Raspberry Pi
+# scheitert sonst erst der Paket-Schritt, mitten in der Installation, mit einer
+# Meldung, aus der niemand schliessen kann, woran es wirklich lag.
+BOGEN=$(dpkg --print-architecture 2>/dev/null || uname -m)
+case "$BOGEN" in
+  amd64|x86_64) melde "Architektur: $BOGEN." ;;
+  i386|i686)    melde "Architektur: $BOGEN — unterstuetzt, aber ungewoehnlich fuer einen Server." ;;
+  arm64|aarch64|armhf|armv7l)
+    rot "Architektur $BOGEN — dafuer gibt es kein Synapse-Paket von matrix.org."
+    echo "   Betroffen sind Raspberry Pi und andere ARM-Rechner. Die Paketquelle"
+    echo "   https://packages.matrix.org/debian/ fuehrt ausschliesslich amd64 und i386."
+    echo
+    echo "   Moeglich bleibt Synapse im Container (Docker) oder aus dem Quelltext."
+    echo "   Dieser Installer kann das nicht und tut auch nicht so, als koennte er es."
+    ende "Nicht unterstuetzte Architektur: $BOGEN"
+    ;;
+  *) ende "Unbekannte Architektur: $BOGEN. Noetig ist amd64." ;;
+esac
+
+case "${ID:-}:${VERSION_ID:-}" in
+  debian:13*) melde "Debian 13 erkannt." ;;
+  debian:12*) melde "Debian 12 erkannt — unterstuetzt, Debian 13 ist empfohlen." ;;
+  ubuntu:*)
+    rot "Ubuntu erkannt (${PRETTY_NAME:-unbekannt})."
+    echo "   matrix.org liefert zwar Pakete fuer Ubuntu, aber dieser Installer ist"
+    echo "   darauf nicht geprueft worden. Ungepruefte Zusagen gibt es hier nicht."
+    echo "   Nimm Debian 13 — oder melde dich, wenn du es auf Ubuntu probiert hast."
+    ende "Ungeprueftes System: ${PRETTY_NAME:-Ubuntu}"
+    ;;
+  *) ende "Debian 12 oder 13 noetig, gefunden: ${PRETTY_NAME:-unbekannt}" ;;
+esac
+
+RAM_MB=$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo)
+[ "$RAM_MB" -ge 1800 ] || ende "Zu wenig Arbeitsspeicher: ${RAM_MB} MB. Mindestens 2 GB, empfohlen 8 GB."
+[ "$RAM_MB" -ge 3600 ] || melde "WARNUNG: nur ${RAM_MB} MB RAM — fuer wenige Nutzer ok, wird bei Wachstum eng."
+
+PLATZ_GB=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
+[ "$PLATZ_GB" -ge 15 ] || ende "Zu wenig Platz: ${PLATZ_GB} GB frei. Mindestens 20 GB einplanen."
+
+command -v curl >/dev/null || { apt-get update -qq && apt-get install -y -qq curl; }
+EIGENE_IP=$(curl -sf --max-time 10 https://api4.ipify.org || true)
+[ -n "$EIGENE_IP" ] || ende "Die eigene oeffentliche Adresse ist nicht ermittelbar — keine Internetverbindung?"
+melde "Oeffentliche Adresse: $EIGENE_IP"
+
+# Die lokale Adresse auf dem Weg nach draussen. Weicht sie von der oeffentlichen
+# ab, sitzt der Server hinter einem Router. Das muss coturn wissen: sonst nennt
+# es Gespraechspartnern eine private Adresse als Relais, und Anrufe bleiben
+# stumm, obwohl alles zu laufen scheint.
+LOKALE_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -1)
+[ -n "$LOKALE_IP" ] || LOKALE_IP="$EIGENE_IP"
+if [ "$LOKALE_IP" != "$EIGENE_IP" ]; then
+  HINTER_ROUTER=ja
+  melde "Lokale Adresse: $LOKALE_IP (der Server steht hinter einem Router)"
+else
+  HINTER_ROUTER=nein
+  melde "Der Server haengt direkt am Internet."
+fi
+
+# Zwei getrennte Faelle: "loest nicht auf" und "zeigt woanders hin". Nur der
+# zweite ist hinter einem Proxy erwartet. Ein Name, der gar nicht aufloest,
+# bricht IMMER ab - sonst liefe ein Tippfehler in --domain bis zum Ende durch
+# und wuerde zum Synapse-Servernamen, der nachtraeglich nicht aenderbar ist.
+fehlende=""
+nicht_aufloesbar=""
+for n in "$DOMAIN" "$MATRIX_HOST" "$CHAT_HOST" "$EINLADUNG_HOST" "$VERWALTUNG_HOST" "$TURN_HOST"; do
+  # '|| true': getent endet bei unbekanntem Namen mit Status 2, und unter
+  # set -eo pipefail beendete das die Zuweisung wortlos - der Abbruch unten
+  # mit seiner Meldung wurde nie erreicht.
+  ziel=$(getent ahostsv4 "$n" 2>/dev/null | awk '{print $1; exit}' || true)
+  if [ -z "$ziel" ]; then
+    nicht_aufloesbar="$nicht_aufloesbar\n     $n  -> loest nicht auf"
+  elif [ "$ziel" != "$EIGENE_IP" ]; then
+    fehlende="$fehlende\n     $n  -> $ziel  (erwartet $EIGENE_IP)"
+  fi
+done
+if [ -n "$fehlende" ] && [ "$HINTER_PROXY" = ja ]; then
+  # Hinter einem Proxy ist genau das richtig: die Namen zeigen auf den Proxy,
+  # nicht hierher. Nur melden, nicht abbrechen.
+  melde "Hinweis: diese Namen zeigen woanders hin (hinter einem Proxy erwartet):"
+  printf "$fehlende\n"
+  fehlende=""
+fi
+if [ -n "$nicht_aufloesbar" ] || [ -n "$fehlende" ]; then
+  if [ -n "$nicht_aufloesbar" ]; then
+    rot "Diese Namen loesen nicht auf:"
+    printf "$nicht_aufloesbar\n"
+  fi
+  if [ -n "$fehlende" ]; then
+    rot "Diese Namen zeigen nicht auf diesen Server:"
+    printf "$fehlende\n"
+  fi
+  echo
+  echo "   Lege die A-Eintraege an und warte, bis sie sichtbar sind (meist wenige Minuten)."
+  echo "   Ohne sie koennen keine Zertifikate ausgestellt werden - auch hinter einem"
+  echo "   Proxy muessen die Namen oeffentlich vorhanden sein."
+  ende "DNS ist noch nicht so weit."
+fi
+if [ "$HINTER_PROXY" = ja ]; then
+  melde "Alle sechs Namen loesen auf. TLS uebernimmt der vorgelagerte Proxy."
+else
+  melde "Alle sechs Namen zeigen hierher."
+fi
+
+# Der eigene nginx aus einem frueheren Lauf darf die Ports halten. Sonst
+# widerspraeche der Installer seiner eigenen Zusage, dass ein zweiter Lauf
+# nichts kaputt macht - und genau daran ist er beim Nachtesten gescheitert.
+EIGENER_NGINX=nein
+# Die Vorlage in sites-available, nicht der Verweis in sites-enabled: beim
+# allerersten Lauf wird erst spaeter verlinkt, der Port ist aber schon belegt.
+# Dazu die Marke aus dem Paket-Abschnitt: Debian startet nginx sofort nach der
+# Installation mit seiner Standardseite auf Port 80. Brach ein Lauf zwischen
+# Paketen und Web-Abschnitt ab, gab es die Vorlage noch nicht, und der zweite
+# Lauf scheiterte an "Port 80 belegt" - durch den eigenen nginx.
+if { [ -f /etc/nginx/sites-available/messenger ] || [ -f /var/lib/messenger/nginx-ist-unser ]; } \
+   && systemctl is-active --quiet nginx 2>/dev/null; then
+  EIGENER_NGINX=ja
+fi
+# Hinter einem Proxy benutzen wir 443 nie - dann ist er auch kein Hindernis.
+if [ "$HINTER_PROXY" = ja ]; then PORTE="80"; else PORTE="80 443"; fi
+belegt=""
+for p in $PORTE; do
+  if ss -lnt 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$p\$"; then
+    [ "$EIGENER_NGINX" = ja ] || ende "Port $p ist schon belegt. Laeuft hier bereits ein Webserver?"
+    belegt="$belegt $p"
+  fi
+done
+if [ -n "$belegt" ]; then
+  melde "Port(e)$belegt haelt der nginx aus einem frueheren Lauf — in Ordnung."
+else
+  melde "Port(e) $PORTE sind frei."
+fi
+
+mkdir -p "$(dirname "$LOG")"; touch "$LOG"
+gruen "   Voraussetzungen erfuellt."
+
+# ================================================================ PAKETE
+if lauf pakete; then
+schritt "Pakete installieren"
+# Schon VOR dem apt-Lauf: die Vorpruefung hat Port 80 frei vorgefunden, also ist
+# jeder nginx, den ein spaeterer Lauf dort antrifft, der eigene (s. PRUEFEN) -
+# auch wenn apt mittendrin abbricht (Strg+C, Verbindungsabbruch, fehlschlagendes
+# postinst), denn Debian startet nginx bereits waehrend der Installation. Die
+# Marke allein genuegt nicht, die Vorpruefung verlangt zusaetzlich einen
+# aktiven nginx; scheitert apt vor dessen Installation, bleibt sie wirkungslos.
+mkdir -p /var/lib/messenger; : > /var/lib/messenger/nginx-ist-unser
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+# Nicht wortlos sterben: der Grund stand sonst nur im Protokoll, auf dem
+# Bildschirm kam nach der Ueberschrift gleich wieder der Prompt.
+apt-get install -y -qq \
+  ca-certificates gnupg lsb-release \
+  postgresql postgresql-contrib \
+  nginx certbot python3-certbot-nginx \
+  coturn \
+  python3 python3-venv python3-pyotp python3-qrcode python3-cryptography \
+  ufw fail2ban unattended-upgrades \
+  rsync jq >>"$LOG" 2>&1 \
+  || ende "Paketinstallation fehlgeschlagen. Grund steht in $LOG (haeufig: apt ist noch durch automatische Updates gesperrt - kurz warten, erneut starten)"
+melde "Grundpakete installiert."
+
+if [ ! -f /usr/share/keyrings/matrix-org-archive-keyring.gpg ]; then
+  curl -fsSL https://packages.matrix.org/debian/matrix-org-archive-keyring.gpg \
+    -o /usr/share/keyrings/matrix-org-archive-keyring.gpg
+fi
+SUITE=$(lsb_release -cs)
+curl -sf -o /dev/null "https://packages.matrix.org/debian/dists/$SUITE/Release" \
+  || SUITE=bookworm     # matrix.org hinkt manchmal eine Fassung hinterher
+echo "deb [signed-by=/usr/share/keyrings/matrix-org-archive-keyring.gpg] https://packages.matrix.org/debian/ $SUITE main" \
+  > /etc/apt/sources.list.d/matrix-org.list
+apt-get update -qq
+melde "Paketquelle matrix.org eingerichtet ($SUITE)."
+gruen "   Pakete fertig."
+fi
+
+# ================================================================ DATENBANK
+if lauf datenbank; then
+schritt "Datenbank einrichten"
+if su - postgres -c "psql -tAc \"SELECT 1 FROM pg_database WHERE datname='synapse'\"" | grep -q 1; then
+  melde "Datenbank 'synapse' existiert bereits — unveraendert."
+else
+  DBPW=$(openssl rand -base64 24)
+  ( umask 077; printf '%s\n' "$DBPW" > /root/.synapse_db_pw )
+  # Die Rolle kann aus einem abgebrochenen Lauf schon da sein (Datenbank fehlt,
+  # Rolle nicht). CREATE USER bricht dann ab, und zwar bei jedem weiteren Lauf.
+  # Deshalb: vorhandene Rolle bekommt das neue Passwort, fehlende wird angelegt.
+  if su - postgres -c "psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='synapse_user'\"" | grep -q 1; then
+    su - postgres -c "psql -qc \"ALTER USER synapse_user WITH PASSWORD '$DBPW';\""
+  else
+    su - postgres -c "psql -qc \"CREATE USER synapse_user WITH PASSWORD '$DBPW';\""
+  fi
+  # Sortierreihenfolge C ist fuer Synapse zwingend - mit anderer bricht es spaeter.
+  su - postgres -c "createdb --encoding=UTF8 --locale=C --template=template0 --owner=synapse_user synapse"
+  melde "Datenbank angelegt (UTF8, Sortierung C)."
+fi
+sortierung=$(su - postgres -c "psql -tAc \"SELECT datcollate FROM pg_database WHERE datname='synapse'\"")
+[ "$sortierung" = "C" ] || ende "Die Datenbank hat die Sortierung '$sortierung' statt 'C'. Synapse braucht C."
+gruen "   Datenbank bereit."
+fi
+
+# ================================================================ SYNAPSE
+if lauf synapse; then
+schritt "Synapse einrichten"
+if ! dpkg -l matrix-synapse-py3 2>/dev/null | grep -q '^ii'; then
+  echo "matrix-synapse-py3 matrix-synapse/server-name string $DOMAIN" | debconf-set-selections
+  echo "matrix-synapse-py3 matrix-synapse/report-stats boolean false" | debconf-set-selections
+  apt-get install -y -qq matrix-synapse-py3 >>"$LOG" 2>&1 \
+    || ende "Paketinstallation von Synapse fehlgeschlagen. Grund steht in $LOG (haeufig: apt ist noch durch automatische Updates gesperrt - kurz warten, erneut starten)"
+  melde "Synapse installiert."
+else
+  melde "Synapse ist schon da."
+fi
+
+CD=/etc/matrix-synapse/conf.d
+printf 'server_name: %s\n' "$DOMAIN" > "$CD/server_name.yaml"
+
+# Feste Geheimnisse: ohne sie erfindet Synapse bei JEDEM Neustart neue und
+# wirft alle angemeldeten Geraete raus. Die Debian-Pakete setzen sie nicht.
+if [ ! -f "$CD/05-secrets.yaml" ]; then
+  ( umask 077
+  cat > "$CD/05-secrets.yaml" <<EOF
+macaroon_secret_key: "$(openssl rand -base64 36)"
+form_secret: "$(openssl rand -base64 36)"
+registration_shared_secret: "$(openssl rand -base64 32)"
+suppress_key_server_warning: true
+EOF
+  )
+  melde "Geheimnisse erzeugt."
+fi
+
+# Das Passwort entsteht nur beim Anlegen der Datenbank. Fehlt die Datei in /root
+# (aufgeraeumt, aus einer Sicherung ohne Punktdateien zurueckgeholt), steht es
+# noch in der vorhandenen Synapse-Konfiguration - erst dann ist Schluss.
+if [ -f /root/.synapse_db_pw ]; then
+  DBPW=$(cat /root/.synapse_db_pw)
+elif [ -f "$CD/10-database.yaml" ]; then
+  DBPW=$(sed -n 's/^ *password: "\(.*\)"$/\1/p' "$CD/10-database.yaml")
+  [ -n "$DBPW" ] || ende "Datenbankpasswort nicht auffindbar: /root/.synapse_db_pw fehlt, $CD/10-database.yaml enthaelt keins."
+  ( umask 077; printf '%s\n' "$DBPW" > /root/.synapse_db_pw )
+  melde "Datenbankpasswort aus $CD/10-database.yaml uebernommen."
+else
+  ende "Datenbankpasswort nicht auffindbar: /root/.synapse_db_pw fehlt, obwohl die Datenbank 'synapse' existiert. Neu setzen: su - postgres -c \"psql -qc \\\"ALTER USER synapse_user WITH PASSWORD '<neu>';\\\"\" und das Passwort in /root/.synapse_db_pw ablegen."
+fi
+cat > "$CD/10-database.yaml" <<EOF
+database:
+  name: psycopg2
+  args:
+    user: synapse_user
+    password: "$DBPW"
+    dbname: synapse
+    host: localhost
+    cp_min: 5
+    cp_max: 10
+EOF
+
+cat > "$CD/15-listener.yaml" <<'EOF'
+# Nur lokal - nach aussen geht es ausschliesslich ueber nginx.
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ['127.0.0.1']
+    resources:
+      - names: [client, federation]
+        compress: false
+EOF
+
+TURN_GEHEIM=$(cat /etc/matrix-synapse/.turn_secret 2>/dev/null || openssl rand -hex 32)
+( umask 077; printf '%s\n' "$TURN_GEHEIM" > /etc/matrix-synapse/.turn_secret )
+
+cat > "$CD/20-betrieb.yaml" <<EOF
+# DIESE DATEI SCHREIBT DER INSTALLER BEI JEDEM LAUF NEU. Eigene Aenderungen
+# gehoeren in /etc/matrix-synapse/conf.d/50-eigene.yaml - die fasst er nie an,
+# und Synapse liest alle conf.d/*.yaml (spaetere Dateien ueberschreiben fruehere).
+public_baseurl: "https://$MATRIX_HOST/"
+
+# --- Registrierung: NUR mit Einladungscode ---
+# Das ist die eigentliche Missbrauchsbremse. Jedes Konto geht auf eine
+# nachvollziehbare Einladungskette zurueck.
+enable_registration: true
+registration_requires_token: true
+enable_registration_without_verification: true
+
+# --- Verschluesselung ist der Normalfall ---
+encryption_enabled_by_default_for_room_type: all
+
+# --- Foederation offen: die Leute hier erreichen das ganze Matrix-Netz.
+#     Das bringt KEINE fremden Konten auf diesen Server - dafuer sorgt die
+#     geschlossene Registrierung oben. Einzelne Stoerenfriede spaeter so sperren:
+#     federation_denylist: ["beispiel.invalid"]
+# ---
+
+# --- Suche: nur finden, wer schon einen Raum teilt ---
+# Serverweites Finden waere bequemer, wuerde aber getrennte Kreise auf demselben
+# Server wieder zusammenwerfen (Familie sieht Freundeskreis). Das ist unnoetig,
+# seit Einladungen ihren Zielraum mitbringen: Wer hereinkommt, landet sofort im
+# richtigen Raum und findet dort alle, die ihn etwas angehen.
+# Fuer EINEN Kreis, in dem sich alle finden sollen: 'search_all_users: true' in
+# 50-eigene.yaml setzen (nicht hier - diese Datei wird ueberschrieben).
+user_directory:
+  enabled: true
+  search_all_users: false
+  prefer_local_users: true
+
+# --- Anrufe ---
+turn_uris: ["turn:$TURN_HOST?transport=udp", "turn:$TURN_HOST?transport=tcp", "turns:$TURN_HOST?transport=tcp"]
+turn_shared_secret: "$TURN_GEHEIM"
+turn_user_lifetime: 86400000
+turn_allow_guests: false
+
+max_upload_size: 100M
+url_preview_enabled: false
+
+# --- Nur FREMDE Medien raeumen (von anderen Servern zwischengespeichert). Eigene
+#     Fotos und Videos bleiben - bei Ende-zu-Ende-Verschluesselung waeren geraeumte
+#     Anhaenge unwiederbringlich. Platz fuer eigene Medien muss der Betreiber einplanen. ---
+media_retention:
+  remote_media_lifetime: 90d
+EOF
+chown root:matrix-synapse "$CD"/*.yaml; chmod 640 "$CD"/*.yaml
+systemctl restart matrix-synapse
+for i in $(seq 1 30); do curl -sf http://127.0.0.1:8008/health >/dev/null 2>&1 && break; sleep 1; done
+curl -sf http://127.0.0.1:8008/health >/dev/null || ende "Synapse startet nicht. Siehe: journalctl -u matrix-synapse -n 50"
+melde "Synapse laeuft (Servername $DOMAIN)."
+gruen "   Synapse bereit."
+fi
+
+# ================================================================ WEB + TLS
+if lauf web; then
+schritt "Webserver, Zertifikate und Delegation"
+mkdir -p /var/www/acme /var/www/wellknown/.well-known/matrix
+
+# Delegation: DAMIT lauten die Kennungen @name:DOMAIN statt @name:matrix.DOMAIN.
+cat > /var/www/wellknown/.well-known/matrix/server <<EOF
+{ "m.server": "$MATRIX_HOST:443" }
+EOF
+cat > /var/www/wellknown/.well-known/matrix/client <<EOF
+{
+  "m.homeserver": { "base_url": "https://$MATRIX_HOST" },
+  "org.matrix.msc3575.proxy": { "url": "https://$MATRIX_HOST" }
+}
+EOF
+
+if [ "$HINTER_PROXY" = nein ]; then
+# Schritt 1: nur HTTP, damit Let's Encrypt die Pruefdateien abholen kann
+cat > /etc/nginx/sites-available/messenger <<EOF
+server {
+  listen 80 default_server; listen [::]:80 default_server;
+  server_name $DOMAIN $MATRIX_HOST $CHAT_HOST $EINLADUNG_HOST $VERWALTUNG_HOST $TURN_HOST;
+  location /.well-known/acme-challenge/ { root /var/www/acme; }
+  location / { return 404; }
+}
+EOF
+ln -sf /etc/nginx/sites-available/messenger /etc/nginx/sites-enabled/messenger
+rm -f /etc/nginx/sites-enabled/default
+nginx -t >>"$LOG" 2>&1 || ende "nginx-Konfiguration fehlerhaft."
+systemctl reload nginx
+
+if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
+  certbot certonly --webroot -w /var/www/acme --non-interactive --agree-tos \
+    -m "$MAIL" --cert-name "$DOMAIN" \
+    -d "$DOMAIN" -d "$MATRIX_HOST" -d "$CHAT_HOST" \
+    -d "$EINLADUNG_HOST" -d "$VERWALTUNG_HOST" -d "$TURN_HOST" >>"$LOG" 2>&1 \
+    || ende "Zertifikat konnte nicht ausgestellt werden. Siehe $LOG"
+  melde "Zertifikat fuer sechs Namen ausgestellt."
+else
+  melde "Zertifikat existiert bereits."
+fi
+fi   # Ende: eigenes Zertifikat nur ohne vorgelagerten Proxy
+Z="/etc/letsencrypt/live/$DOMAIN"
+
+# Wie die Vhosts lauschen und was sie an Sicherheitskoepfen mitgeben.
+# Hinter einem Proxy endet TLS dort - hier laeuft nur noch Klartext auf Port 80.
+# X-Forwarded-For: Synapse vertraut dem Kopf (x_forwarded: true). Hinter einem
+# Proxy ist remote_addr immer der Proxy - dann muss dessen Kette ergaenzt
+# werden, sonst sieht Synapse alle Nutzer unter einer Adresse und die
+# adressbezogenen Bremsen treffen alle gemeinsam. OHNE Proxy dagegen nur
+# remote_addr: sonst koennte jeder Client sich per eigenem Kopf eine
+# beliebige Adresse geben und damit Bremsen und fail2ban umgehen.
+if [ "$HINTER_PROXY" = ja ]; then
+  XFF='$proxy_add_x_forwarded_for'
+  LAUSCH="listen 80; listen [::]:80;"
+  gemeinsam="
+  add_header X-Content-Type-Options nosniff always;
+  add_header Referrer-Policy no-referrer always;
+"
+  VORSCHALT="server {
+  listen 80 default_server; listen [::]:80 default_server;
+  server_name _;
+  location / { return 404; }
+}"
+else
+  XFF='$remote_addr'
+  LAUSCH="listen 443 ssl; listen [::]:443 ssl; http2 on;"
+  gemeinsam="
+  ssl_certificate $Z/fullchain.pem;
+  ssl_certificate_key $Z/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_prefer_server_ciphers off;
+  add_header Strict-Transport-Security \"max-age=31536000\" always;
+  add_header X-Content-Type-Options nosniff always;
+  add_header Referrer-Policy no-referrer always;
+"
+  VORSCHALT="server {
+  listen 80 default_server; listen [::]:80 default_server;
+  server_name _;
+  location /.well-known/acme-challenge/ { root /var/www/acme; }
+  location / { return 301 https://\$host\$request_uri; }
+}"
+fi
+
+cat > /etc/nginx/sites-available/messenger <<EOF
+$VORSCHALT
+
+# --- nackte Domain: traegt die Delegation, sonst nichts ---
+server {
+  $LAUSCH
+  server_name $DOMAIN;
+$gemeinsam
+  root /var/www/wellknown;
+  location /.well-known/matrix/ { default_type application/json; add_header Access-Control-Allow-Origin *; }
+  location / { return 302 https://$CHAT_HOST; }
+}
+
+# --- Matrix selbst ---
+server {
+  $LAUSCH
+  server_name $MATRIX_HOST;
+$gemeinsam
+  client_max_body_size 100M;
+  location ~ ^(/_matrix|/_synapse/client) {
+    proxy_pass http://127.0.0.1:8008;
+    proxy_set_header X-Forwarded-For $XFF;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header Host \$host;
+    proxy_read_timeout 600s;
+  }
+  location / { return 302 https://$CHAT_HOST; }
+}
+
+# --- Element Web ---
+server {
+  $LAUSCH
+  server_name $CHAT_HOST;
+$gemeinsam
+  root /var/www/element; index index.html;
+  location = /config.json { add_header Cache-Control "no-cache"; }
+  location / { try_files \$uri \$uri/ /index.html; }
+}
+
+# --- Einladungsseite (oeffentlich: Eingeladene klicken von unterwegs) ---
+server {
+  $LAUSCH
+  server_name $EINLADUNG_HOST;
+$gemeinsam
+  location / {
+    proxy_pass http://127.0.0.1:8082;
+    proxy_set_header X-Forwarded-For $XFF;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header Host \$host;
+  }
+}
+
+# --- Verwaltung: dieselbe Anwendung wie die Einladungsseite, anderes Gesicht.
+#     Hinein kommt nur, wer am Matrix-Server Verwalter ist. Bewusst KEIN zweites
+#     Passwort davor - der Betreiber soll sich nicht zweimal anmelden muessen. ---
+server {
+  $LAUSCH
+  server_name $VERWALTUNG_HOST;
+$gemeinsam
+  location / {
+    proxy_pass http://127.0.0.1:8082;
+    proxy_set_header X-Forwarded-For $XFF;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header Host \$host;
+  }
+}
+EOF
+# Lesbar fuer den Webserver. Ausdruecklich, damit eine zu enge Maske nicht
+# wieder unbemerkt zu "403 Forbidden" auf der Delegation fuehrt.
+chmod 644 /etc/nginx/sites-available/messenger
+chmod 755 /var/www/wellknown /var/www/wellknown/.well-known /var/www/wellknown/.well-known/matrix
+chmod 644 /var/www/wellknown/.well-known/matrix/server /var/www/wellknown/.well-known/matrix/client
+# Einschalten gehoert hierher, nicht in den Zertifikats-Vorlauf: sonst bleibt
+# die Konfiguration im Proxy-Modus geschrieben, aber unbenutzt - der Server
+# antwortet dann auf gar nichts und niemand sieht, warum.
+ln -sf /etc/nginx/sites-available/messenger /etc/nginx/sites-enabled/messenger
+rm -f /etc/nginx/sites-enabled/default
+nginx -t >>"$LOG" 2>&1 || ende "nginx-Konfiguration fehlerhaft."
+systemctl reload nginx
+melde "Vhosts aktiv."
+gruen "   Web bereit."
+fi
+
+# ================================================================ TURN
+if lauf turn; then
+schritt "coturn fuer Sprach- und Videoanrufe"
+TURN_GEHEIM=$(cat /etc/matrix-synapse/.turn_secret)
+Z="/etc/letsencrypt/live/$DOMAIN"
+mkdir -p /etc/coturn/certs
+
+# Hinter einem Router braucht coturn beide Adressen: aussen die oeffentliche,
+# innen die eigene. Haengt der Server direkt am Netz, genuegt die eine.
+if [ "$HINTER_ROUTER" = ja ]; then
+  TURN_AUSSEN="$EIGENE_IP/$LOKALE_IP"
+else
+  TURN_AUSSEN="$EIGENE_IP"
+fi
+
+if [ "$HINTER_PROXY" = nein ]; then
+# coturn laeuft nicht als root und kommt an /etc/letsencrypt nicht heran.
+# Deshalb Kopien, die bei jeder Erneuerung aufgefrischt werden.
+cat > /etc/letsencrypt/renewal-hooks/deploy/coturn.sh <<EOF
+#!/bin/sh
+install -o turnserver -g turnserver -m 600 "$Z/fullchain.pem" /etc/coturn/certs/fullchain.pem
+install -o turnserver -g turnserver -m 600 "$Z/privkey.pem"  /etc/coturn/certs/privkey.pem
+systemctl reload coturn 2>/dev/null || systemctl restart coturn
+EOF
+chmod +x /etc/letsencrypt/renewal-hooks/deploy/coturn.sh
+/etc/letsencrypt/renewal-hooks/deploy/coturn.sh
+fi
+
+# Verschluesseltes TURN gibt es nur mit eigenem Zertifikat. Hinter einem Proxy
+# liegt keines auf diesem Rechner - TURN laeuft dann unverschluesselt auf 3478.
+# Das ist kein Schaden: die Gespraechsinhalte sind ohnehin Ende zu Ende
+# verschluesselt, TURN leitet nur weiter.
+if [ "$HINTER_PROXY" = ja ]; then
+  TLS_ZEILEN=""
+  TURN_HINWEIS="unverschluesselt auf 3478 (kein Zertifikat auf diesem Rechner)"
+else
+  TLS_ZEILEN="tls-listening-port=5349
+cert=/etc/coturn/certs/fullchain.pem
+pkey=/etc/coturn/certs/privkey.pem"
+  TURN_HINWEIS="Ports 3478 und 5349"
+fi
+
+cat > /etc/turnserver.conf <<EOF
+use-auth-secret
+static-auth-secret=$TURN_GEHEIM
+realm=$DOMAIN
+
+# Welche Adresse coturn den Teilnehmern als Relais nennt.
+# Ohne diese Zeile scheitern Anrufe hinter einem Router lautlos.
+external-ip=$TURN_AUSSEN
+
+listening-port=3478
+min-port=49160
+max-port=49200
+$TLS_ZEILEN
+
+# Nur weiterleiten, nicht ins eigene Netz hineinlassen
+no-tcp-relay
+no-multicast-peers
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+allowed-peer-ip=$EIGENE_IP
+
+user-quota=12
+total-quota=1200
+no-cli
+syslog
+EOF
+sed -i 's/^#*TURNSERVER_ENABLED=.*/TURNSERVER_ENABLED=1/' /etc/default/coturn 2>/dev/null || true
+systemctl enable --now coturn >>"$LOG" 2>&1
+systemctl restart coturn
+sleep 2
+systemctl is-active --quiet coturn || ende "coturn startet nicht. Siehe: journalctl -u coturn -n 30"
+melde "coturn laeuft ($TURN_HINWEIS, Weiterleitung 49160-49200)."
+melde "Relais-Adresse: $TURN_AUSSEN"
+if [ "$HINTER_ROUTER" = ja ]; then
+  echo
+  rot  "   Noch eine Handarbeit am Router:"
+  echo "   Diese Ports muessen auf $LOKALE_IP weitergeleitet werden,"
+  echo "   sonst kommen Anrufe zwischen verschiedenen Netzen nicht zustande:"
+  echo "     3478        TCP und UDP"
+  echo "     5349        TCP und UDP"
+  echo "     49160-49200 UDP"
+  echo
+fi
+gruen "   Anrufe vorbereitet."
+fi
+
+# ================================================================ ELEMENT WEB
+if lauf element; then
+schritt "Element Web"
+VER=$(curl -sL https://api.github.com/repos/element-hq/element-web/releases/latest | jq -r .tag_name)
+[ -n "$VER" ] && [ "$VER" != "null" ] || ende "Element-Fassung nicht ermittelbar."
+if [ "$(cat /var/www/element/.version 2>/dev/null)" != "$VER" ]; then
+  rm -rf /tmp/el; mkdir -p /tmp/el /var/www/element
+  curl -fsSL "https://github.com/element-hq/element-web/releases/download/$VER/element-$VER.tar.gz" -o /tmp/el/p.tgz
+  tar xzf /tmp/el/p.tgz -C /tmp/el
+  QUELLE=$(find /tmp/el -name index.html -printf '%d %h\n' | sort -n | head -1 | cut -d' ' -f2-)
+  rm -rf /var/www/element/*; cp -a "$QUELLE"/. /var/www/element/
+  printf '%s\n' "$VER" > /var/www/element/.version
+  rm -rf /tmp/el
+  melde "Element Web $VER ausgeliefert."
+else
+  melde "Element Web ist schon auf $VER."
+fi
+cat > /var/www/element/config.json <<EOF
+{
+  "default_server_config": {
+    "m.homeserver": { "base_url": "https://$MATRIX_HOST", "server_name": "$DOMAIN" }
+  },
+  "disable_custom_urls": true,
+  "disable_guests": true,
+  "default_country_code": "DE",
+  "setting_defaults": { "language": "de" },
+  "room_directory": { "servers": ["$DOMAIN"] }
+}
+EOF
+chmod 644 /var/www/element/config.json
+gruen "   Element bereit."
+fi
+
+# ================================================================ EINLADUNG
+if lauf einladung; then
+schritt "Einladungsseite"
+[ -f "$HIER/dateien/einladung.py" ] || ende "dateien/einladung.py fehlt neben dem Installer."
+id einladung >/dev/null 2>&1 || useradd --system --home /opt/einladung --shell /usr/sbin/nologin einladung
+# WICHTIG: nicht mit umask 077 anlegen, sonst kommt der Dienstbenutzer nicht hinein.
+mkdir -p /opt/einladung /etc/einladung /var/lib/einladung
+chmod 755 /opt/einladung; chmod 750 /etc/einladung /var/lib/einladung
+chgrp einladung /etc/einladung; chown einladung:einladung /var/lib/einladung
+install -m 755 "$HIER/dateien/einladung.py" /opt/einladung/einladung.py
+
+GEHEIM=$(grep -oP 'registration_shared_secret: "\K[^"]+' /etc/matrix-synapse/conf.d/05-secrets.yaml 2>/dev/null) \
+  || ende "Synapse ist noch nicht eingerichtet (/etc/matrix-synapse/conf.d/05-secrets.yaml fehlt oder enthaelt kein registration_shared_secret). Erst den vollstaendigen Installer ohne --nur laufen lassen."
+if ! su - postgres -c "psql -tAc \"SELECT 1 FROM users WHERE name='@einladungsdienst:$DOMAIN'\" synapse" | grep -q 1; then
+  DPW=$(openssl rand -base64 24)
+  ( umask 077; printf '%s\n' "$DPW" > /root/.einladungsdienst_pw )
+  register_new_matrix_user -u einladungsdienst -p "$DPW" -a -k "$GEHEIM" http://127.0.0.1:8008 >>"$LOG" 2>&1 \
+    || ende "Dienstkonto @einladungsdienst konnte nicht angelegt werden. Grund steht in $LOG"
+  melde "Dienstkonto @einladungsdienst angelegt."
+fi
+if [ ! -s /etc/einladung/admin-token ]; then
+  DPW=$(cat /root/.einladungsdienst_pw)
+  curl -s -X POST http://127.0.0.1:8008/_matrix/client/v3/login -H 'Content-Type: application/json' \
+    -d "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"einladungsdienst\"},\"password\":\"$DPW\",\"initial_device_display_name\":\"Einladungsdienst\"}" \
+    | jq -r .access_token > /etc/einladung/admin-token
+fi
+[ -s /etc/einladung/sitzungsschluessel ] || openssl rand -base64 48 > /etc/einladung/sitzungsschluessel
+# Verschluesselt die TOTP-Geheimnisse in der Ablage (Fernet).
+[ -s /etc/einladung/datenschluessel ] || \
+  python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())' \
+  > /etc/einladung/datenschluessel
+chown root:einladung /etc/einladung/admin-token /etc/einladung/sitzungsschluessel /etc/einladung/datenschluessel
+chmod 640 /etc/einladung/admin-token /etc/einladung/sitzungsschluessel /etc/einladung/datenschluessel
+
+install -m 644 "$HIER/dateien/einladung.service" /etc/systemd/system/einladung.service
+mkdir -p /etc/systemd/system/einladung.service.d
+cat > /etc/systemd/system/einladung.service.d/umgebung.conf <<EOF
+[Service]
+# Oertlich, nicht ueber den oeffentlichen Namen: sonst laeuft jeder
+# Verwaltungsaufruf durch Router und Proxy wieder zurueck zum selben Rechner -
+# und steht still, solange der Proxy den Namen noch nicht kennt.
+Environment=MESSENGER_HEIMSERVER=http://127.0.0.1:8008
+Environment=MESSENGER_SERVERNAME=$DOMAIN
+Environment=MESSENGER_ELEMENT=https://$CHAT_HOST
+Environment=MESSENGER_EIGENE_URL=https://$EINLADUNG_HOST
+Environment=MESSENGER_VERWALTUNG_HOST=$VERWALTUNG_HOST
+# Anrede des Betreibers in Endnutzerhinweisen ("oder sag ... Bescheid"), also
+# --betreiber, nicht der Verwaltername. In Anfuehrungszeichen, sonst bricht
+# systemd den Wert am ersten Leerzeichen ab.
+Environment="MESSENGER_BETREIBER=${BETREIBER:-dem Betreiber}"
+EOF
+systemctl daemon-reload
+systemctl enable --now einladung >>"$LOG" 2>&1
+systemctl restart einladung; sleep 2
+systemctl is-active --quiet einladung || ende "Einladungsdienst startet nicht. Siehe: journalctl -u einladung -n 30"
+melde "Einladungsseite unter https://$EINLADUNG_HOST"
+gruen "   Einladungen bereit."
+fi
+
+# ================================================================ SICHERUNG
+# Probe mit demselben Werkzeug, das die Sicherung nachts benutzt: ein leeres
+# Verzeichnis hinschieben legt das Ziel samt Zwischenstufen an und beweist
+# Schluessel, Hostschluessel und Schreibrecht in einem Schritt. ssh mit mkdir
+# taugt dafuer nicht - eine Hetzner Storage Box etwa hat keine Shell.
+# Steht ausserhalb des Abschnitts, weil auch die Nachkontrolle sie braucht.
+sicherung_erreichbar() {
+  local leer rc=0; leer=$(mktemp -d)
+  rsync -a --mkpath -e "ssh -o BatchMode=yes -o ConnectTimeout=15" "$leer/" "$SICHERUNG_ZIEL/" >>"$LOG" 2>&1 || rc=$?
+  rmdir "$leer"; return $rc
+}
+
+if lauf sicherung; then
+schritt "Sicherung"
+cat > /usr/local/sbin/messenger-sicherung.sh <<EOF
+#!/bin/bash
+# Taegliche Sicherung. Verschluesselt, bevor sie das Haus verlaesst.
+set -euo pipefail
+ZIEL="\${1:-${SICHERUNG_ZIEL:-}}"
+TMP=\$(mktemp -d); trap 'rm -rf "\$TMP"' EXIT
+STAND=\$(date +%F)
+su - postgres -c "pg_dump synapse" | gzip > "\$TMP/synapse-\$STAND.sql.gz"
+tar czf "\$TMP/konfig-\$STAND.tgz" /etc/matrix-synapse /etc/einladung /etc/turnserver.conf 2>/dev/null
+tar czf "\$TMP/medien-\$STAND.tgz" -C /var/lib/matrix-synapse media 2>/dev/null || true
+if [ -f /root/.sicherung_passwort ]; then
+  for d in "\$TMP"/*; do
+    gpg --batch --yes --symmetric --cipher-algo AES256 \\
+        --passphrase-file /root/.sicherung_passwort "\$d" && rm -f "\$d"
+  done
+fi
+# --mkpath legt fehlende Zwischenverzeichnisse an (rsync allein nur das letzte),
+# BatchMode verhindert stilles Haengen an einer Passwortabfrage. Scheitert der
+# Weg nach draussen, bleibt der Stand oertlich und der Dienst meldet Fehler -
+# vorher raeumte der trap ihn weg, und es gab gar keine Sicherung.
+AUSWAERTS=ja
+if [ -n "\$ZIEL" ]; then
+  rsync -a --mkpath -e "ssh -o BatchMode=yes" --remove-source-files "\$TMP"/ "\$ZIEL/\$STAND/" || AUSWAERTS=nein
+fi
+if [ -z "\$ZIEL" ] || [ "\$AUSWAERTS" = nein ]; then
+  mkdir -p /var/backups/messenger/\$STAND
+  [ -z "\$(ls -A "\$TMP")" ] || mv "\$TMP"/* /var/backups/messenger/\$STAND/
+  find /var/backups/messenger -maxdepth 1 -type d -mtime +14 -exec rm -rf {} + 2>/dev/null || true
+fi
+if [ "\$AUSWAERTS" = nein ]; then
+  echo "Sicherungsziel \$ZIEL nicht erreichbar - Stand liegt oertlich in /var/backups/messenger/\$STAND" >&2
+  exit 1
+fi
+EOF
+chmod 755 /usr/local/sbin/messenger-sicherung.sh
+[ -f /root/.sicherung_passwort ] || { openssl rand -base64 32 > /root/.sicherung_passwort; chmod 600 /root/.sicherung_passwort; }
+cat > /etc/systemd/system/messenger-sicherung.service <<EOF
+[Unit]
+Description=Sicherung des Messengers
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/messenger-sicherung.sh ${SICHERUNG_ZIEL:-}
+EOF
+cat > /etc/systemd/system/messenger-sicherung.timer <<'EOF'
+[Unit]
+Description=Taegliche Sicherung des Messengers
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=900
+Persistent=true
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+if [ -n "${SICHERUNG_ZIEL:-}" ]; then
+  # Zugang zum Ziel herstellen und pruefen, BEVOR der Timer startet. Vorher
+  # lief der Timer ab 03:30 ins Leere (kein Schluessel, kein Hostschluessel,
+  # kein Zielverzeichnis), und der Fehler stand allein im Journal.
+  mkdir -p /root/.ssh; chmod 700 /root/.ssh
+  [ -f /root/.ssh/id_ed25519 ] || ssh-keygen -q -t ed25519 -N "" -f /root/.ssh/id_ed25519 -C "messenger-sicherung@$DOMAIN"
+  ZIEL_RECHNER="${SICHERUNG_ZIEL%%:*}"; ZIEL_RECHNER="${ZIEL_RECHNER#*@}"
+  # Den Port so nehmen, wie ssh ihn aufloest (auch aus /root/.ssh/config) -
+  # Hostschluessel anderer Ports stehen in known_hosts als [rechner]:port.
+  ZIEL_PORT=$(ssh -G "$ZIEL_RECHNER" 2>/dev/null | awk '/^port /{print $2}' || true)
+  [ -n "$ZIEL_PORT" ] || ZIEL_PORT=22
+  if [ "$ZIEL_PORT" = 22 ]; then ZIEL_MERKMAL="$ZIEL_RECHNER"; else ZIEL_MERKMAL="[$ZIEL_RECHNER]:$ZIEL_PORT"; fi
+  ssh-keygen -F "$ZIEL_MERKMAL" -f /root/.ssh/known_hosts >/dev/null 2>&1 \
+    || ssh-keyscan -T 10 -p "$ZIEL_PORT" "$ZIEL_RECHNER" >> /root/.ssh/known_hosts 2>/dev/null || true
+  if sicherung_erreichbar; then
+    systemctl enable --now messenger-sicherung.timer >>"$LOG" 2>&1
+    melde "Sicherungsziel erreichbar, Verzeichnis angelegt."
+    melde "Taeglich 03:30 nach $SICHERUNG_ZIEL"
+    gruen "   Sicherung eingerichtet."
+  else
+    rot  "   Sicherungsziel $SICHERUNG_ZIEL ist nicht erreichbar - der Timer wird NICHT gestartet."
+    echo "   Diesen oeffentlichen Schluessel beim Ziel hinterlegen (authorized_keys):"
+    echo "     $(cat /root/.ssh/id_ed25519.pub)"
+    echo "   Lauscht das Ziel nicht auf Port 22 (Hetzner Storage Box: 23), in /root/.ssh/config eintragen:"
+    echo "     Host $ZIEL_RECHNER"
+    echo "       Port 23"
+    echo "   Danach erneut:  ./install.sh ... --nur sicherung      Einzelheiten: $LOG"
+  fi
+else
+  systemctl enable --now messenger-sicherung.timer >>"$LOG" 2>&1
+  melde "Taeglich 03:30 nach /var/backups/messenger (14 Tage). Auswaerts: --sicherung angeben."
+  gruen "   Sicherung eingerichtet."
+fi
+fi
+
+# ================================================================ HAERTUNG
+if lauf haertung; then
+schritt "Haertung"
+# Den SSH-Port aus der laufenden sshd-Konfiguration nehmen, nicht fest 22:
+# wer sshd auf einen anderen Port gelegt hat, sperrte sich sonst mit der
+# naechsten Anmeldung aus (die laufende Sitzung ueberlebt, das taeuscht).
+SSH_PORTS=$(sshd -T 2>/dev/null | awk '/^port /{print $2}' | sort -u | xargs || true)
+[ -n "$SSH_PORTS" ] || SSH_PORTS=22
+# Zuruecksetzen nur, solange ufw noch nicht aktiv ist. Sonst verschwaenden bei
+# jedem Lauf Regeln, die der Betreiber von Hand angelegt hat (WireGuard,
+# eingeschraenkte Quelladressen) - entgegen der Zusage, dass Wiederholen nicht
+# schadet. Die eigenen allow-Regeln sind ohnehin wiederholbar.
+ufw status 2>/dev/null | grep -q '^Status: active' || ufw --force reset >>"$LOG" 2>&1
+ufw default deny incoming >>"$LOG" 2>&1
+ufw default allow outgoing >>"$LOG" 2>&1
+for p in $SSH_PORTS; do ufw allow "$p"/tcp >>"$LOG" 2>&1; done
+ufw allow 80,443/tcp >>"$LOG" 2>&1
+ufw allow 3478,5349/tcp >>"$LOG" 2>&1
+ufw allow 3478,5349/udp >>"$LOG" 2>&1
+ufw allow 49160:49200/udp >>"$LOG" 2>&1
+ufw --force enable >>"$LOG" 2>&1
+melde "Firewall: offen sind SSH (Port $SSH_PORTS), Web und Anrufe."
+
+# Den ermittelten SSH-Port auch der Jail mitgeben: ohne 'port =' erbt sie
+# 'ssh' (22) aus Debians jail.conf, und auf einem verlegten Port liefe der
+# Bann ins Leere. Mehrere Ports als Kommaliste.
+cat > /etc/fail2ban/jail.d/messenger.conf <<EOF
+[sshd]
+enabled = true
+port = ${SSH_PORTS// /,}
+maxretry = 4
+bantime = 1h
+EOF
+systemctl enable --now fail2ban >>"$LOG" 2>&1; systemctl restart fail2ban
+melde "fail2ban aktiv fuer SSH (Port $SSH_PORTS)."
+
+# Nur Sicherheitsaktualisierungen automatisch - alles andere bewusst von Hand.
+cat > /etc/apt/apt.conf.d/51messenger-unattended <<'EOF'
+Unattended-Upgrade::Origins-Pattern { "origin=Debian,codename=${distro_codename}-security"; };
+Unattended-Upgrade::Automatic-Reboot "false";
+EOF
+systemctl enable --now unattended-upgrades >>"$LOG" 2>&1 || true
+melde "Sicherheitsaktualisierungen automatisch, der Rest bewusst."
+gruen "   Haertung fertig."
+fi
+
+# ================================================================ ABSCHLUSS
+# Erst Zugang schaffen, dann pruefen. Vorher brach der Installer bei einer
+# fehlgeschlagenen Pruefung ab - und hinterliess einen Server OHNE Verwalterkonto
+# und ohne Zugangsdatei. Das ist genau falsch herum.
+schritt "Verwalterkonto und Zugangsdaten"
+# Laeuft bei jedem --nur-Aufruf, auch auf einem System ohne Synapse: dann sonst
+# nur ein nackter grep-Fehler. Fester Pfad, $CD gibt es nur im Synapse-Block.
+GEHEIM=$(grep -oP 'registration_shared_secret: "\K[^"]+' /etc/matrix-synapse/conf.d/05-secrets.yaml 2>/dev/null) \
+  || ende "Synapse ist noch nicht eingerichtet (/etc/matrix-synapse/conf.d/05-secrets.yaml fehlt oder enthaelt kein registration_shared_secret). Erst den vollstaendigen Installer ohne --nur laufen lassen."
+
+# Die alte Zugangsdatei NICHT einfach ueberschreiben. Beim zweiten Lauf stand
+# sonst "(unveraendert - stand schon in dieser Datei)" genau dort, wo vorher das
+# Passwort stand: der Verweis zeigte auf sich selbst, das Passwort war weg.
+ALTES_PW=""
+if [ -f "$ZUGANG" ]; then
+  cp -p "$ZUGANG" "$ZUGANG.vorher-$(date +%F-%H%M)"
+  ALTES_PW=$(awk '/^  Passwort   /{sub(/^  Passwort   /,""); print; exit}' "$ZUGANG")
+fi
+
+if ! su - postgres -c "psql -tAc \"SELECT 1 FROM users WHERE name='@$VERWALTER:$DOMAIN'\" synapse" | grep -q 1; then
+  APW=$(openssl rand -base64 15)
+  # Nicht wortlos sterben: vorher endete das Skript hier still mit Status 1
+  # (Grund nur im Protokoll) - fertiger Server, kein Konto, keine Zugangsdatei.
+  register_new_matrix_user -u "$VERWALTER" -p "$APW" -a -k "$GEHEIM" http://127.0.0.1:8008 >>"$LOG" 2>&1 \
+    || ende "Verwalterkonto @$VERWALTER:$DOMAIN konnte nicht angelegt werden. Grund steht in $LOG"
+  melde "Verwalterkonto @$VERWALTER:$DOMAIN angelegt."
+elif [ -n "$ALTES_PW" ] && [ "${ALTES_PW#(}" = "$ALTES_PW" ]; then
+  APW="$ALTES_PW"
+  melde "Verwalterkonto gab es schon — Passwort aus der vorigen Datei uebernommen."
+else
+  # register_new_matrix_user taugt hier NICHT: es legt nur neue Konten an und
+  # bricht bei vergebener Kennung ab. Der Weg fuer bestehende Konten steht
+  # unten in der Zugangsdatei (Admin-Schnittstelle, wie die Verwaltung selbst).
+  APW="(unbekannt — neu setzen, siehe PASSWORT NEU SETZEN unten)"
+  melde "Verwalterkonto gab es schon, das Passwort ist hier nicht bekannt."
+fi
+
+# Pfad VOR der Zugangsdatei festlegen - sonst steht dort eine leere Zeile.
+ANLEITUNG=/root/kundenanleitung-$DOMAIN.html
+
+cat > "$ZUGANG" <<EOF
+Messenger $DOMAIN — Zugangsdaten
+Eingerichtet $(date '+%d.%m.%Y %H:%M')
+
+ADRESSEN
+  Chat im Browser   https://$CHAT_HOST
+  Einladungen       https://$EINLADUNG_HOST
+  Verwaltung        https://$VERWALTUNG_HOST   (gleiche Anmeldung, nur fuer Verwalter)
+  Fuer die App      Server: $DOMAIN
+
+DEIN KONTO
+  Benutzer   $VERWALTER
+  Kennung    @$VERWALTER:$DOMAIN
+  Passwort   $APW
+
+SICHERUNG
+  Schluessel liegt in /root/.sicherung_passwort
+  OHNE IHN IST KEINE SICHERUNG WIEDERHERSTELLBAR. Weg damit ins Passwortdepot.
+
+ERSTE SCHRITTE
+  1. Dieses Passwort aendern und diese Datei loeschen.
+  2. Auf https://$EINLADUNG_HOST anmelden und Einladungen verschicken.
+  3. App: FluffyChat oder Element X, Server "$DOMAIN" eintragen.
+  3b. Kundenanleitung liegt in $ANLEITUNG - im Browser oeffnen, Strg+P, als PDF sichern.
+  4. ZWEITEN FAKTOR EINRICHTEN: https://$VERWALTUNG_HOST -> "Zweiter Faktor".
+     Diese Seite kann Konten loeschen - mit nur einem Passwort davor ist das duenn.
+     Notausgang, falls das Telefon weg ist (als root auf diesem Server):
+       python3 /opt/einladung/einladung.py --zweitfaktor-aus $VERWALTER
+
+PASSWORT NEU SETZEN (als root auf diesem Server; geht so fuer jedes Konto)
+  register_new_matrix_user taugt dafuer NICHT - es legt nur neue Konten an.
+  Dieser Aufruf meldet nur die Matrix-Geraete ab. Eine laufende Sitzung auf der
+  Einladungs-/Verwaltungsseite endet damit NICHT - dafuer dort "Passwort neu" benutzen.
+  curl -s -X POST -H "Authorization: Bearer \$(cat /etc/einladung/admin-token)" \\
+       -H 'Content-Type: application/json' \\
+       -d '{"new_password":"NEUES-PASSWORT","logout_devices":true}' \\
+       http://127.0.0.1:8008/_synapse/admin/v1/reset_password/@$VERWALTER:$DOMAIN
+EOF
+chmod 600 "$ZUGANG"
+melde "Zugangsdaten in $ZUGANG"
+
+if [ -f "$HIER/dateien/kundenanleitung.py" ]; then
+  python3 "$HIER/dateien/kundenanleitung.py" \
+    --domain "$DOMAIN" --verwalter "$VERWALTER" --passwort "$APW" \
+    --betreiber "${BETREIBER:-}" --bilder "$HIER/dateien/bilder" \
+    --ausgabe "$ANLEITUNG" >/dev/null && chmod 600 "$ANLEITUNG"
+  melde "Kundenanleitung: $ANLEITUNG"
+fi
+gruen "   Zugang steht."
+
+# ================================================================ NACHKONTROLLE
+schritt "Nachkontrolle"
+fehler=0
+pruefe() {
+  if eval "$2" >/dev/null 2>&1; then printf '   \033[32mOK\033[0m   %s\n' "$1"
+  else printf '   \033[31mFEHLT\033[0m %s\n' "$1"; fehler=$((fehler+1)); fi
+}
+
+# Hinter einem Proxy sind die oeffentlichen Namen von hier aus NICHT erreichbar -
+# sie zeigen auf den Proxy, und der kennt diesen Server vielleicht noch gar nicht.
+# Geprueft wird deshalb oertlich, mit gesetztem Host-Kopf: das prueft genau das,
+# wofuer dieser Server zustaendig ist, und nichts, was ihm nicht gehoert.
+if [ "$HINTER_PROXY" = ja ]; then
+  hole() { curl -sf --max-time 10 -H "Host: $1" "http://127.0.0.1$2"; }
+  melde "Geprueft wird oertlich — der Weg von aussen haengt am Proxy."
+else
+  hole() { curl -sf --max-time 10 "https://$1$2"; }
+fi
+
+pruefe "Synapse antwortet"       'curl -sf --max-time 10 http://127.0.0.1:8008/health'
+pruefe "Delegation ausgeliefert" 'hole "$DOMAIN" "/.well-known/matrix/server" | grep -q "$MATRIX_HOST"'
+pruefe "Matrix erreichbar"       'hole "$MATRIX_HOST" "/_matrix/client/versions"'
+pruefe "Servername ist $DOMAIN"  'hole "$MATRIX_HOST" "/_matrix/key/v2/server" | grep -q "\"server_name\":\"$DOMAIN\""'
+pruefe "Element Web"             'hole "$CHAT_HOST" "/" >/dev/null'
+pruefe "Einladungsseite"         'hole "$EINLADUNG_HOST" "/" | grep -q Anmelden'
+pruefe "Verwaltung antwortet"    'hole "$VERWALTUNG_HOST" "/" | grep -q Anmelden'
+pruefe "coturn laeuft"           'systemctl is-active --quiet coturn'
+pruefe "Einladungsdienst laeuft" 'systemctl is-active --quiet einladung'
+pruefe "Firewall aktiv"          'ufw status | grep -q "Status: active"'
+# Nur mit auswaertigem Ziel: dann ist "Fertig" nur ehrlich, wenn es erreichbar ist.
+[ -z "${SICHERUNG_ZIEL:-}" ] || pruefe "Sicherungsziel erreichbar" 'sicherung_erreichbar'
+
+echo
+if [ "$fehler" -gt 0 ]; then
+  rot "$fehler Pruefung(en) fehlgeschlagen. Der Server steht trotzdem,"
+  rot "die Zugangsdaten liegen in $ZUGANG. Protokoll: $LOG"
+else
+  gruen "Fertig. Alle Pruefungen bestanden."
+fi
+echo
+echo "   Chat:        https://$CHAT_HOST"
+echo "   Einladungen: https://$EINLADUNG_HOST"
+echo "   Kennungen:   @name:$DOMAIN"
+echo
+if [ "$HINTER_PROXY" = ja ]; then
+  echo "   Dieser Server liefert Klartext auf Port 80. Im vorgelagerten Proxy"
+  echo "   fuer diese fuenf Namen je einen Eintrag auf  http://$LOKALE_IP:80  anlegen:"
+  echo "     $DOMAIN  $MATRIX_HOST  $CHAT_HOST  $EINLADUNG_HOST  $VERWALTUNG_HOST"
+  echo "   Das Zertifikat gehoert dorthin, nicht hierher."
+  echo
+fi
+grau "   Zugangsdaten stehen in $ZUGANG — lies sie, aendere das Passwort, loesche die Datei."
+[ "$fehler" -gt 0 ] && exit 1
+exit 0

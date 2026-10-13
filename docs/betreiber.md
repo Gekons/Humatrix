@@ -1,0 +1,236 @@
+# Betreiber-Anleitung — einen Kundenserver aufsetzen
+
+Für dich. Von der Bestellung bis zur Übergabe. Rechne mit **30 Minuten**, davon
+etwa 10 Minuten Wartezeit.
+
+---
+
+## Vorab: ein Server je Kunde
+
+Dieser Installer baut **einen eigenen Server pro Kunde**. Das ist bewusst so:
+Jede Familie hat ihre eigene Maschine, ihre eigene Domain, ihre eigenen Daten — und kann
+jederzeit ausziehen. Genau das ist das Verkaufsargument.
+
+Die Rechnung sieht damit anders aus als bei einem geteilten Server:
+
+| Posten | je Kunde |
+|---|---|
+| Hetzner Cloud CX32 (4 Kerne, 8 GB, 80 GB) | ~8 €/Monat |
+| Domain | ~1 €/Monat |
+| **Deine Kosten** | **~9 €/Monat** |
+| Sinnvoller Preis | **15–19 €/Monat** |
+
+Die Marge ist schmaler als bei einem geteilten Server — dafür ist das Versprechen wahr und
+die Haftung sauber getrennt. Wenn du später viele kleine Kunden hast, lohnt ein
+Mehrmandanten-Aufbau; der braucht aber einen anderen Installer.
+
+**Nicht vergessen:** Deine eigentliche Kostenposition ist die Supportzeit, nicht die Hardware.
+
+---
+
+## Schritt 1 — Domain
+
+Der Kunde entscheidet den Namen. **Er steckt dauerhaft in jeder Kennung**
+(`@anna:familie-mueller.de`) und lässt sich später nicht ändern, ohne alle Konten
+neu anzulegen. Das dem Kunden vorher sagen.
+
+Wer die Domain kauft — du oder der Kunde — ist eine Vertrauensfrage. Mein Rat:
+**der Kunde kauft sie selbst**. Dann gehört sie ihm, und „ihr könnt jederzeit umziehen"
+ist keine Floskel. Du brauchst nur Zugriff auf die DNS-Einträge.
+
+## Schritt 2 — Server bestellen
+
+Bei Hetzner Cloud:
+
+| | |
+|---|---|
+| Standort | Falkenstein oder Nürnberg |
+| Abbild | **Debian 13** |
+| Typ | **CX32** (4 Kerne, 8 GB, 80 GB) |
+| SSH-Schlüssel | deinen hinterlegen — **kein** Passwort-Login |
+| Netz | IPv4 + IPv6 |
+
+Kleiner als 8 GB nicht. Synapse wächst mit den Räumen, und Nachrüsten im Betrieb ist
+lästiger als einmal richtig bestellen.
+
+## Schritt 3 — DNS setzen
+
+Sechs A-Einträge auf die IP des neuen Servers:
+
+```
+<domain>              A   <IP>
+matrix.<domain>       A   <IP>
+chat.<domain>         A   <IP>
+einladung.<domain>    A   <IP>
+verwaltung.<domain>   A   <IP>
+turn.<domain>         A   <IP>
+```
+
+Dann **warten, bis sie sichtbar sind** — meist ein bis zehn Minuten. Prüfen mit:
+
+```bash
+for n in "" matrix. chat. einladung. verwaltung. turn.; do
+  echo "$n<domain> -> $(dig +short @1.1.1.1 $n<domain> A)"
+done
+```
+
+Der Installer prüft das ohnehin und bricht ab, wenn etwas fehlt — aber lieber vorher schauen,
+als auf einen Abbruch zu warten.
+
+## Schritt 4 — Installer hochladen und starten
+
+Auf deinem Rechner das Repository holen und auf den Server kopieren (auf dem frischen
+Server fehlt `git`, deshalb der Weg über `scp`):
+
+```bash
+git clone https://github.com/Gekons/Humatrix.git
+scp -r Humatrix root@<IP>:/root/
+ssh root@<IP>
+cd /root/Humatrix
+./install.sh --domain <domain> --mail <deine-mail> --verwalter <kundenname> \
+             --betreiber "<dein Name>, <deine-mail>" \
+             --sicherung u123456@u123456.your-storagebox.de:/messenger/<domain>
+```
+
+- `--verwalter` ist der **Benutzername des Kunden**, klein und ohne Leerzeichen
+- `--mail` ist **deine** Adresse — dorthin warnt Let's Encrypt, wenn ein Zertifikat
+  nicht erneuert wurde. Das willst du wissen, nicht der Kunde.
+- `--betreiber` ist optional, im Kundenbetrieb aber sinnvoll: Name und Erreichbarkeit
+  stehen dann in der Kundenanleitung („Betreut von …", „Melde dich bei …") und in den
+  Hinweisen des Einladungsdienstes. Ohne ihn steht dort nur „dein Betreuer" bzw.
+  „der Betreiber".
+- `--sicherung` ist optional. Ohne sie sichert der Server lokal nach
+  `/var/backups/messenger` (14 Tage) — besser als nichts, aber keine echte Sicherung.
+  Mit ihr muss der **SSH-Schlüssel des Servers beim Ziel hinterlegt** sein: Der Installer
+  erzeugt bei Bedarf `/root/.ssh/id_ed25519`, nimmt den Hostschlüssel des Ziels auf und
+  prüft den Zugang mit einer Probe-Übertragung per `rsync` (sie legt auch das
+  Zielverzeichnis an). Klappt das nicht, startet er den Sicherungs-Timer **nicht**,
+  zeigt den öffentlichen Schlüssel an, und du trägst ihn beim Ziel ein — bei der
+  Hetzner Storage Box in der Hetzner-Konsole unter der Box; sie lauscht auf Port 23,
+  das gehört dann in `/root/.ssh/config`, der Installer sagt es dir. Danach
+  `./install.sh … --nur sicherung`. Beim ersten Server für ein neues Ziel ist dieser
+  zweite Anlauf der Normalfall, kein Fehler.
+
+Der Installer prüft **vor der ersten Änderung** System, Speicher, Platz, alle sechs Namen
+und die Ports. Stimmt etwas nicht, bricht er ab, ohne etwas angefasst zu haben (einzige
+Ausnahme: ein fehlendes `curl` wird vorher nachinstalliert, die Prüfung braucht es).
+
+Am Ende laufen zehn Nachkontrollen, mit `--sicherung` elf — die letzte prüft, ob das
+Sicherungsziel erreichbar ist. Sind alle grün, ist der Server fertig.
+
+## Schritt 5 — Was dabei herauskommt
+
+| Datei auf dem Server | Inhalt |
+|---|---|
+| `/root/zugangsdaten-messenger.txt` | alle Zugänge und der Verweis auf den Sicherungsschlüssel — **für dich** |
+| `/root/.sicherung_passwort` | Schlüssel der verschlüsselten Sicherung — **ins Vaultwarden** |
+| `/root/kundenanleitung-<domain>.html` | fertig befüllte Anleitung — **für den Kunden** |
+| `/var/log/messenger-installer.log` | Protokoll, falls etwas schiefging |
+
+## Schritt 6 — Übergabe
+
+**Die Anleitung holen:**
+
+```bash
+scp root@<IP>:/root/kundenanleitung-<domain>.html .
+```
+
+Im Browser öffnen, **Strg+P → „Als PDF sichern"**. Fertig. (Bewusst kein PDF-Erzeuger auf
+dem Server — der zöge rund hundert Pakete nach, die ein Messenger nicht braucht.)
+
+**Dann getrennt verschicken:**
+
+| Was | Wie |
+|---|---|
+| Die Anleitung (PDF) | Mail ist in Ordnung |
+| Das **erste Passwort** | **Nicht** in derselben Mail. Telefon, Signal, persönlich. |
+
+Das Passwort steht zwar in der Anleitung — deshalb gilt: Entweder du schickst die Anleitung
+sicher (nicht per einfacher Mail), **oder** du löschst die Passwortzeile vor dem Versand
+und sagst es am Telefon. Das ist der einzige Punkt, an dem eine saubere Einrichtung
+schlampig werden kann.
+
+**Sicherungsschlüssel sichern:** `cat /root/.sicherung_passwort` — das ist der Schlüssel
+der Sicherung (die Zugangsdatei verweist nur darauf). **Ohne ihn ist keine Sicherung
+wiederherstellbar.** Der gehört in dein Vaultwarden, bevor du den Server das erste Mal
+vergisst.
+
+## Schritt 7 — Erstes Gespräch mit dem Kunden
+
+Zeig ihm drei Dinge, mehr nicht:
+
+1. **Anmelden und Passwort ändern.**
+2. **Zweiten Faktor einrichten** — sein Konto kann Leute löschen. Nicht überspringen.
+3. **Eine Einladung verschicken.** Am besten an dich, damit er sieht, wie es beim
+   Empfänger ankommt.
+
+Sag ihm außerdem offen, **was du sehen kannst**: dass jemand geschrieben hat, wann und mit
+wem — nicht was. Steht so auch in der Anleitung. Diese Offenheit ist Teil des Produkts.
+
+---
+
+## Betrieb
+
+| Was | Wie oft | Wie |
+|---|---|---|
+| Sicherheitsupdates | automatisch | nur Debian-Security, alles andere bewusst |
+| Synapse aktualisieren | bewusst | `apt update && apt install matrix-synapse-py3`, danach `systemctl status matrix-synapse` |
+| Element Web aktualisieren | bewusst, z. B. monatlich | `./install.sh --domain … --mail … --nur element`; der Installer vergleicht mit `/var/www/element/.version` und zieht nur bei neuerer Fassung nach. Der Browser-Client bekommt keine Debian-Sicherheitsupdates. |
+| Sicherung prüfen | monatlich | `systemctl list-timers messenger-sicherung*` und nachsehen, ob Dateien ankommen |
+| **Wiederherstellung üben** | **jährlich** | Eine Sicherung, die nie zurückgespielt wurde, ist keine. |
+| Zertifikate | automatisch | certbot erneuert; coturn bekommt seine Kopien über einen Haken mit |
+| Platz | bei Bedarf | Medien wachsen am schnellsten — eigene Fotos und Videos werden nie geräumt, nur der Zwischenspeicher fremder Server (90 Tage). `du -sh /var/lib/matrix-synapse/media` |
+
+**Eigene Synapse-Einstellungen** (Föderation aus, serverweite Suche, …) gehören nach
+`/etc/matrix-synapse/conf.d/50-eigene.yaml`. Diese Datei fasst der Installer nie an —
+`20-betrieb.yaml` dagegen schreibt er bei jedem Lauf neu, Änderungen dort sind nach dem
+nächsten Lauf weg. Synapse liest alle `conf.d/*.yaml` in Namensreihenfolge; ein oberster
+Schlüssel aus einer späteren Datei ersetzt den aus der früheren vollständig, also immer den
+ganzen Block übernehmen (z. B. `user_directory:` mit allen drei Zeilen). Die Datei wie die
+anderen anlegen (`chown root:matrix-synapse`, `chmod 640`), danach
+`systemctl restart matrix-synapse`.
+
+## Wenn etwas klemmt
+
+| Symptom | Ursache | Abhilfe |
+|---|---|---|
+| Installer bricht bei DNS ab | Einträge noch nicht sichtbar | warten, erneut starten — er ist wiederholbar |
+| Zertifikat schlägt fehl | Port 80 belegt oder DNS falsch | `ss -lnt`, DNS prüfen, dann `--nur web` |
+| Anrufe kommen nicht zustande | UDP blockiert | `ufw status` prüfen; bei Hetzner auch die Cloud-Firewall |
+| „Zu viele Versuche" beim Anmelden | Synapse drosselt nach wenigen Versuchen | eine Minute warten. Das Passwort ist meist richtig. |
+| Kunde hat sein Telefon verloren (2FA) | — | `python3 /opt/einladung/einladung.py --zweitfaktor-aus <name>` als root auf dem Server; der Benutzername reicht, die volle Kennung geht auch |
+| Kunde hat sein Passwort vergessen | — | über die Verwaltung zurücksetzen („Passwort neu"). Betrifft es das Verwalterkonto selbst, als root über die Admin-Schnittstelle, siehe unten. `register_new_matrix_user` taugt dafür **nicht** — es legt nur neue Konten an und bricht bei vergebener Kennung ab |
+| Einzelnen Abschnitt wiederholen | — | `./install.sh --domain … --mail … --nur turn` |
+| Eigene Firewall-Regeln (WireGuard, eingeschränktes SSH) | — | bleiben bei Wiederholungsläufen erhalten: `ufw` wird nur zurückgesetzt, solange es noch nicht aktiv ist; danach setzt die Härtung nur ihre eigenen Regeln und nimmt den SSH-Port aus der laufenden `sshd`-Konfiguration |
+
+**Passwort als root neu setzen** — für jedes Konto, auch das Verwalterkonto. Der bessere
+Weg ist die Verwaltungsseite („Passwort neu"): Sie setzt das Passwort, meldet die
+Matrix-Geräte ab **und** beendet eine laufende Sitzung des Kontos auf
+`einladung.`/`verwaltung.<domain>`. Der Aufruf unten (er steht auch in
+`/root/zugangsdaten-messenger.txt` unter „PASSWORT NEU SETZEN") ist der Notausgang, wenn
+niemand mehr in die Verwaltung kommt. Er trifft **nur Matrix**: Eine Sitzung auf der
+Einladungs- oder Verwaltungsseite läuft danach bis zu zwölf Stunden weiter.
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $(cat /etc/einladung/admin-token)" \
+     -H 'Content-Type: application/json' \
+     -d '{"new_password":"NEUES-PASSWORT","logout_devices":true}' \
+     http://127.0.0.1:8008/_synapse/admin/v1/reset_password/@<name>:<domain>
+```
+
+Ist das Verwalterkonto womöglich übernommen, danach alle Einladungs- und
+Verwaltungssitzungen **aller** Konten beenden — der Dienst liest den Schlüssel bei jeder
+Prüfung neu, ein Neustart ist nicht nötig; Rechte der Datei bleiben beim Überschreiben
+erhalten:
+
+```bash
+openssl rand -base64 48 > /etc/einladung/sitzungsschluessel
+```
+
+## Was dieser Installer nicht macht
+
+- **Keine Überwachung.** Du erfährst nicht von allein, wenn ein Kundenserver steht.
+  Für mehr als zwei, drei Kunden brauchst du eine Erreichbarkeitsprüfung.
+- **Keine automatischen Updates für Synapse und Element Web.** Bewusst — aber jemand muss
+  sie anstoßen (siehe Betrieb).
+- **Kein Mehrmandanten-Betrieb.** Ein Server, ein Kunde.
