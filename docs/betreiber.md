@@ -100,7 +100,17 @@ cd /root/Humatrix
 - `--betreiber` ist optional, im Kundenbetrieb aber sinnvoll: Name und Erreichbarkeit
   stehen dann in der Kundenanleitung („Betreut von …", „Melde dich bei …") und in den
   Hinweisen des Einladungsdienstes. Ohne ihn steht dort nur „dein Betreuer" bzw.
-  „der Betreiber".
+  „der Betreiber" (bzw. englisch „your contact person" / „the operator").
+- `--language en|de` ist die Sprache der Installer-Ausgabe, der Webseiten (Einladungs-
+  und Verwaltungsseite) und der Kundenanleitung. Vorgabe `en` — für einen deutschen
+  Kunden also `--language de` angeben. Ein Wiederholungslauf behält die Sprache der
+  vorhandenen Installation; `--language` setzt sie neu. Der Kunde kann die Webseiten später in der
+  Verwaltung umschalten (Karte „Sprache / Language“); jede Einladung trägt außerdem ihre
+  eigene Sprache, gewählt beim Erzeugen, und eine Einladung ohne folgt dem Browser dessen,
+  der sie öffnet. Die Schalter selbst, die Abschnittsnamen für `--nur` und die
+  Hostnamen-Präfixe bleiben in beiden Sprachen gleich.
+- `--hinter-proxy` (gleichbedeutend `--behind-proxy`), wenn ein vorgelagerter
+  Reverse-Proxy die Ports 80 und 443 schon belegt — was sich dann ändert, steht im README.
 - `--sicherung` ist optional. Ohne sie sichert der Server lokal nach
   `/var/backups/messenger` (14 Tage) — besser als nichts, aber keine echte Sicherung.
   Mit ihr muss der **SSH-Schlüssel des Servers beim Ziel hinterlegt** sein: Der Installer
@@ -207,8 +217,8 @@ anderen anlegen (`chown root:matrix-synapse`, `chmod 640`), danach
 | Kunde hat sein Telefon verloren (2FA) | — | `python3 /opt/einladung/einladung.py --zweitfaktor-aus <name>` als root auf dem Server; der Benutzername reicht, die volle Kennung geht auch |
 | Kunde hat sein Passwort vergessen | — | über die Verwaltung zurücksetzen („Passwort neu" — mit Rückfrage; das neue Passwort erscheint **genau einmal**, sofort notieren und weitergeben). Betrifft es das Verwalterkonto selbst, als root über die Admin-Schnittstelle, siehe unten. `register_new_matrix_user` taugt dafür **nicht** — es legt nur neue Konten an und bricht bei vergebener Kennung ab |
 | Einzelnen Abschnitt wiederholen | — | `./install.sh --domain … --mail … --nur turn` |
-| Verwaltung zeigt „Noch nicht geprüft" | Timer läuft nicht oder die Prüfung scheitert | `systemctl status messenger-update-pruefen.timer`, dann `messenger-update-pruefen.sh` von Hand — der Fehler steht auf dem Bildschirm. Bestehender Server ohne diese Karte: den Installer **komplett** erneut laufen lassen (er ist wiederholbar) — so bekommt auch der Einladungsdienst die neue Fassung |
-| „Jetzt aktualisieren" tut nichts | Path-Unit nicht aktiv oder der Dienst darf nicht in den Auftragsordner | `systemctl status messenger-update.path`, `ls -ld /var/lib/messenger/auftraege` (gehört `einladung`, 750), `journalctl -u messenger-update -n 50` |
+| Verwaltung zeigt „Noch nicht geprüft" / „Not checked yet" | Timer läuft nicht oder die Prüfung scheitert | `systemctl status messenger-update-pruefen.timer`, dann `messenger-update-pruefen.sh` von Hand — der Fehler steht auf dem Bildschirm. Bestehender Server ohne diese Karte: den Installer **komplett** erneut laufen lassen (er ist wiederholbar) — so bekommt auch der Einladungsdienst die neue Fassung |
+| „Jetzt aktualisieren" / „Update now" tut nichts | Path-Unit nicht aktiv oder der Dienst darf nicht in den Auftragsordner | `systemctl status messenger-update.path`, `ls -ld /var/lib/messenger/auftraege` (gehört `einladung`, 750), `journalctl -u messenger-update -n 50` |
 | Eigene Firewall-Regeln (WireGuard, eingeschränktes SSH) | — | bleiben bei Wiederholungsläufen erhalten: `ufw` wird nur zurückgesetzt, solange es noch nicht aktiv ist; danach setzt die Härtung nur ihre eigenen Regeln und nimmt den SSH-Port aus der laufenden `sshd`-Konfiguration |
 
 **Passwort als root neu setzen** — für jedes Konto, auch das Verwalterkonto. Der bessere

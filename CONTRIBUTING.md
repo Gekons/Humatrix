@@ -20,8 +20,10 @@ open a ticket first; that saves you work that might not fit.
 
 So that contributions fit in:
 
-- **German.** Comments, variable names, interface, documentation. That is deliberate —
-  the project is aimed at people who don't want to read English manuals.
+- **German in the code.** Comments and identifiers stay German. User-facing texts live
+  in text tables in both languages (`TEXTE` in `einladung.py`, `T_de`/`T_en` in
+  `install.sh`, `VORLAGEN` in `kundenanleitung.py`); a new text needs a key in both, and
+  the tests check that. Documentation exists in English and German side by side.
 - **No third-party packages without good reason.** The invitation page gets by with
   what Python and Debian bring along. Every dependency is something somebody has to maintain.
 - **Comments explain the why, not the what.** That a line generates a token is obvious.

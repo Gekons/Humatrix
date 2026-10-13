@@ -160,7 +160,7 @@ Schlussprüfungen bestanden. Jeder Fehlschlag war ein echter Fehler:
 
 **1. Kein Weg für Server hinter einem vorhandenen Reverse-Proxy.**
 Das Skript holte Zertifikate über Port 80 am Server selbst. Wer zu Hause schon
-einen Proxy betreibt, kann das nicht. Behoben: neuer Schalter `--hinter-proxy`.
+einen Proxy betreibt, kann das nicht. Behoben: neuer Schalter `--hinter-proxy` (heute auch `--behind-proxy`).
 Dann liefert der Server Klartext auf Port 80, um TLS kümmert sich der Proxy.
 
 **2. Die Namensprüfung brach bei getrenntem internen und externen DNS ab.**
@@ -200,6 +200,8 @@ Zwei weitere Kleinigkeiten wurden mitbehoben: Die Hilfe nannte einen Abschnitt
 Pfad, der erst danach gesetzt wurde — die Zeile blieb leer.
 
 ### Endstand
+
+Ausgabe des Installers (dieser Lauf war deutsch; inzwischen gibt es `--language en|de`, Vorgabe Englisch):
 
 ```
 == Nachkontrolle

@@ -5,9 +5,13 @@ Ausgabe ist eine einzelne HTML-Datei ohne Fremdbestandteile - sie laesst sich
 weitergeben, oeffnen und im Browser als PDF sichern. Bewusst kein PDF-Erzeuger
 auf dem Server: der zieht rund hundert Pakete nach, die ein Messenger nicht braucht.
 
+Zwei Sprachen (--language en|de, Vorgabe en). Die Bildschirmfotos sind deutsch;
+die englische Fassung sagt das dazu.
+
 Aufruf (macht der Installer selbst):
   kundenanleitung.py --domain beispieldomain.de --verwalter anna --passwort '...' \
-                     --betreiber 'Vorname Nachname, hilfe@example.de' --ausgabe /root/anleitung.html
+                     --betreiber 'Vorname Nachname, hilfe@example.de' --language de \
+                     --ausgabe /root/anleitung.html
 """
 import argparse
 import base64
@@ -15,50 +19,56 @@ import html
 import os
 import time
 
-VORLAGE = """<!doctype html>
+STIL = """
+  @page { size: A4; margin: 18mm 16mm 16mm; }
+  :root { --ink:#15201c; --leise:#5d6b65; --linie:#d8ded9; --eigen:#0e6f5a;
+           --warn:#9c5a16; --flaeche:#f6f8f6; }
+  * { box-sizing: border-box; }
+  body { margin:0; color:var(--ink); background:#fff;
+          font:11.5pt/1.55 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  .blatt { max-width: 185mm; margin: 0 auto; padding: 16px; }
+  h1 { font-size:25pt; line-height:1.1; margin:0 0 6px; letter-spacing:-.01em; }
+  h2 { font-size:14pt; margin:26px 0 8px; padding-bottom:5px;
+        border-bottom:2px solid var(--eigen); color:var(--eigen); }
+  h3 { font-size:11.5pt; margin:16px 0 4px; }
+  p, li { margin:0 0 8px; }
+  ol.schritte { padding-left:0; list-style:none; counter-reset:s; }
+  ol.schritte > li { counter-increment:s; position:relative; padding-left:32px; margin-bottom:14px; }
+  ol.schritte > li::before { content:counter(s); position:absolute; left:0; top:1px;
+        width:22px; height:22px; border-radius:50%; background:var(--eigen); color:#fff;
+        font-size:10pt; font-weight:700; text-align:center; line-height:22px; }
+  .kasten { border:2px solid var(--eigen); border-radius:8px; padding:14px 16px; margin:14px 0;
+        background:var(--flaeche); break-inside:avoid; }
+  .kasten.warn { border-color:var(--warn); }
+  .kasten h3 { margin-top:0; color:var(--eigen); }
+  .kasten.warn h3 { color:var(--warn); }
+  table.zugang { width:100%; border-collapse:collapse; margin-top:6px; }
+  table.zugang td { padding:7px 0; border-bottom:1px solid var(--linie); vertical-align:top; }
+  table.zugang td:first-child { width:38%; color:var(--leise); }
+  .wert { font-family:"Consolas", ui-monospace, monospace; font-size:11pt;
+        font-weight:600; word-break:break-all; }
+  .leise { color:var(--leise); }
+  .klein { font-size:10pt; }
+  .deckel { border-bottom:3px solid var(--eigen); padding-bottom:14px; margin-bottom:8px; }
+  .fuss { margin-top:30px; padding-top:12px; border-top:1px solid var(--linie);
+        font-size:9.5pt; color:var(--leise); }
+  .neu { break-before:page; }
+  figure { margin:14px 0 18px; break-inside:avoid; }
+  figure img { width:100%; max-width:120mm; display:block; margin:0 auto;
+        border:1px solid var(--linie); border-radius:6px; }
+  figcaption { font-size:9.5pt; color:var(--leise); text-align:center; margin-top:6px; }
+  @media print { .blatt { padding:0; max-width:none; } a { color:inherit; text-decoration:none; } }
+"""
+
+# Die Vorlagen je Sprache. Platzhalter in geschweiften Klammern; der Stil kommt
+# als Wert hinein, damit seine Klammern nicht verdoppelt werden muessen.
+VORLAGEN = {}
+
+VORLAGEN['de'] = """<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Euer eigener Chat — {domain}</title>
-<style>
-  @page {{ size: A4; margin: 18mm 16mm 16mm; }}
-  :root {{ --ink:#15201c; --leise:#5d6b65; --linie:#d8ded9; --eigen:#0e6f5a;
-           --warn:#9c5a16; --flaeche:#f6f8f6; }}
-  * {{ box-sizing: border-box; }}
-  body {{ margin:0; color:var(--ink); background:#fff;
-          font:11.5pt/1.55 "Segoe UI", system-ui, -apple-system, sans-serif; }}
-  .blatt {{ max-width: 185mm; margin: 0 auto; padding: 16px; }}
-  h1 {{ font-size:25pt; line-height:1.1; margin:0 0 6px; letter-spacing:-.01em; }}
-  h2 {{ font-size:14pt; margin:26px 0 8px; padding-bottom:5px;
-        border-bottom:2px solid var(--eigen); color:var(--eigen); }}
-  h3 {{ font-size:11.5pt; margin:16px 0 4px; }}
-  p, li {{ margin:0 0 8px; }}
-  ol.schritte {{ padding-left:0; list-style:none; counter-reset:s; }}
-  ol.schritte > li {{ counter-increment:s; position:relative; padding-left:32px; margin-bottom:14px; }}
-  ol.schritte > li::before {{ content:counter(s); position:absolute; left:0; top:1px;
-        width:22px; height:22px; border-radius:50%; background:var(--eigen); color:#fff;
-        font-size:10pt; font-weight:700; text-align:center; line-height:22px; }}
-  .kasten {{ border:2px solid var(--eigen); border-radius:8px; padding:14px 16px; margin:14px 0;
-        background:var(--flaeche); break-inside:avoid; }}
-  .kasten.warn {{ border-color:var(--warn); }}
-  .kasten h3 {{ margin-top:0; color:var(--eigen); }}
-  .kasten.warn h3 {{ color:var(--warn); }}
-  table.zugang {{ width:100%; border-collapse:collapse; margin-top:6px; }}
-  table.zugang td {{ padding:7px 0; border-bottom:1px solid var(--linie); vertical-align:top; }}
-  table.zugang td:first-child {{ width:38%; color:var(--leise); }}
-  .wert {{ font-family:"Consolas", ui-monospace, monospace; font-size:11pt;
-        font-weight:600; word-break:break-all; }}
-  .leise {{ color:var(--leise); }}
-  .klein {{ font-size:10pt; }}
-  .deckel {{ border-bottom:3px solid var(--eigen); padding-bottom:14px; margin-bottom:8px; }}
-  .fuss {{ margin-top:30px; padding-top:12px; border-top:1px solid var(--linie);
-        font-size:9.5pt; color:var(--leise); }}
-  .neu {{ break-before:page; }}
-  figure {{ margin:14px 0 18px; break-inside:avoid; }}
-  figure img {{ width:100%; max-width:120mm; display:block; margin:0 auto;
-        border:1px solid var(--linie); border-radius:6px; }}
-  figcaption {{ font-size:9.5pt; color:var(--leise); text-align:center; margin-top:6px; }}
-  @media print {{ .blatt {{ padding:0; max-width:none; }} a {{ color:inherit; text-decoration:none; }} }}
-</style></head>
+<style>{stil}</style></head>
 <body><div class="blatt">
 
 <div class="deckel">
@@ -81,7 +91,7 @@ VORLAGE = """<!doctype html>
   <p class="klein leise" style="margin-top:10px;margin-bottom:0">
      Dieses Passwort ist nur für den Anfang. Ändere es bei der ersten Anmeldung.</p>
 </div>
-
+{bild_hinweis}
 <h2>1. Das Wichtigste in drei Sätzen</h2>
 <p>Ihr habt einen eigenen Chat-Server. Eure Nachrichten sind Ende-zu-Ende verschlüsselt —
    auf dem Server liegt nur Buchstabensalat. Wo die Grenzen liegen, steht in Abschnitt 7.</p>
@@ -174,6 +184,8 @@ VORLAGE = """<!doctype html>
   <tr><td>Konto sperren</td><td>Es kann sich dann nicht mehr anmelden. Rückgängig machbar;
       beim Entsperren gibt es ein neues Passwort.</td></tr>
   <tr><td>Verwalter ernennen</td><td>Wer das bekommt, darf alles, was du darfst.</td></tr>
+  <tr><td>Sprache umstellen</td><td>Deutsch oder Englisch — gilt sofort für alle Seiten.
+      Jede Einladung bekommt außerdem ihre eigene Sprache.</td></tr>
 </table>
 <p class="klein leise">Du kannst dich nicht selbst sperren und deine eigenen Rechte nicht
    entziehen — sonst wärst du aus deinem eigenen Server ausgesperrt.</p>
@@ -229,22 +241,242 @@ VORLAGE = """<!doctype html>
 </div></body></html>
 """
 
+VORLAGEN['en'] = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your own chat — {domain}</title>
+<style>{stil}</style></head>
+<body><div class="blatt">
+
+<div class="deckel">
+  <h1>Your own chat</h1>
+  <p class="leise">Encrypted, on your own server — <b>{domain}</b><br>
+     Set up on {datum}{betreiber_zeile}</p>
+</div>
+
+<div class="kasten">
+  <h3>Your access details</h3>
+  <table class="zugang">
+    <tr><td>Chat in the browser</td><td class="wert">{chat}</td></tr>
+    <tr><td>Invite people</td><td class="wert">{einladung}</td></tr>
+    <tr><td>Admin page (for you only)</td><td class="wert">{verwaltung}</td></tr>
+    <tr><td>Server for the app</td><td class="wert">{domain}</td></tr>
+    <tr><td>Your username</td><td class="wert">{verwalter}</td></tr>
+    <tr><td>Your user ID</td><td class="wert">@{verwalter}:{domain}</td></tr>
+    <tr><td>Initial password</td><td class="wert">{passwort}</td></tr>
+  </table>
+  <p class="klein leise" style="margin-top:10px;margin-bottom:0">
+     This password is only for the start. Change it when you first log in.</p>
+</div>
+{bild_hinweis}
+<h2>1. The essentials in three sentences</h2>
+<p>You have your own chat server. Your messages are end-to-end encrypted —
+   the server only holds scrambled text. Section 7 says where the limits are.</p>
+<p>Nobody can simply sign up. Whoever is meant to be in needs an <b>invitation</b>,
+   and you send it (or someone you allow to).</p>
+<p>You are connected to the worldwide Matrix network: your people can also write to
+   people on other servers.</p>
+
+<h2>2. First login</h2>
+<ol class="schritte">
+  <li><b>Open {chat} in the browser.</b><br>
+      <span class="leise">Username and the password from the box above. The browser
+      is fine for the initial setup; for everyday use the app is better (section 4).</span></li>
+  <li><b>Change your password right away.</b><br>
+      <span class="leise">In the settings under "Account". Pick something long —
+      a sentence beats a short jumble.</span></li>
+  <li><b>Set up the second factor.</b> See section 3 — please don't skip it.</li>
+</ol>
+
+<h2>3. Second factor for your admin account</h2>
+<p>Your account can create accounts, block them and change passwords. A single password
+   in front of that is not enough. The second factor takes two minutes.</p>
+<ol class="schritte">
+  <li>Install an authenticator app. Recommended: <b>Aegis</b> (Android) or
+      <b>Ente Auth</b> (both systems). Your phone's password app can usually do it too.</li>
+  <li>Open <span class="wert">{verwaltung}</span> and there <b>"Second factor"</b>.</li>
+  <li>Scan the QR code shown with the app.</li>
+  <li>Type in the six-digit code the app shows. Only then does it go live —
+      so you cannot lock yourself out while setting it up.</li>
+</ol>
+{bild_zweitfaktor}
+
+<div class="kasten warn">
+  <h3>If the phone gets lost</h3>
+  <p style="margin-bottom:0">Then you cannot get into the admin page without help.
+     Get in touch with {betreiber_kurz} — they can reset the second factor on the server.</p>
+</div>
+
+<h2 class="neu">4. The app on the phone</h2>
+<p>You don't need an app from us — you use a ready-made one from the stores.
+   That is deliberate: this way the person who built the app is not the one who runs the server.</p>
+<ol class="schritte">
+  <li><b>Install the app.</b> Recommended: <b>FluffyChat</b> — looks friendly and is the
+      easiest. If you prefer something faster, go for <b>Element X</b>
+      (the variant <i>with</i> the X).</li>
+  <li><b>Enter the server.</b> The app asks for it. This goes in:
+      <span class="wert">{domain}</span></li>
+  <li><b>Log in</b> with username and password.</li>
+  <li><b>Compare emoji.</b> When you add a second device, both show the same little pictures.
+      If they match, confirm. That is the check that nobody is sitting in the middle.</li>
+</ol>
+
+<h2>5. Inviting people</h2>
+<p>At <span class="wert">{einladung}</span> — <b>all</b> your people log in there,
+   not just you.</p>
+
+{bild_anmelden}
+<ol class="schritte">
+  <li>Log in with the usual chat account.</li>
+  <li><b>Choose where the person should go</b> — for example "Family" or "Sports club".
+      They then get an invitation into that room right away and are not left with an
+      empty app.</li>
+  <li>Press <b>"Create invitation"</b>.</li>
+  <li>Send the link — via WhatsApp, SMS, whatever you like. There is a button for it.</li>
+</ol>
+{bild_nutzer}
+{bild_erzeugt}
+
+<p>The invited person opens the link, installs the app and enters the code. Done.
+   An invitation is valid for <b>14 days</b> and works <b>exactly once</b>.
+   This is what it looks like on their end:</p>
+
+{bild_einladung}
+<div class="kasten">
+  <h3>Who may invite how many people?</h3>
+  <p>You decide that at <span class="wert">{verwaltung}</span>. For each person you can enter
+     any number — <b>0</b> means "may not invite anyone", and there is a tick box for
+     "unlimited". New accounts get a default, which you also set there.</p>
+  <p style="margin-bottom:0">There you also see <b>who brought in whom</b>. So it stays
+     traceable through whom someone joined.</p>
+</div>
+
+<h2 class="neu">6. Admin page — what else you can do there</h2>
+
+{bild_verwaltung}
+<table class="zugang">
+  <tr><td>Create account by hand</td><td>When someone cannot open a link. The password
+      is shown once — pass it on and have it changed.</td></tr>
+  <tr><td>Reset password</td><td>Logs out all devices of that account.</td></tr>
+  <tr><td>Block account</td><td>It can no longer log in. Reversible; on unblocking
+      there is a new password.</td></tr>
+  <tr><td>Appoint admin</td><td>Whoever gets this may do everything you may.</td></tr>
+  <tr><td>Switch language</td><td>English or German — applies immediately to all pages.
+      Each invitation also gets its own language.</td></tr>
+</table>
+<p class="klein leise">You cannot block yourself or remove your own rights —
+   otherwise you would be locked out of your own server.</p>
+
+<h2>7. What the operator can see — and what not</h2>
+<p>This should be out in the open, so you can pass it on to your people.</p>
+<table class="zugang">
+  <tr><td><b>Your messages</b></td><td><b>No.</b> The server only holds scrambled text.
+      The keys are exclusively on your devices.</td></tr>
+  <tr><td><b>Photos and files</b></td><td><b>No.</b> Also encrypted.</td></tr>
+  <tr><td>Who, when, with whom</td><td><b>Yes.</b> That a message went and between whom
+      is visible on the server — the content is not.</td></tr>
+  <tr><td>Disk usage, account names</td><td><b>Yes.</b> That is part of running it.</td></tr>
+  <tr><td>Restore history</td><td><b>No.</b> Without your keys that is not possible —
+      not for us either.</td></tr>
+  <tr><td>Set a new password</td><td><b>Yes.</b> That would allow taking over an account and
+      reading messages from then on — old messages stay locked, and all devices of the account
+      are logged out in the process, so you would notice.</td></tr>
+  <tr><td>Chat in the browser</td><td>The browser chat at {chat} is served by the operator
+      themselves and could be altered — there the encryption does not protect against them.
+      If you want to rule that out, use the app from the store (section 4).</td></tr>
+</table>
+
+<h2>8. Phone gone — what then?</h2>
+<p>Because nobody but you has the keys, nobody can bring the history back either.
+   So take two precautions <b>beforehand</b>:</p>
+<ol class="schritte">
+  <li><b>Log in a second device</b> — tablet or computer. That is the best backup,
+      because it works without you doing anything. If the phone gets lost, nothing is gone.</li>
+  <li><b>Turn on the key backup</b> when the app asks for it, and keep the
+      recovery key safe. Don't dismiss it — this one step decides whether the
+      history survives a change of device.</li>
+</ol>
+
+<h2>9. When something doesn't work</h2>
+<table class="zugang">
+  <tr><td>"Too many attempts"</td><td>The server slows down after a few failed attempts.
+      Wait a minute, then it works again. The password is usually right.</td></tr>
+  <tr><td>Code is not accepted</td><td>Is the time on the phone correct?
+      Turn on automatic time.</td></tr>
+  <tr><td>Red warning sign in the chat</td><td>Don't guess — it means an unverified
+      device. Ask the sender, or ask {betreiber_kurz}.</td></tr>
+  <tr><td>Call doesn't connect</td><td>Have both sides switch from Wi-Fi to mobile data
+      once. If it keeps happening, report it.</td></tr>
+  <tr><td>Everything else</td><td>{betreiber_kurz}</td></tr>
+</table>
+
+<div class="fuss">
+  Your own chat at {domain} · guide created on {datum}<br>
+  Please keep these pages — they contain your initial password.
+</div>
+
+</div></body></html>
+"""
+
+# Bildunterschriften und Kleintexte je Sprache. Die Bilder selbst sind deutsch.
+TEXTE = {
+  'de': {
+    'betreiber_zeile': '<br>Betreut von {betreiber}',
+    'betreiber_vorgabe': 'deinem Betreuer',
+    'bild_hinweis': '',
+    '01-anmelden.png': 'Die Einladungsseite — mit dem gewohnten Chat-Konto anmelden.',
+    '02-nutzer.png': 'Jeder sieht hier, wie viele Einladungen er noch hat.',
+    '03-erzeugt.png': 'Nach dem Knopfdruck: der fertige Link zum Verschicken.',
+    '04-einladung.png': 'Was der Eingeladene sieht — drei Schritte, mehr nicht.',
+    '05-verwaltung.png': 'Die Verwaltung. Oben die Vorgabe, darunter alle Konten — '
+                         'die beiden unteren sind hier zur Veranschaulichung gesperrt.',
+    '06-zweitfaktor.png': 'Den QR-Code mit der Authenticator-App scannen.',
+  },
+  'en': {
+    'betreiber_zeile': '<br>Looked after by {betreiber}',
+    'betreiber_vorgabe': 'your contact person',
+    'bild_hinweis': '<p class="klein leise">The screenshots in this guide show the German '
+                    'interface — the pages look the same in English, only the words differ.</p>',
+    '01-anmelden.png': 'The invitation page — log in with the usual chat account.',
+    '02-nutzer.png': 'Everyone sees here how many invitations they have left.',
+    '03-erzeugt.png': 'After the click: the finished link to send.',
+    '04-einladung.png': 'What the invited person sees — three steps, nothing more.',
+    '05-verwaltung.png': 'The admin page. The default at the top, all accounts below — '
+                         'the two at the bottom are blocked here for illustration.',
+    '06-zweitfaktor.png': 'Scan the QR code with the authenticator app.',
+  },
+}
+
+
+def heutiges_datum(sprache):
+    """13.10.2026 bzw. 5 October 2026 - englisch ohne fuehrende Null beim Tag."""
+    jetzt = time.localtime()
+    if sprache == 'de':
+        return time.strftime('%d.%m.%Y', jetzt)
+    # %-d waere nur eine glibc-Erweiterung, deshalb der Tag von Hand.
+    return f"{jetzt.tm_mday} {time.strftime('%B %Y', jetzt)}"
+
 
 def main():
-    a = argparse.ArgumentParser(description='Kundenanleitung erzeugen')
+    a = argparse.ArgumentParser(description='Kundenanleitung erzeugen / create customer guide')
     a.add_argument('--domain', required=True)
     a.add_argument('--verwalter', required=True)
     a.add_argument('--passwort', required=True)
     a.add_argument('--betreiber', default='')
     a.add_argument('--bilder', default='', help='Verzeichnis mit den Bildschirmfotos')
+    a.add_argument('--language', default='en', choices=('en', 'de'))
     a.add_argument('--ausgabe', required=True)
     w = a.parse_args()
 
     e = html.escape
+    sprache = w.language
+    texte = TEXTE[sprache]
     betreiber = w.betreiber.strip()
+    bilder_da = False
 
-    def bild(name, unterschrift):
+    def bild(name):
         """Als data:-URI einbetten, damit die Anleitung EINE Datei bleibt."""
+        nonlocal bilder_da
         if not w.bilder:
             return ''
         pfad = os.path.join(w.bilder, name)
@@ -252,31 +484,33 @@ def main():
             return ''
         with open(pfad, 'rb') as d:
             roh = base64.b64encode(d.read()).decode()
+        bilder_da = True
+        unterschrift = texte[name]
         return (f'<figure><img src="data:image/png;base64,{roh}" alt="{e(unterschrift)}">'
                 f'<figcaption>{e(unterschrift)}</figcaption></figure>')
-    inhalt = VORLAGE.format(
+
+    eingebettet = {
+        'bild_anmelden': bild('01-anmelden.png'),
+        'bild_nutzer': bild('02-nutzer.png'),
+        'bild_erzeugt': bild('03-erzeugt.png'),
+        'bild_einladung': bild('04-einladung.png'),
+        'bild_verwaltung': bild('05-verwaltung.png'),
+        'bild_zweitfaktor': bild('06-zweitfaktor.png'),
+    }
+    inhalt = VORLAGEN[sprache].format(
+        stil=STIL,
         domain=e(w.domain),
         verwalter=e(w.verwalter),
         passwort=e(w.passwort),
         chat=f'https://chat.{e(w.domain)}',
         einladung=f'https://einladung.{e(w.domain)}',
         verwaltung=f'https://verwaltung.{e(w.domain)}',
-        datum=time.strftime('%d.%m.%Y'),
-        betreiber_zeile=f'<br>Betreut von {e(betreiber)}' if betreiber else '',
-        betreiber_kurz=e(betreiber.split(',')[0]) if betreiber else 'deinem Betreuer',
-        bild_anmelden=bild('01-anmelden.png',
-                           'Die Einladungsseite — mit dem gewohnten Chat-Konto anmelden.'),
-        bild_nutzer=bild('02-nutzer.png',
-                         'Jeder sieht hier, wie viele Einladungen er noch hat.'),
-        bild_erzeugt=bild('03-erzeugt.png',
-                          'Nach dem Knopfdruck: der fertige Link zum Verschicken.'),
-        bild_einladung=bild('04-einladung.png',
-                            'Was der Eingeladene sieht — drei Schritte, mehr nicht.'),
-        bild_verwaltung=bild('05-verwaltung.png',
-                             'Die Verwaltung. Oben die Vorgabe, darunter alle Konten — '
-                             'die beiden unteren sind hier zur Veranschaulichung gesperrt.'),
-        bild_zweitfaktor=bild('06-zweitfaktor.png',
-                              'Den QR-Code mit der Authenticator-App scannen.'),
+        datum=heutiges_datum(sprache),
+        betreiber_zeile=texte['betreiber_zeile'].format(betreiber=e(betreiber)) if betreiber else '',
+        betreiber_kurz=e(betreiber.split(',')[0]) if betreiber else texte['betreiber_vorgabe'],
+        # Der Hinweis auf die deutschen Bildschirmfotos nur, wenn welche drin sind.
+        bild_hinweis=texte['bild_hinweis'] if bilder_da else '',
+        **eingebettet,
     )
     with open(w.ausgabe, 'w', encoding='utf-8') as d:
         d.write(inhalt)

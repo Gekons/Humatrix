@@ -48,7 +48,10 @@ SERVERNAME = os.environ.get('MESSENGER_SERVERNAME', 'beispieldomain.de')   # was
 ELEMENT    = os.environ.get('MESSENGER_ELEMENT',    'https://chat.beispieldomain.de')
 EIGENE_URL = os.environ.get('MESSENGER_EIGENE_URL', 'https://einladung.beispieldomain.de')
 # Wie der Betreiber in Hinweisen fuer Endnutzer genannt wird ("sag ... Bescheid").
-BETREIBER  = os.environ.get('MESSENGER_BETREIBER',  'dem Betreiber')
+# Leer heisst: die Vorgabe der jeweiligen Sprache (siehe betreiber()).
+BETREIBER  = os.environ.get('MESSENGER_BETREIBER',  '').strip()
+# Sprache der Seiten, solange der Verwalter keine gewaehlt hat: en oder de,
+# vom Installer per --language gesetzt (MESSENGER_LANGUAGE). Siehe Abschnitt Sprache.
 # Unter diesem Namen zeigt die Startseite direkt die Verwaltung statt der Nutzeransicht.
 VERWALTUNG_HOST = os.environ.get('MESSENGER_VERWALTUNG_HOST', '')
 PORT = 8082
@@ -142,6 +145,10 @@ def ablage_vorbereiten():
             # Vom Einladenden zurueckgezogen: Token bei Synapse geloescht, Kontingent
             # wieder frei, der Link sagt es dem Eingeladenen.
             v.execute('ALTER TABLE einladung ADD COLUMN zurueckgezogen_am INTEGER')
+        if 'sprache' not in spalten:
+            # Sprache der Einladungsseite ('de'/'en'), beim Erzeugen gewaehlt. NULL bei
+            # alten Einladungen: dann entscheidet der Browser des Eingeladenen.
+            v.execute('ALTER TABLE einladung ADD COLUMN sprache TEXT')
         spalten = {z[1] for z in v.execute('PRAGMA table_info(zweiter_faktor)')}
         if 'letzter_schritt' not in spalten:
             v.execute('ALTER TABLE zweiter_faktor ADD COLUMN letzter_schritt INTEGER')
@@ -185,9 +192,9 @@ def verbleibend(nutzer):
     return max(0, gesamt - verbraucht_von(nutzer))
 
 
-def menge(wert):
+def menge(wert, sprache):
     """Kontingente lesbar machen: -1 ist keine Zahl, die jemand verstehen will."""
-    return 'unbegrenzt' if wert < 0 else str(wert)
+    return t('unbegrenzt', sprache) if wert < 0 else str(wert)
 
 
 def verbraucht_von(nutzer):
@@ -305,7 +312,7 @@ def zf_uri(nutzer, geheimnis):
                                                   issuer_name=SERVERNAME)
 
 
-def qr_svg(text, kante=5):
+def qr_svg(text, kante=5, beschriftung='QR code'):
     """QR als eingebettetes SVG - kein Bild, keine fremde Seite, kein JavaScript."""
     q = qrcode.QRCode(border=2)
     q.add_data(text)
@@ -316,7 +323,7 @@ def qr_svg(text, kante=5):
         f'<rect x="{x * kante}" y="{y * kante}" width="{kante}" height="{kante}"/>'
         for y, zeile in enumerate(m) for x, an in enumerate(zeile) if an)
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {n * kante} {n * kante}" '
-            f'width="{n * kante}" height="{n * kante}" role="img" aria-label="QR-Code">'
+            f'width="{n * kante}" height="{n * kante}" role="img" aria-label="{html.escape(beschriftung)}">'
             f'<rect width="100%" height="100%" fill="#fff"/>'
             f'<g fill="#000">{felder}</g></svg>')
 
@@ -763,6 +770,616 @@ def sitzung_pruefen(keks):
         return (None, None)
 
 
+# ---------------------------------------------------------------- Sprache
+# Alle Nutzertexte stehen hier, je Sprache ein Woerterbuch mit denselben
+# Schluesseln. Das Journal (protokoll) bleibt deutsch - es liest nur der
+# Betreiber. Platzhalter sind str.format-Felder; wer einen Wert einsetzt, der
+# aus Formularen oder von Synapse kommt, maskiert ihn vorher mit html.escape,
+# denn die Texte landen ungeschuetzt im HTML (einige enthalten <b>).
+
+TEXTE = {
+  'de': {
+    # Allgemein
+    'titel_einladungen': 'Einladungen',
+    'titel_verwaltung': 'Verwaltung',
+    'nicht_gefunden': 'Nicht gefunden',
+    'kein_zugriff': 'Kein Zugriff',
+    'kein_zugriff_text': 'Diese Seite ist den Verwaltern des Servers vorbehalten.',
+    'zu_meinen_einladungen': 'Zu meinen Einladungen',
+    'zurueck': 'Zurück',
+    'abbrechen': 'Abbrechen',
+    'abmelden': 'Abmelden',
+    'qr': 'QR-Code',
+    'betreiber_vorgabe': 'dem Betreiber',
+    'unbegrenzt': 'unbegrenzt',
+    # Anmeldung
+    'anmelden_kopf': 'Jemanden einladen',
+    'anmelden_kopf_verwaltung': 'Serververwaltung',
+    'anmelden_unter': 'Melde dich mit deinem gewohnten Konto an — dasselbe wie im Chat.',
+    'anmelden_unter_verwaltung': 'Anmeldung für die Verwalter dieses Servers.',
+    'benutzername': 'Benutzername',
+    'passwort': 'Passwort',
+    'anmelden': 'Anmelden',
+    'anmeldung_falsch': 'Benutzername oder Passwort stimmt nicht.',
+    'anmeldung_gebremst': 'Zu viele Versuche kurz hintereinander. Bitte eine Minute warten '
+                          'und es dann nochmal probieren — dein Passwort ist vermutlich richtig.',
+    'anmeldung_weg': 'Der Chat-Server antwortet gerade nicht. Bitte später nochmal.',
+    # Code aus der App
+    'code_titel': 'Bestätigung',
+    'code_kopf': 'Code aus der App',
+    'code_unter': 'Dein Passwort stimmt. Jetzt noch die sechs Ziffern aus deiner Authenticator-App.',
+    'code_feld': 'Sechsstelliger Code',
+    'weiter': 'Weiter',
+    'code_zu_viele': 'Zu viele falsche Codes. Bitte eine Viertelstunde warten.',
+    'code_falsch': 'Der Code stimmt nicht. Stimmt die Uhrzeit auf deinem Telefon?',
+    # Zweiter Faktor
+    'zf_titel': 'Zweiter Faktor',
+    'zf_an_kopf': 'Zweiter Faktor ist an',
+    'zf_an_text': 'Beim Anmelden wirst du zusätzlich nach dem Code aus deiner App gefragt.',
+    'zf_an_leise': 'Zum Abschalten brauchst du einen gültigen Code — damit niemand das heimlich '
+                   'ausknipst, der kurz an deinem Rechner sitzt.',
+    'zf_code_bestaetigung': 'Code zur Bestätigung',
+    'zf_abschalten': 'Zweiten Faktor abschalten',
+    'zf_einrichten_kopf': 'Zweiten Faktor einrichten',
+    'zf_scannen': 'Scanne das Bild mit einer Authenticator-App — zum Beispiel <b>Aegis</b> (Android), '
+                  '<b>Ente Auth</b> oder der Passwort-App deines Telefons.',
+    'zf_von_hand': 'Geht das Scannen nicht, tippe diesen Schlüssel von Hand ein:',
+    'zf_bestaetigen_feld': 'Zur Bestätigung: der Code, den die App jetzt anzeigt',
+    'einschalten': 'Einschalten',
+    'zf_scharf': 'Erst wenn ein richtiger Code ankommt, wird der zweite Faktor scharf. '
+                 'Du kannst dich also nicht aussperren.',
+    'spaeter': 'Später',
+    'zf_ist_aus': 'Zweiter Faktor ist aus.',
+    'zf_ist_an': 'Zweiter Faktor ist an. Ab jetzt beim Anmelden nötig.',
+    # Uebersicht
+    'hallo': 'Hallo {name}',
+    'restlauf_heute': 'läuft heute ab',
+    'restlauf_ein_tag': 'noch 1 Tag',
+    'restlauf_tage': 'noch {tage} Tage',
+    'angenommen': 'angenommen',
+    'eingeloest': 'eingelöst',
+    'zuordnung_unklar': 'Zuordnung unklar',
+    'zurueckgezogen': 'zurückgezogen',
+    'abgelaufen': 'abgelaufen',
+    'offen': 'offen',
+    'einladung_zurueckziehen': 'Einladung zurückziehen',
+    'raumeinladung_fehlgeschlagen': 'Raumeinladung klappte nicht',
+    'deine_einladungen': 'Deine Einladungen',
+    'fertig_link': 'Fertig — diesen Link verschicken',
+    'fertig_link_text': 'Per WhatsApp, SMS oder wie du magst. Er gilt {tage} Tage '
+                        'und funktioniert genau einmal.',
+    'per_whatsapp': 'Per WhatsApp schicken',
+    'wohin': 'Wohin soll die Person?',
+    'nirgendwohin': '— erstmal nirgendwohin —',
+    'kein_raum': 'Du bist noch in keinem benannten Raum. Lege im Chat einen an, '
+                 'dann kannst du Leute gleich dorthin einladen.',
+    'sprache_der_einladung': 'Sprache der Einladung',
+    'sprache_automatisch': 'Automatisch (Sprache des Eingeladenen)',
+    'einladung_erzeugen': 'Einladung erzeugen',
+    'nicht_freigeschaltet': 'Für dich sind Einladungen nicht freigeschaltet. '
+                            'Sag {betreiber} Bescheid, wenn du jemanden holen möchtest.',
+    'keine_mehr': 'Du hast gerade keine Einladungen mehr übrig. '
+                  'Sag {betreiber} Bescheid, wenn du weitere brauchst.',
+    'du_kannst_einladen': 'Du kannst noch einladen',
+    'ohne_begrenzung': 'ohne Begrenzung',
+    'von_insgesamt': 'von {gesamt} insgesamt',
+    'verwalten_knopf': 'Nutzer und Kontingente verwalten',
+    # Verwaltung
+    'anzahl_einladungen': 'Anzahl Einladungen',
+    'neues_passwort_fuer': 'Neues Passwort für {wer}',
+    'einmal_sichtbar': 'Einmal sichtbar. Gib es weiter und lass es ändern.',
+    'verwalter': 'Verwalter',
+    'gesperrt': 'gesperrt',
+    'entsperren': 'Entsperren',
+    'passwort_neu': 'Passwort neu',
+    'verwalter_aus': 'Verwalter aus',
+    'verwalter_an': 'Verwalter an',
+    'sperren': 'Sperren',
+    'das_bist_du': 'das bist du',
+    'setzen': 'Setzen',
+    'verschickt_offen': '{benutzt} Einladungen verschickt · {offen} offen',
+    'unklar': 'unklar',
+    'geholt_von': 'geholt von {wer}',
+    'wer_hat_wen': 'Wer hat wen geholt',
+    'kein_zf_kopf': 'Dein Konto hat keinen zweiten Faktor',
+    'kein_zf_text': 'Diese Seite kann Konten anlegen, sperren und Passwörter ändern. '
+                    'Mit nur einem Passwort davor ist das dünn.',
+    'jetzt_einrichten': 'Jetzt einrichten',
+    'vorgabe_kopf': 'Vorgabe für neue Konten',
+    'vorgabe_text': 'So viele Einladungen bekommt, wer neu dazukommt. '
+                    '<b>0</b> bedeutet: darf niemanden einladen.',
+    'speichern': 'Speichern',
+    'sprache_kopf': 'Sprache / Language',
+    'sprache_text': 'Gilt für alle Seiten dieses Dienstes. Die Einladungsseite folgt der Sprache '
+                    'der Einladung, sonst der des Browsers.',
+    'sprache_gesetzt': 'Sprache: Deutsch.',
+    'sprache_ungueltig': 'Unbekannte Sprache.',
+    'anlegen_kopf': 'Konto von Hand anlegen',
+    'anlegen_text': 'Normalerweise nicht nötig — dafür gibt es Einladungen. '
+                    'Nützlich, wenn jemand keinen Link öffnen kann.',
+    'benutzername_klein': 'Benutzername (klein, ohne Leerzeichen)',
+    'anzeigename': 'Anzeigename (frei, z.B. „Oma Erna“)',
+    'anlegen': 'Anlegen',
+    'alle_konten': 'Alle Konten',
+    'meine_einladungen': 'Meine eigenen Einladungen',
+    # Rueckfragen
+    'pw_titel': 'Passwort',
+    'pw_wen_selbst': 'dein eigenes Passwort',
+    'pw_wen_anderer': 'das Passwort von {kurz}',
+    'pw_frage': 'Wirklich {wen} zurücksetzen?',
+    'pw_folge_selbst': '<b>Du wirst sofort überall abgemeldet</b> — auf dem Handy, im Browser, auch hier. '
+                       'Das neue Passwort siehst du <b>genau einmal</b>; notiere es, bevor du weiterklickst.',
+    'pw_folge_anderer': '<b>{kurz} wird auf allen Geräten abgemeldet</b> und braucht das neue Passwort '
+                        'von dir. Es wird <b>genau einmal</b> angezeigt.',
+    'pw_schluessel': 'Verschlüsselte Nachrichten bleiben lesbar, sobald das Konto auf einem Gerät '
+                     'wieder angemeldet und die Schlüsselsicherung eingegeben ist.',
+    'pw_ja': 'Ja, zurücksetzen',
+    'sperren_titel': 'Sperren',
+    'sperren_frage': '{kurz} wirklich sperren?',
+    'sperren_text': 'Das Konto kann sich danach nicht mehr anmelden und wird aus allen Räumen entfernt. '
+                    '<b>Der Chatverlauf der anderen bleibt erhalten.</b>',
+    'sperren_leise': 'Rückgängig machbar: Beim Entsperren vergibt der Server ein neues Passwort. '
+                     'Die alten Schlüssel sind dann aber weg — frühere verschlüsselte Nachrichten '
+                     'kann das Konto nicht mehr lesen.',
+    'sperren_ja': 'Ja, sperren',
+    # Aktualisierungen
+    'vor_unbekannt': 'unbekannt',
+    'gerade_eben': 'gerade eben',
+    'vor_minute': 'vor 1 Minute',
+    'vor_minuten': 'vor {n} Minuten',
+    'vor_stunde': 'vor 1 Stunde',
+    'vor_stunden': 'vor {n} Stunden',
+    'vor_tag': 'vor 1 Tag',
+    'vor_tagen': 'vor {n} Tagen',
+    'upd_kopf': 'Aktualisierungen',
+    'upd_laeuft': '<b>Aktualisierung läuft gerade</b> <span class="leise">(begonnen {wann}). '
+                  'Der Chat kann dabei kurz nicht erreichbar sein; lade diese Seite in ein paar '
+                  'Minuten neu.</span>',
+    'upd_erfolgreich': 'erfolgreich',
+    'upd_abgebrochen': 'abgebrochen <span class="leise">(nicht zu Ende gekommen, etwa durch einen '
+                       'Neustart - einfach erneut anstoßen)</span>',
+    'upd_mit_fehlern': 'mit Fehlern',
+    'protokoll': 'Protokoll',
+    'upd_letzte': 'Letzte Aktualisierung {wann}: ',
+    'upd_nicht_geprueft': 'Noch nicht geprüft.',
+    'upd_alt': 'Zuletzt geprüft {wann} — die tägliche Prüfung läuft offenbar nicht mehr. '
+               'Sag {betreiber} Bescheid.',
+    'upd_kein_befund': 'Die tägliche Prüfung hat noch kein Ergebnis abgelegt. Schau morgen wieder herein.',
+    'upd_befund_unlesbar': 'Befund unlesbar',
+    'upd_nicht_installiert': 'nicht installiert',
+    'upd_neueste_unbekannt': 'neueste Fassung gerade nicht ermittelbar',
+    'aktuell': 'aktuell',
+    'upd_neu': 'neu: {neu}',
+    'upd_synapse': 'Synapse (Chat-Server)',
+    'upd_element': 'Element (Chat im Browser)',
+    'upd_pakete': 'Systempakete',
+    'upd_alles_aktuell': 'alles aktuell',
+    'upd_ausstehend': '{n} ausstehend',
+    'upd_davon_sicherheit': ', davon {n} Sicherheit',
+    'upd_welche': 'Welche Pakete',
+    'upd_auftrag_liegt': 'Ein Auftrag liegt vor und wird gleich ausgeführt.',
+    'jetzt_aktualisieren': 'Jetzt aktualisieren',
+    'upd_nachgefragt': 'Vorher wird nachgefragt. Von allein wird nie etwas eingespielt.',
+    'upd_geprueft': 'Geprüft {wann}. Eingespielt wird nur auf Klick.',
+    'upd_sicher_titel': 'Aktualisieren',
+    'upd_sicher_frage': 'Jetzt wirklich aktualisieren?',
+    'upd_sicher_hintergrund': 'Das passiert dann im Hintergrund:',
+    'upd_punkt_paket_ein': '<b>1 Systempaket</b>{davon} wird eingespielt.',
+    'upd_punkt_pakete': '<b>{n} Systempakete</b>{davon} werden eingespielt.',
+    'upd_davon_ein': ' (davon 1 Sicherheitsupdate)',
+    'upd_davon_mehr': ' (davon {n} Sicherheitsupdates)',
+    'upd_punkt_synapse': '<b>Synapse</b> (der Chat-Server) wird auf {neu} gebracht und <b>startet neu</b> — '
+                         'der Chat ist dabei kurz nicht erreichbar. Apps verbinden sich danach '
+                         'von selbst wieder.',
+    'upd_punkt_element': '<b>Element</b> (Chat im Browser) wird auf {neu} gebracht — wer die Seite '
+                         'offen hat, lädt sie einmal neu.',
+    'upd_sicher_dauer': 'Das dauert einige Minuten. Das Ergebnis erscheint danach oben auf der '
+                        'Verwaltungsseite; bis dahin wird kein zweiter Auftrag angenommen.',
+    'upd_ja': 'Ja, jetzt aktualisieren',
+    'upd_schon_beauftragt': 'Eine Aktualisierung ist schon beauftragt oder läuft gerade. '
+                            'Das Ergebnis erscheint hier.',
+    'upd_nichts': 'Es liegt nichts an, das eingespielt werden müsste.',
+    'upd_auftrag_fehler': 'Der Auftrag ließ sich nicht ablegen. Sag {betreiber} Bescheid.',
+    'upd_angenommen': 'Auftrag angenommen. Die Aktualisierung läuft im Hintergrund und dauert '
+                      'einige Minuten; das Ergebnis erscheint hier oben.',
+    # Einladungsseite
+    'einladung_titel': 'Einladung',
+    'einl_zurueckgezogen': 'wurde zurückgezogen',
+    'einl_abgelaufen': 'ist abgelaufen',
+    'einl_benutzt': 'wurde schon benutzt',
+    'einl_ungueltig_kopf': 'Diese Einladung {grund}',
+    'einl_neue': 'Bitte frag {wer} nach einer neuen.',
+    'einl_kopf': '{wer} lädt dich ein',
+    'einl_unter': 'In einen Chat, bei dem kein Konzern mitliest. Drei Schritte.',
+    'einl_schritt1': 'App installieren',
+    'einl_schritt1_text': 'Suche im App Store oder bei Google Play nach <b>Element</b> — '
+                          'oder nutze unten einfach den Browser.',
+    'einl_schritt2': 'Server eintragen',
+    'einl_schritt2_text': 'Die App fragt danach:',
+    'einl_schritt3': 'Diesen Einladungscode eingeben',
+    'einl_browser': 'Lieber im Browser öffnen',
+    'einl_nicht_weiterleiten': 'Ohne diesen Code kommt niemand auf den Server — es gibt keine '
+                               'offene Anmeldung. Deshalb bitte nicht weiterleiten.',
+    'einl_gibt_es_nicht': 'Diese Einladung gibt es nicht',
+    'einl_abgeschnitten': 'Vielleicht ist der Link unterwegs abgeschnitten worden.',
+    # Meldungen aus den Vorgaengen
+    'nicht_geklappt': 'Das hat nicht geklappt',
+    'server_antwortet_nicht': 'Der Server antwortet gerade nicht. Bitte später nochmal — '
+                              'oder sag {betreiber} Bescheid.',
+    'raum_nicht_bestaetigt': 'Der gewählte Raum ließ sich gerade nicht bestätigen. '
+                             'Bitte die Seite neu laden und nochmal versuchen.',
+    'einl_gibt_es_nicht_kurz': 'Diese Einladung gibt es nicht.',
+    'einl_schon_benutzt': 'Diese Einladung ist schon benutzt oder zurückgezogen.',
+    'einl_zu_spaet': 'Zu spät — die Einladung wurde gerade eingelöst.',
+    'einl_zurueckgezogen_ok': 'Einladung zurückgezogen. Der Link funktioniert nicht mehr, '
+                              'dein Kontingent ist wieder frei.',
+    'zahl_oder_unbegrenzt': 'Bitte eine Zahl eintragen oder „unbegrenzt“ ankreuzen.',
+    'zahl_zwischen': 'Bitte eine Zahl zwischen 0 und {max}.',
+    'vorgabe_steht': 'Vorgabe steht auf {menge}.',
+    'unbekanntes_konto': 'Unbekanntes Konto.',
+    'kontingent_gesetzt': '{kurz}: {menge}.',
+    'name_regel': 'Benutzername: nur Kleinbuchstaben, Ziffern und . _ = -',
+    'name_vergeben': 'Diesen Benutzernamen gibt es schon: {name}.',
+    'konto_angelegt': 'Konto {name} angelegt.',
+    'pw_gesetzt': 'Neues Passwort für {kurz}. Alle Geräte wurden abgemeldet.',
+    'selbst_sperren': 'Dich selbst kannst du nicht sperren.',
+    'ist_gesperrt': '{kurz} ist gesperrt.',
+    'wieder_frei': '{kurz} ist wieder frei — mit neuem Passwort.',
+    'eigene_rechte': 'Deine eigenen Rechte kannst du hier nicht ändern.',
+    'unklare_anfrage': 'Unklare Anfrage. Bitte die Seite neu laden.',
+    'jetzt_verwalter': '{kurz} ist jetzt Verwalter.',
+    'kein_verwalter_mehr': '{kurz} ist kein Verwalter mehr.',
+    'server_abgelehnt': 'Der Server hat abgelehnt (HTTP {code}).',
+    'nochmal': 'Das hat nicht geklappt. Bitte nochmal.',
+    # Kommandozeile (Notausgang fuer den Betreiber)
+    'cli_kein_zf': '{nutzer}: kein zweiter Faktor hinterlegt.',
+    'cli_zf_entfernt': '{nutzer}: zweiter Faktor entfernt. Beim nächsten Anmelden reicht das Passwort.',
+    'cli_aufruf': 'Aufruf:\n'
+                  '  einladung.py                         Dienst starten\n'
+                  '  einladung.py --zweitfaktor-aus NAME  zweiten Faktor eines Kontos zurücksetzen',
+  },
+  'en': {
+    # Allgemein
+    'titel_einladungen': 'Invitations',
+    'titel_verwaltung': 'Admin',
+    'nicht_gefunden': 'Not found',
+    'kein_zugriff': 'No access',
+    'kein_zugriff_text': 'This page is reserved for the admins of this server.',
+    'zu_meinen_einladungen': 'To my invitations',
+    'zurueck': 'Back',
+    'abbrechen': 'Cancel',
+    'abmelden': 'Log out',
+    'qr': 'QR code',
+    'betreiber_vorgabe': 'the operator',
+    'unbegrenzt': 'unlimited',
+    # Anmeldung
+    'anmelden_kopf': 'Invite someone',
+    'anmelden_kopf_verwaltung': 'Server admin',
+    'anmelden_unter': 'Log in with your usual account — the same one as in the chat.',
+    'anmelden_unter_verwaltung': 'Login for the admins of this server.',
+    'benutzername': 'Username',
+    'passwort': 'Password',
+    'anmelden': 'Log in',
+    'anmeldung_falsch': 'Username or password is wrong.',
+    'anmeldung_gebremst': 'Too many attempts in a row. Please wait a minute and try again — '
+                          'your password is probably right.',
+    'anmeldung_weg': 'The chat server is not responding right now. Please try again later.',
+    # Code aus der App
+    'code_titel': 'Confirmation',
+    'code_kopf': 'Code from the app',
+    'code_unter': 'Your password is correct. Now the six digits from your authenticator app.',
+    'code_feld': 'Six-digit code',
+    'weiter': 'Continue',
+    'code_zu_viele': 'Too many wrong codes. Please wait fifteen minutes.',
+    'code_falsch': 'The code is wrong. Is the time on your phone correct?',
+    # Zweiter Faktor
+    'zf_titel': 'Second factor',
+    'zf_an_kopf': 'Second factor is on',
+    'zf_an_text': 'When logging in you will also be asked for the code from your app.',
+    'zf_an_leise': 'Switching it off needs a valid code — so nobody who briefly sits at your '
+                   'computer can quietly turn it off.',
+    'zf_code_bestaetigung': 'Code to confirm',
+    'zf_abschalten': 'Switch off second factor',
+    'zf_einrichten_kopf': 'Set up second factor',
+    'zf_scannen': 'Scan the image with an authenticator app — for example <b>Aegis</b> (Android), '
+                  "<b>Ente Auth</b> or your phone's password app.",
+    'zf_von_hand': "If scanning doesn't work, type this key in by hand:",
+    'zf_bestaetigen_feld': 'To confirm: the code the app shows right now',
+    'einschalten': 'Switch on',
+    'zf_scharf': 'The second factor only goes live once a correct code arrives. '
+                 'So you cannot lock yourself out.',
+    'spaeter': 'Later',
+    'zf_ist_aus': 'Second factor is off.',
+    'zf_ist_an': 'Second factor is on. Required at login from now on.',
+    # Uebersicht
+    'hallo': 'Hello {name}',
+    'restlauf_heute': 'expires today',
+    'restlauf_ein_tag': '1 day left',
+    'restlauf_tage': '{tage} days left',
+    'angenommen': 'accepted',
+    'eingeloest': 'redeemed',
+    'zuordnung_unklar': 'Assignment unclear',
+    'zurueckgezogen': 'revoked',
+    'abgelaufen': 'expired',
+    'offen': 'open',
+    'einladung_zurueckziehen': 'Revoke invitation',
+    'raumeinladung_fehlgeschlagen': 'Room invitation failed',
+    'deine_einladungen': 'Your invitations',
+    'fertig_link': 'Done — send this link',
+    'fertig_link_text': 'Via WhatsApp, SMS or however you like. It is valid for {tage} days '
+                        'and works exactly once.',
+    'per_whatsapp': 'Send via WhatsApp',
+    'wohin': 'Where should this person go?',
+    'nirgendwohin': '— nowhere for now —',
+    'kein_raum': 'You are not in any named room yet. Create one in the chat, '
+                 'then you can invite people straight into it.',
+    'sprache_der_einladung': 'Language of the invitation',
+    'sprache_automatisch': 'Automatic (the invitee\'s browser language)',
+    'einladung_erzeugen': 'Create invitation',
+    'nicht_freigeschaltet': 'Invitations are not enabled for you. '
+                            'Ask {betreiber} if you want to bring someone in.',
+    'keine_mehr': 'You have no invitations left right now. '
+                  'Ask {betreiber} if you need more.',
+    'du_kannst_einladen': 'You can still invite',
+    'ohne_begrenzung': 'no limit',
+    'von_insgesamt': 'of {gesamt} in total',
+    'verwalten_knopf': 'Manage users and quotas',
+    # Verwaltung
+    'anzahl_einladungen': 'Number of invitations',
+    'neues_passwort_fuer': 'New password for {wer}',
+    'einmal_sichtbar': 'Shown once. Pass it on and have it changed.',
+    'verwalter': 'Admin',
+    'gesperrt': 'blocked',
+    'entsperren': 'Unblock',
+    'passwort_neu': 'New password',
+    'verwalter_aus': 'Admin off',
+    'verwalter_an': 'Admin on',
+    'sperren': 'Block',
+    'das_bist_du': "that's you",
+    'setzen': 'Set',
+    'verschickt_offen': '{benutzt} invitations sent · {offen} open',
+    'unklar': 'unclear',
+    'geholt_von': 'brought in by {wer}',
+    'wer_hat_wen': 'Who brought in whom',
+    'kein_zf_kopf': 'Your account has no second factor',
+    'kein_zf_text': 'This page can create accounts, block them and change passwords. '
+                    'A single password in front of that is not enough.',
+    'jetzt_einrichten': 'Set it up now',
+    'vorgabe_kopf': 'Default for new accounts',
+    'vorgabe_text': 'This many invitations go to everyone who joins. '
+                    '<b>0</b> means: may not invite anyone.',
+    'speichern': 'Save',
+    'sprache_kopf': 'Sprache / Language',
+    'sprache_text': 'Applies to all pages of this service. The invitation page follows the language '
+                    "of the invitation, otherwise the browser's.",
+    'sprache_gesetzt': 'Language: English.',
+    'sprache_ungueltig': 'Unknown language.',
+    'anlegen_kopf': 'Create account by hand',
+    'anlegen_text': "Usually not needed — that's what invitations are for. "
+                    'Useful when someone cannot open a link.',
+    'benutzername_klein': 'Username (lowercase, no spaces)',
+    'anzeigename': 'Display name (free, e.g. "Grandma Erna")',
+    'anlegen': 'Create',
+    'alle_konten': 'All accounts',
+    'meine_einladungen': 'My own invitations',
+    # Rueckfragen
+    'pw_titel': 'Password',
+    'pw_wen_selbst': 'your own password',
+    'pw_wen_anderer': "{kurz}'s password",
+    'pw_frage': 'Really reset {wen}?',
+    'pw_folge_selbst': '<b>You will be logged out everywhere immediately</b> — on the phone, in the '
+                       'browser, here too. You will see the new password <b>exactly once</b>; '
+                       'write it down before you continue.',
+    'pw_folge_anderer': '<b>{kurz} will be logged out on all devices</b> and needs the new password '
+                        'from you. It is shown <b>exactly once</b>.',
+    'pw_schluessel': 'Encrypted messages stay readable once the account is logged in again on a '
+                     'device and the key backup has been entered.',
+    'pw_ja': 'Yes, reset',
+    'sperren_titel': 'Block',
+    'sperren_frage': 'Really block {kurz}?',
+    'sperren_text': 'The account can no longer log in afterwards and is removed from all rooms. '
+                    "<b>The other people's chat history is kept.</b>",
+    'sperren_leise': 'Reversible: on unblocking, the server issues a new password. The old keys '
+                     'are gone by then, though — the account can no longer read earlier '
+                     'encrypted messages.',
+    'sperren_ja': 'Yes, block',
+    # Aktualisierungen
+    'vor_unbekannt': 'unknown',
+    'gerade_eben': 'just now',
+    'vor_minute': '1 minute ago',
+    'vor_minuten': '{n} minutes ago',
+    'vor_stunde': '1 hour ago',
+    'vor_stunden': '{n} hours ago',
+    'vor_tag': '1 day ago',
+    'vor_tagen': '{n} days ago',
+    'upd_kopf': 'Updates',
+    'upd_laeuft': '<b>Update in progress</b> <span class="leise">(started {wann}). '
+                  'The chat may be briefly unreachable; reload this page in a few minutes.</span>',
+    'upd_erfolgreich': 'successful',
+    'upd_abgebrochen': 'aborted <span class="leise">(did not finish, e.g. because of a reboot — '
+                       'just trigger it again)</span>',
+    'upd_mit_fehlern': 'with errors',
+    'protokoll': 'Log',
+    'upd_letzte': 'Last update {wann}: ',
+    'upd_nicht_geprueft': 'Not checked yet.',
+    'upd_alt': "Last checked {wann} — the daily check apparently isn't running any more. "
+               'Tell {betreiber}.',
+    'upd_kein_befund': 'The daily check has not stored a result yet. Come back tomorrow.',
+    'upd_befund_unlesbar': 'result unreadable',
+    'upd_nicht_installiert': 'not installed',
+    'upd_neueste_unbekannt': 'latest version unknown right now',
+    'aktuell': 'up to date',
+    'upd_neu': 'new: {neu}',
+    'upd_synapse': 'Synapse (chat server)',
+    'upd_element': 'Element (chat in the browser)',
+    'upd_pakete': 'System packages',
+    'upd_alles_aktuell': 'all up to date',
+    'upd_ausstehend': '{n} pending',
+    'upd_davon_sicherheit': ', {n} of them security',
+    'upd_welche': 'Which packages',
+    'upd_auftrag_liegt': 'A job is queued and will run shortly.',
+    'jetzt_aktualisieren': 'Update now',
+    'upd_nachgefragt': 'You will be asked first. Nothing is ever installed on its own.',
+    'upd_geprueft': 'Checked {wann}. Installed only on a click.',
+    'upd_sicher_titel': 'Update',
+    'upd_sicher_frage': 'Really update now?',
+    'upd_sicher_hintergrund': 'This will then happen in the background:',
+    'upd_punkt_paket_ein': '<b>1 system package</b>{davon} will be installed.',
+    'upd_punkt_pakete': '<b>{n} system packages</b>{davon} will be installed.',
+    'upd_davon_ein': ' (1 of them a security update)',
+    'upd_davon_mehr': ' ({n} of them security updates)',
+    'upd_punkt_synapse': '<b>Synapse</b> (the chat server) will be updated to {neu} and <b>restarts</b> — '
+                         'the chat is briefly unreachable. Apps reconnect on their own afterwards.',
+    'upd_punkt_element': '<b>Element</b> (chat in the browser) will be updated to {neu} — anyone with '
+                         'the page open just needs to reload it once.',
+    'upd_sicher_dauer': 'This takes a few minutes. The result then appears at the top of the '
+                        'admin page; until then no second job is accepted.',
+    'upd_ja': 'Yes, update now',
+    'upd_schon_beauftragt': 'An update is already queued or running. The result will appear here.',
+    'upd_nichts': 'There is nothing that would need installing.',
+    'upd_auftrag_fehler': 'The job could not be stored. Tell {betreiber}.',
+    'upd_angenommen': 'Job accepted. The update runs in the background and takes a few minutes; '
+                      'the result appears up here.',
+    # Einladungsseite
+    'einladung_titel': 'Invitation',
+    'einl_zurueckgezogen': 'was revoked',
+    'einl_abgelaufen': 'has expired',
+    'einl_benutzt': 'has already been used',
+    'einl_ungueltig_kopf': 'This invitation {grund}',
+    'einl_neue': 'Please ask {wer} for a new one.',
+    'einl_kopf': '{wer} invites you',
+    'einl_unter': 'A chat where no big tech company is listening in. Three steps.',
+    'einl_schritt1': 'Install the app',
+    'einl_schritt1_text': 'Search the App Store or Google Play for <b>Element</b> — '
+                          'or simply use the browser below.',
+    'einl_schritt2': 'Enter the server',
+    'einl_schritt2_text': 'The app asks for it:',
+    'einl_schritt3': 'Enter this invitation code',
+    'einl_browser': 'Open in the browser instead',
+    'einl_nicht_weiterleiten': 'Without this code nobody gets onto the server — there is no open '
+                               'registration. So please do not forward it.',
+    'einl_gibt_es_nicht': 'This invitation does not exist',
+    'einl_abgeschnitten': 'Maybe the link got cut off on the way.',
+    # Meldungen aus den Vorgaengen
+    'nicht_geklappt': "That didn't work",
+    'server_antwortet_nicht': 'The server is not responding right now. Please try again later — '
+                              'or tell {betreiber}.',
+    'raum_nicht_bestaetigt': 'The chosen room could not be confirmed just now. '
+                             'Please reload the page and try again.',
+    'einl_gibt_es_nicht_kurz': 'This invitation does not exist.',
+    'einl_schon_benutzt': 'This invitation has already been used or revoked.',
+    'einl_zu_spaet': 'Too late — the invitation was just redeemed.',
+    'einl_zurueckgezogen_ok': 'Invitation revoked. The link no longer works, your quota is free again.',
+    'zahl_oder_unbegrenzt': 'Please enter a number or tick "unlimited".',
+    'zahl_zwischen': 'Please enter a number between 0 and {max}.',
+    'vorgabe_steht': 'Default is now {menge}.',
+    'unbekanntes_konto': 'Unknown account.',
+    'kontingent_gesetzt': '{kurz}: {menge}.',
+    'name_regel': 'Username: only lowercase letters, digits and . _ = -',
+    'name_vergeben': 'This username already exists: {name}.',
+    'konto_angelegt': 'Account {name} created.',
+    'pw_gesetzt': 'New password for {kurz}. All devices were logged out.',
+    'selbst_sperren': 'You cannot block yourself.',
+    'ist_gesperrt': '{kurz} is blocked.',
+    'wieder_frei': '{kurz} is unblocked — with a new password.',
+    'eigene_rechte': 'You cannot change your own rights here.',
+    'unklare_anfrage': 'Unclear request. Please reload the page.',
+    'jetzt_verwalter': '{kurz} is now an admin.',
+    'kein_verwalter_mehr': '{kurz} is no longer an admin.',
+    'server_abgelehnt': 'The server refused (HTTP {code}).',
+    'nochmal': "That didn't work. Please try again.",
+    # Kommandozeile (Notausgang fuer den Betreiber)
+    'cli_kein_zf': '{nutzer}: no second factor stored.',
+    'cli_zf_entfernt': '{nutzer}: second factor removed. The password alone is enough at the next login.',
+    'cli_aufruf': 'Usage:\n'
+                  '  einladung.py                         start the service\n'
+                  '  einladung.py --zweitfaktor-aus NAME  reset the second factor of an account',
+  },
+}
+
+SPRACHEN = ('en', 'de')
+
+
+def t(schluessel, sprache, **werte):
+    """Nutzertext in der gewuenschten Sprache; Platzhalter per str.format.
+
+    Ein fehlender Schluessel ist ein Programmierfehler und soll krachen,
+    nicht still eine leere Zeichenkette liefern - der Test prueft vorher,
+    dass beide Tabellen dieselben Schluessel haben.
+    """
+    text = TEXTE[sprache if sprache in TEXTE else 'en'][schluessel]
+    return text.format(**werte) if werte else text
+
+
+def sprache_normieren(wert, rueckfall=None):
+    """'de-DE' -> 'de', 'en_US' -> 'en', alles andere -> rueckfall."""
+    w = (wert or '').strip().lower()
+    for s in SPRACHEN:
+        if w == s or w.startswith(s + '-') or w.startswith(s + '_'):
+            return s
+    return rueckfall
+
+
+SPRACHE_VORGABE = sprache_normieren(os.environ.get('MESSENGER_LANGUAGE', ''), 'en')
+
+
+def server_sprache():
+    """Vom Verwalter gewaehlte Sprache; vorher die aus der Umgebung, sonst Englisch."""
+    with db() as v:
+        z = v.execute("SELECT wert FROM einstellung WHERE schluessel='sprache'").fetchone()
+    return sprache_normieren(z['wert'] if z else '', SPRACHE_VORGABE)
+
+
+def sprache_setzen(wert):
+    with db() as v:
+        v.execute("INSERT OR REPLACE INTO einstellung (schluessel, wert) VALUES ('sprache', ?)",
+                  (sprache_normieren(wert, 'en'),))
+
+
+def sprache_aus_header(accept_language):
+    """Die erste Sprache aus Accept-Language, die wir koennen - sonst None.
+
+    Nach Gewicht (q) sortiert, wie der Browser es meint: 'fr,en;q=0.5' ergibt
+    Englisch, 'de-DE,de;q=0.9' Deutsch, 'fr' nichts (dann gilt die Serversprache).
+    """
+    eintraege = []
+    for i, teil in enumerate((accept_language or '').split(',')):
+        teil = teil.strip()
+        if not teil:
+            continue
+        tag, _, rest = teil.partition(';')
+        q = 1.0
+        for p in rest.split(';'):
+            p = p.strip()
+            if p.startswith('q='):
+                try:
+                    q = float(p[2:])
+                except ValueError:
+                    q = 0.0
+        eintraege.append((-q, i, tag.strip()))
+    for _, _, tag in sorted(eintraege):
+        s = sprache_normieren(tag)
+        if s:
+            return s
+    return None
+
+
+def betreiber(sprache):
+    """Anrede des Betreibers in Hinweisen. Ohne --betreiber die Vorgabe der Sprache.
+
+    'dem Betreiber' schrieb der fruehere Installer als Vorgabe fest in die
+    Umgebung - das ist keine Angabe, sondern die alte deutsche Vorgabe.
+    """
+    if BETREIBER and BETREIBER != 'dem Betreiber':
+        return BETREIBER
+    return t('betreiber_vorgabe', sprache)
+
+
+def datum(zeitpunkt, sprache):
+    """Datum in der Schreibweise der Sprache: 13.10.2026 bzw. 2026-10-13."""
+    return time.strftime('%d.%m.%Y' if sprache == 'de' else '%Y-%m-%d', time.localtime(zeitpunkt))
+
+
 # ---------------------------------------------------------------- Seiten
 
 STIL = """
@@ -780,7 +1397,7 @@ p{margin:0}
 .karte{background:var(--flaeche);border:1px solid var(--linie);border-radius:14px;padding:20px}
 .gross{font-size:40px;font-weight:700;color:var(--eigen);line-height:1}
 label{display:block;font-size:14px;color:var(--leise);margin-bottom:5px}
-input{width:100%;padding:13px;font:inherit;border:1.5px solid var(--linie);
+input,select{width:100%;padding:13px;font:inherit;border:1.5px solid var(--linie);
       border-radius:9px;background:var(--grund);color:var(--schrift)}
 button,.knopf{display:block;width:100%;padding:15px;font:inherit;font-weight:600;
       border:0;border-radius:9px;background:var(--eigen);color:#fff;cursor:pointer;
@@ -812,6 +1429,7 @@ button.gefahrgross{background:var(--warn)}
 .vtab td{padding:14px 0}
 .reihe{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .reihe button{width:auto;margin:0;padding:7px 13px;font-size:14px}
+.sprachen .haken{font-size:15px;color:var(--schrift);margin-right:10px}
 .vtab td{vertical-align:middle}
 
 .marke{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--eigen);
@@ -820,76 +1438,73 @@ button.gefahrgross{background:var(--warn)}
 """
 
 
-def seite(titel, inhalt):
-    return f"""<!doctype html><html lang="de"><head><meta charset="utf-8">
+def seite(titel, inhalt, sprache):
+    return f"""<!doctype html><html lang="{sprache}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(titel)}</title><style>{STIL}</style></head>
 <body><div class="k">{inhalt}</div></body></html>""".encode()
 
 
-def seite_anmelden(fehler='', verwaltung=False):
+def seite_anmelden(sprache, fehler='', verwaltung=False):
     """Dieselbe Anmeldung, aber unter dem Verwaltungsnamen mit passender Aufschrift.
 
     Vorher stand auch dort "Jemanden einladen" - das verwirrt, weil die Seite
     unter verwaltung.<domain> gerade NICHT zum Einladen da ist.
     """
     hinweis = f'<p class="fehler">{html.escape(fehler)}</p>' if fehler else ''
-    titel = 'Verwaltung' if verwaltung else 'Einladungen'
-    kopf = 'Serververwaltung' if verwaltung else 'Jemanden einladen'
-    unter = ('Anmeldung für die Verwalter dieses Servers.' if verwaltung
-             else 'Melde dich mit deinem gewohnten Konto an — dasselbe wie im Chat.')
+    titel = t('titel_verwaltung' if verwaltung else 'titel_einladungen', sprache)
+    kopf = t('anmelden_kopf_verwaltung' if verwaltung else 'anmelden_kopf', sprache)
+    unter = t('anmelden_unter_verwaltung' if verwaltung else 'anmelden_unter', sprache)
     return seite(titel, f"""
       <h1>{kopf}</h1>
       <p class="leise">{unter}</p>
       {hinweis}
       <form method="post" action="/anmelden" class="karte">
-        <label for="b">Benutzername</label>
+        <label for="b">{t('benutzername', sprache)}</label>
         <input id="b" name="benutzer" autocomplete="username" autocapitalize="none" required>
         <div style="height:14px"></div>
-        <label for="p">Passwort</label>
+        <label for="p">{t('passwort', sprache)}</label>
         <input id="p" name="passwort" type="password" autocomplete="current-password" required>
-        <button type="submit">Anmelden</button>
-      </form>""")
+        <button type="submit">{t('anmelden', sprache)}</button>
+      </form>""", sprache)
 
 
-def seite_code(hinweis=''):
+def seite_code(sprache, hinweis=''):
     fehler = f'<p class="fehler">{html.escape(hinweis)}</p>' if hinweis else ''
-    return seite('Bestätigung', f"""
-      <h1>Code aus der App</h1>
-      <p class="leise">Dein Passwort stimmt. Jetzt noch die sechs Ziffern aus deiner
-         Authenticator-App.</p>
+    return seite(t('code_titel', sprache), f"""
+      <h1>{t('code_kopf', sprache)}</h1>
+      <p class="leise">{t('code_unter', sprache)}</p>
       {fehler}
       <form method="post" action="/code" class="karte">
-        <label for="c">Sechsstelliger Code</label>
+        <label for="c">{t('code_feld', sprache)}</label>
         <input id="c" name="code" inputmode="numeric" autocomplete="one-time-code"
                pattern="[0-9 ]{{6,9}}" required autofocus>
-        <button type="submit">Weiter</button>
+        <button type="submit">{t('weiter', sprache)}</button>
       </form>
-      <a class="knopf still" href="/abmelden">Abbrechen</a>""")
+      <a class="knopf still" href="/abmelden">{t('abbrechen', sprache)}</a>""", sprache)
 
 
-def seite_zweitfaktor(nutzer, hinweis='', fehler=''):
+def seite_zweitfaktor(nutzer, sprache, hinweis='', fehler=''):
     eingerichtet, aktiv = zf_stand(nutzer)
     meldung = f'<p class="fehler">{html.escape(fehler)}</p>' if fehler else ''
     if hinweis:
         meldung += f'<div class="karte" style="border-color:var(--eigen)"><p><b>{html.escape(hinweis)}</b></p></div>'
 
     if aktiv:
-        return seite('Zweiter Faktor', f"""
-          <h1>Zweiter Faktor ist an</h1>
+        return seite(t('zf_titel', sprache), f"""
+          <h1>{t('zf_an_kopf', sprache)}</h1>
           {meldung}
           <div class="karte">
-            <p>Beim Anmelden wirst du zusätzlich nach dem Code aus deiner App gefragt.</p>
-            <p class="leise" style="margin-top:12px">Zum Abschalten brauchst du einen gültigen
-               Code — damit niemand das heimlich ausknipst, der kurz an deinem Rechner sitzt.</p>
+            <p>{t('zf_an_text', sprache)}</p>
+            <p class="leise" style="margin-top:12px">{t('zf_an_leise', sprache)}</p>
             <form method="post" action="/zweitfaktor" style="margin-top:14px">
               <input type="hidden" name="tat" value="aus">
-              <label for="ca">Code zur Bestätigung</label>
+              <label for="ca">{t('zf_code_bestaetigung', sprache)}</label>
               <input id="ca" name="code" inputmode="numeric" pattern="[0-9 ]{{6,9}}" required>
-              <button type="submit" class="gefahrgross">Zweiten Faktor abschalten</button>
+              <button type="submit" class="gefahrgross">{t('zf_abschalten', sprache)}</button>
             </form>
           </div>
-          <a class="knopf still" href="/">Zurück</a>""")
+          <a class="knopf still" href="/">{t('zurueck', sprache)}</a>""", sprache)
 
     g = zf_geheimnis(nutzer) if eingerichtet else None
     if not g:
@@ -897,40 +1512,56 @@ def seite_zweitfaktor(nutzer, hinweis='', fehler=''):
     uri = zf_uri(nutzer, g)
     lesbar = ' '.join(g[i:i + 4] for i in range(0, len(g), 4))
 
-    return seite('Zweiter Faktor', f"""
-      <h1>Zweiten Faktor einrichten</h1>
+    return seite(t('zf_titel', sprache), f"""
+      <h1>{t('zf_einrichten_kopf', sprache)}</h1>
       {meldung}
       <div class="karte">
-        <p>Scanne das Bild mit einer Authenticator-App — zum Beispiel
-           <b>Aegis</b> (Android), <b>Ente Auth</b> oder der Passwort-App deines Telefons.</p>
-        <div style="text-align:center;margin:18px 0">{qr_svg(uri)}</div>
-        <p class="leise">Geht das Scannen nicht, tippe diesen Schlüssel von Hand ein:</p>
+        <p>{t('zf_scannen', sprache)}</p>
+        <div style="text-align:center;margin:18px 0">{qr_svg(uri, beschriftung=t('qr', sprache))}</div>
+        <p class="leise">{t('zf_von_hand', sprache)}</p>
         <div class="wert">{html.escape(lesbar)}</div>
       </div>
       <form method="post" action="/zweitfaktor" class="karte">
         <input type="hidden" name="tat" value="bestaetigen">
-        <label for="cb">Zur Bestätigung: der Code, den die App jetzt anzeigt</label>
+        <label for="cb">{t('zf_bestaetigen_feld', sprache)}</label>
         <input id="cb" name="code" inputmode="numeric" pattern="[0-9 ]{{6,9}}" required autofocus>
-        <button type="submit">Einschalten</button>
+        <button type="submit">{t('einschalten', sprache)}</button>
       </form>
-      <p class="leise">Erst wenn ein richtiger Code ankommt, wird der zweite Faktor scharf.
-         Du kannst dich also nicht aussperren.</p>
-      <a class="knopf still" href="/">Später</a>""")
+      <p class="leise">{t('zf_scharf', sprache)}</p>
+      <a class="knopf still" href="/">{t('spaeter', sprache)}</a>""", sprache)
 
 
-def restlaufzeit(sekunden):
+def restlaufzeit(sekunden, sprache):
     """'noch 3 Tage', 'noch 1 Tag' oder 'laeuft heute ab'.
 
     Vorher stand bei 20 Minuten Restzeit 'noch 1 Tage' - der Einladende
     verschickte den Link, und der Eingeladene sah 'abgelaufen'.
     """
     if sekunden < 86400:
-        return 'läuft heute ab'
+        return t('restlauf_heute', sprache)
     tage = int(sekunden // 86400)
-    return f'noch {tage} {"Tag" if tage == 1 else "Tage"}'
+    if tage == 1:
+        return t('restlauf_ein_tag', sprache)
+    return t('restlauf_tage', sprache, tage=tage)
 
 
-def seite_uebersicht(nutzer, neuer_link='', hinweis=''):
+def sprachwahl(name, gewaehlt, kennung, automatisch=''):
+    """Auswahlfeld fuer die Sprache - Namen der Sprachen stehen in ihrer eigenen Sprache.
+
+    Mit 'automatisch' gibt es eine erste Option ohne Wert: dann entscheidet der
+    Browser des Eingeladenen (Accept-Language), sonst die Serversprache. Das ist
+    die Vorgabe beim Erzeugen - die deutsche Familie laedt den englischen Freund
+    ein, ohne daran denken zu muessen.
+    """
+    namen = {'en': 'English', 'de': 'Deutsch'}
+    wahl = (f'<option value=""{" selected" if not gewaehlt else ""}>{automatisch}</option>'
+            if automatisch else '')
+    wahl += ''.join(f'<option value="{s}"{" selected" if s == gewaehlt else ""}>{namen[s]}</option>'
+                    for s in SPRACHEN)
+    return f'<select id="{kennung}" name="{name}" style="width:100%">{wahl}</select>'
+
+
+def seite_uebersicht(nutzer, sprache, neuer_link='', hinweis=''):
     gesamt = kontingent_von(nutzer)
     offen = verbleibend(nutzer)
     kurz = html.escape(nutzer.split(':')[0].lstrip('@'))
@@ -944,34 +1575,36 @@ def seite_uebersicht(nutzer, neuer_link='', hinweis=''):
     for e in liste:
         weg = ''                       # das x gibt es nur bei offenen Einladungen
         if e['eingeloest_von']:
-            zustand = (f'<span class="ok">angenommen</span><br>'
+            zustand = (f'<span class="ok">{t("angenommen", sprache)}</span><br>'
                        f'<span class="leise">{html.escape(e["eingeloest_von"])}</span>')
         elif e['eingeloest_am'] or e['benutzt_am']:
             # Token benutzt, aber kein Konto sicher zuzuordnen - nicht 'offen' anzeigen,
             # sonst wird der verbrauchte Link nochmal verschickt.
-            zustand = '<span class="ok">eingelöst</span><br><span class="leise">Zuordnung unklar</span>'
+            zustand = (f'<span class="ok">{t("eingeloest", sprache)}</span><br>'
+                       f'<span class="leise">{t("zuordnung_unklar", sprache)}</span>')
         elif e['zurueckgezogen_am']:
-            zustand = '<span class="leise">zurückgezogen</span>'
+            zustand = f'<span class="leise">{t("zurueckgezogen", sprache)}</span>'
         elif e['laeuft_ab'] < time.time():
-            zustand = '<span class="leise">abgelaufen</span>'
+            zustand = f'<span class="leise">{t("abgelaufen", sprache)}</span>'
         else:
-            zustand = f'offen<br><span class="leise">{restlaufzeit(e["laeuft_ab"] - time.time())}</span>'
+            zustand = (f'{t("offen", sprache)}<br><span class="leise">'
+                       f'{restlaufzeit(e["laeuft_ab"] - time.time(), sprache)}</span>')
             # Offen: darf zurueckgezogen werden - fuer die doppelt verschickte Einladung.
             # Ein eigenes x am rechten Rand, gross genug fuer den Daumen.
+            aufschrift = html.escape(t('einladung_zurueckziehen', sprache))
             weg = (f'<form method="post" action="/zurueckziehen" style="margin:0">'
                    f'<input type="hidden" name="code" value="{html.escape(e["code"])}">'
-                   f'<button type="submit" aria-label="Einladung zurückziehen" title="Einladung zurückziehen" '
+                   f'<button type="submit" aria-label="{aufschrift}" title="{aufschrift}" '
                    f'style="width:auto;padding:4px 10px;font-size:24px;line-height:1;background:transparent;'
                    f'color:var(--warn);border:0">✕</button></form>')
-        datum = time.strftime('%d.%m.%Y', time.localtime(e['erstellt']))
         ziel = (f'<br><span class="leise">→ {html.escape(e["raum_name"])}</span>'
                 if e['raum_name'] else '')
         if e['raum_fehler']:
-            ziel += ('<br><span class="leise" style="color:var(--warn)">'
-                     'Raumeinladung klappte nicht</span>')
-        zeilen += (f'<tr><td>{datum}{ziel}</td><td>{zustand}</td>'
+            ziel += (f'<br><span class="leise" style="color:var(--warn)">'
+                     f'{t("raumeinladung_fehlgeschlagen", sprache)}</span>')
+        zeilen += (f'<tr><td>{datum(e["erstellt"], sprache)}{ziel}</td><td>{zustand}</td>'
                    f'<td style="text-align:right;width:1%;vertical-align:middle">{weg}</td></tr>')
-    tabelle = (f'<div class="karte"><h2>Deine Einladungen</h2><table>{zeilen}</table></div>'
+    tabelle = (f'<div class="karte"><h2>{t("deine_einladungen", sprache)}</h2><table>{zeilen}</table></div>'
                if zeilen else '')
     meldung = (f'<div class="karte" style="border-color:var(--eigen)"><p>{html.escape(hinweis)}</p></div>'
                if hinweis else '')
@@ -980,11 +1613,10 @@ def seite_uebersicht(nutzer, neuer_link='', hinweis=''):
         link = html.escape(neuer_link)
         frisch = f"""
         <div class="karte">
-          <h2>Fertig — diesen Link verschicken</h2>
-          <p class="leise">Per WhatsApp, SMS oder wie du magst. Er gilt {GUELTIG_TAGE} Tage
-             und funktioniert genau einmal.</p>
+          <h2>{t('fertig_link', sprache)}</h2>
+          <p class="leise">{t('fertig_link_text', sprache, tage=GUELTIG_TAGE)}</p>
           <div class="wert">{link}</div>
-          <a class="knopf" href="https://wa.me/?text={urllib.parse.quote(neuer_link)}">Per WhatsApp schicken</a>
+          <a class="knopf" href="https://wa.me/?text={urllib.parse.quote(neuer_link)}">{t('per_whatsapp', sprache)}</a>
         </div>"""
     else:
         frisch = ''
@@ -995,55 +1627,58 @@ def seite_uebersicht(nutzer, neuer_link='', hinweis=''):
             wahl = ''.join(
                 f'<option value="{html.escape(r["id"])}">{html.escape(r["name"])}'
                 f' ({r["mitglieder"]})</option>' for r in raeume)
-            auswahl = (f'<label for="rm" style="margin-top:4px">Wohin soll die Person?</label>'
+            auswahl = (f'<label for="rm" style="margin-top:4px">{t("wohin", sprache)}</label>'
                        f'<select id="rm" name="raum" style="width:100%">{wahl}'
-                       f'<option value="">— erstmal nirgendwohin —</option></select>')
+                       f'<option value="">{t("nirgendwohin", sprache)}</option></select>')
         else:
-            auswahl = ('<p class="leise">Du bist noch in keinem benannten Raum. '
-                       'Lege im Chat einen an, dann kannst du Leute gleich dorthin einladen.</p>')
+            auswahl = f'<p class="leise">{t("kein_raum", sprache)}</p>'
+        # Die Sprache der Einladungsseite: Vorgabe "automatisch" (Browser des
+        # Eingeladenen, sonst Serversprache); wer es fest will, waehlt eine.
+        auswahl += (f'<label for="sl" style="margin-top:12px">{t("sprache_der_einladung", sprache)}</label>'
+                    + sprachwahl('sprache', None, 'sl', t('sprache_automatisch', sprache)))
         knopf = ('<form method="post" action="/erzeugen">' + auswahl +
-                 '<button type="submit">Einladung erzeugen</button></form>')
+                 f'<button type="submit">{t("einladung_erzeugen", sprache)}</button></form>')
     elif gesamt == 0:
-        knopf = ('<p class="leise">Für dich sind Einladungen nicht freigeschaltet. '
-                 'Frag den Betreiber, wenn du jemanden holen möchtest.</p>')
+        knopf = f'<p class="leise">{t("nicht_freigeschaltet", sprache, betreiber=html.escape(betreiber(sprache)))}</p>'
     else:
-        knopf = ('<p class="leise">Du hast gerade keine Einladungen mehr übrig. '
-                 'Frag den Betreiber, wenn du weitere brauchst.</p>')
+        knopf = f'<p class="leise">{t("keine_mehr", sprache, betreiber=html.escape(betreiber(sprache)))}</p>'
 
-    anzeige = 'unbegrenzt' if offen < 0 else str(offen)
-    darunter = ('ohne Begrenzung' if gesamt < 0 else f'von {gesamt} insgesamt')
-    verwaltung = ('<a class="knopf still" href="/verwaltung">Nutzer und Kontingente verwalten</a>'
+    anzeige = t('unbegrenzt', sprache) if offen < 0 else str(offen)
+    darunter = (t('ohne_begrenzung', sprache) if gesamt < 0
+                else t('von_insgesamt', sprache, gesamt=gesamt))
+    verwaltung = (f'<a class="knopf still" href="/verwaltung">{t("verwalten_knopf", sprache)}</a>'
                   if ist_verwalter(nutzer) else '')
 
-    return seite('Einladungen', f"""
-      <h1>Hallo {kurz}</h1>
+    return seite(t('titel_einladungen', sprache), f"""
+      <h1>{t('hallo', sprache, name=kurz)}</h1>
       {meldung}
       {frisch}
       <div class="karte">
-        <p class="leise">Du kannst noch einladen</p>
+        <p class="leise">{t('du_kannst_einladen', sprache)}</p>
         <p class="gross">{anzeige}</p>
         <p class="leise">{darunter}</p>
         {knopf}
       </div>
       {tabelle}
       {verwaltung}
-      <a class="knopf still" href="/abmelden">Abmelden</a>""")
+      <a class="knopf still" href="/abmelden">{t('abmelden', sprache)}</a>""", sprache)
 
 
 HOECHSTWERT = 10000      # keine Begrenzung im Sinne, aber auch kein Tippfehler mit acht Nullen
 
 
-def feld(jetzt, kennzeichen):
+def feld(jetzt, kennzeichen, sprache):
     """Freies Zahlenfeld plus Haken fuer unbegrenzt. 0 heisst: darf nicht einladen."""
     zahl = '' if jetzt < 0 else str(jetzt)
     haken = ' checked' if jetzt < 0 else ''
+    unbegrenzt = t('unbegrenzt', sprache)
     return (f'<input type="number" name="gesamt" min="0" max="{HOECHSTWERT}" '
-            f'value="{zahl}" placeholder="0" aria-label="Anzahl Einladungen" class="zahl">'
+            f'value="{zahl}" placeholder="0" aria-label="{t("anzahl_einladungen", sprache)}" class="zahl">'
             f'<label class="haken"><input type="checkbox" name="unbegrenzt" value="1"'
-            f'{haken} aria-label="unbegrenzt"> unbegrenzt</label>')
+            f'{haken} aria-label="{unbegrenzt}"> {unbegrenzt}</label>')
 
 
-def seite_verwaltung(nutzer, hinweis='', geheim=None):
+def seite_verwaltung(nutzer, sprache, hinweis='', geheim=None):
     """Die eine Seite fuer den Betreiber: Konten, Kontingente, Einladungsketten."""
     try:
         kette_nachfuehren()
@@ -1058,25 +1693,24 @@ def seite_verwaltung(nutzer, hinweis='', geheim=None):
         wer, pw = geheim
         meldung += f"""
         <div class="karte" style="border-color:var(--eigen)">
-          <h2>Neues Passwort für {html.escape(wer)}</h2>
-          <p class="leise">Einmal sichtbar. Gib es weiter und lass es ändern.</p>
+          <h2>{t('neues_passwort_fuer', sprache, wer=html.escape(wer))}</h2>
+          <p class="leise">{t('einmal_sichtbar', sprache)}</p>
           <div class="wert">{html.escape(pw)}</div>
         </div>"""
 
     zeilen = ''
     for u in alle_nutzer():
         k = u['kennung']
-        kurz = k.split(':')[0].lstrip('@')
         gesamt = kontingent_von(k)
         benutzt = verbraucht_von(k)
-        offen = 'unbegrenzt' if gesamt < 0 else str(max(0, gesamt - benutzt))
+        offen = t('unbegrenzt', sprache) if gesamt < 0 else str(max(0, gesamt - benutzt))
         ich = (k == nutzer)
 
         marken = ''
         if u['verwalter']:
-            marken += '<span class="marke">Verwalter</span>'
+            marken += f'<span class="marke">{t("verwalter", sprache)}</span>'
         if u['gesperrt']:
-            marken += '<span class="marke warnmarke">gesperrt</span>'
+            marken += f'<span class="marke warnmarke">{t("gesperrt", sprache)}</span>'
 
         def knopf(weg, text, zusatz='', richtung=''):
             versteckt = (f'<input type="hidden" name="richtung" value="{richtung}">'
@@ -1086,27 +1720,27 @@ def seite_verwaltung(nutzer, hinweis='', geheim=None):
                     f'<button type="submit" class="klein{zusatz}">{text}</button></form>')
 
         if u['gesperrt']:
-            taten = knopf('/entsperren', 'Entsperren')
+            taten = knopf('/entsperren', t('entsperren', sprache))
         else:
-            taten = knopf('/passwort', 'Passwort neu', ' gefahr')
+            taten = knopf('/passwort', t('passwort_neu', sprache), ' gefahr')
             if not ich:
-                taten += (knopf('/verwalter', 'Verwalter aus', richtung='nein') if u['verwalter']
-                          else knopf('/verwalter', 'Verwalter an', richtung='ja'))
-                taten += knopf('/sperren', 'Sperren', ' gefahr')
+                taten += (knopf('/verwalter', t('verwalter_aus', sprache), richtung='nein') if u['verwalter']
+                          else knopf('/verwalter', t('verwalter_an', sprache), richtung='ja'))
+                taten += knopf('/sperren', t('sperren', sprache), ' gefahr')
             else:
-                taten += '<span class="leise"> &nbsp;das bist du</span>'
+                taten += f'<span class="leise"> &nbsp;{t("das_bist_du", sprache)}</span>'
 
         kontingentteil = '' if u['gesperrt'] else f"""
             <form method="post" action="/kontingent" class="reihe">
               <input type="hidden" name="nutzer" value="{html.escape(k)}">
-              {feld(gesamt, k)}
-              <button type="submit">Setzen</button>
+              {feld(gesamt, k, sprache)}
+              <button type="submit">{t('setzen', sprache)}</button>
             </form>"""
 
         zeilen += f"""<tr><td colspan="2">
           <div><b>{html.escape(u['anzeige'])}</b>{marken}</div>
           <div class="leise mono">{html.escape(k)}</div>
-          <div class="leise">{benutzt} Einladungen verschickt · {offen} offen</div>
+          <div class="leise">{t('verschickt_offen', sprache, benutzt=benutzt, offen=offen)}</div>
           {kontingentteil}
           <div class="taten">{taten}</div>
         </td></tr>"""
@@ -1121,105 +1755,110 @@ def seite_verwaltung(nutzer, hinweis='', geheim=None):
     kzeilen = ''
     for e in kette:
         wer = (html.escape(e['eingeloest_von'].split(':')[0].lstrip('@')) if e['eingeloest_von']
-               else '<span style="color:var(--warn)">unklar</span>')
+               else f'<span style="color:var(--warn)">{t("unklar", sprache)}</span>')
+        einlader = html.escape(e['einlader'].split(':')[0].lstrip('@'))
         kzeilen += (f'<tr><td>{wer}</td>'
-                    f'<td>geholt von {html.escape(e["einlader"].split(":")[0].lstrip("@"))}<br>'
-                    f'<span class="leise">{time.strftime("%d.%m.%Y", time.localtime(e["wann"]))}'
-                    f'</span></td></tr>')
-    kettenteil = (f'<div class="karte"><h2>Wer hat wen geholt</h2>'
+                    f'<td>{t("geholt_von", sprache, wer=einlader)}<br>'
+                    f'<span class="leise">{datum(e["wann"], sprache)}</span></td></tr>')
+    kettenteil = (f'<div class="karte"><h2>{t("wer_hat_wen", sprache)}</h2>'
                   f'<table class="vtab kette">{kzeilen}</table></div>') if kzeilen else ''
 
     _, zf_an = zf_stand(nutzer)
     if not zf_an:
-        meldung += """
+        meldung += f"""
         <div class="karte" style="border-color:var(--warn)">
-          <h2 style="color:var(--warn)">Dein Konto hat keinen zweiten Faktor</h2>
-          <p class="leise">Diese Seite kann Konten anlegen, sperren und Passwörter ändern.
-             Mit nur einem Passwort davor ist das dünn.</p>
-          <a class="knopf" href="/zweitfaktor">Jetzt einrichten</a>
+          <h2 style="color:var(--warn)">{t('kein_zf_kopf', sprache)}</h2>
+          <p class="leise">{t('kein_zf_text', sprache)}</p>
+          <a class="knopf" href="/zweitfaktor">{t('jetzt_einrichten', sprache)}</a>
         </div>"""
 
-    return seite('Verwaltung', f"""
-      <h1>Verwaltung</h1>
+    sprachknoepfe = ''.join(
+        f'<label class="haken"><input type="radio" name="sprache" value="{s}"'
+        f'{" checked" if s == sprache else ""}> {name}</label>'
+        for s, name in (('en', 'English'), ('de', 'Deutsch')))
+
+    return seite(t('titel_verwaltung', sprache), f"""
+      <h1>{t('titel_verwaltung', sprache)}</h1>
       {meldung}
-      {karte_updates()}
+      {karte_updates(sprache)}
       <div class="karte">
-        <h2>Vorgabe für neue Konten</h2>
-        <p class="leise">So viele Einladungen bekommt, wer neu dazukommt.
-           <b>0</b> bedeutet: darf niemanden einladen.</p>
+        <h2>{t('vorgabe_kopf', sprache)}</h2>
+        <p class="leise">{t('vorgabe_text', sprache)}</p>
         <form method="post" action="/standard" class="reihe" style="margin-top:10px">
-          {feld(vorgabe, 'standard')}
-          <button type="submit">Speichern</button>
+          {feld(vorgabe, 'standard', sprache)}
+          <button type="submit">{t('speichern', sprache)}</button>
         </form>
       </div>
 
       <div class="karte">
-        <h2>Konto von Hand anlegen</h2>
-        <p class="leise">Normalerweise nicht nötig — dafür gibt es Einladungen.
-           Nützlich, wenn jemand keinen Link öffnen kann.</p>
+        <h2>{t('sprache_kopf', sprache)}</h2>
+        <p class="leise">{t('sprache_text', sprache)}</p>
+        <form method="post" action="/sprache" class="reihe sprachen" style="margin-top:10px">
+          {sprachknoepfe}
+          <button type="submit">{t('speichern', sprache)}</button>
+        </form>
+      </div>
+
+      <div class="karte">
+        <h2>{t('anlegen_kopf', sprache)}</h2>
+        <p class="leise">{t('anlegen_text', sprache)}</p>
         <form method="post" action="/anlegen">
-          <label for="bn">Benutzername (klein, ohne Leerzeichen)</label>
+          <label for="bn">{t('benutzername_klein', sprache)}</label>
           <input id="bn" name="name" pattern="[a-z0-9._=-]{{1,60}}" required autocapitalize="none">
           <div style="height:12px"></div>
-          <label for="az">Anzeigename (frei, z.B. „Oma Erna“)</label>
+          <label for="az">{t('anzeigename', sprache)}</label>
           <input id="az" name="anzeige">
-          <button type="submit">Anlegen</button>
+          <button type="submit">{t('anlegen', sprache)}</button>
         </form>
       </div>
 
       <div class="karte">
-        <h2>Alle Konten</h2>
+        <h2>{t('alle_konten', sprache)}</h2>
         <table class="vtab">{zeilen}</table>
       </div>
       {kettenteil}
-      <a class="knopf still" href="/zweitfaktor">Zweiter Faktor</a>
-      <a class="knopf still" href="/eigene">Meine eigenen Einladungen</a>
-      <a class="knopf still" href="/abmelden">Abmelden</a>""")
+      <a class="knopf still" href="/zweitfaktor">{t('zf_titel', sprache)}</a>
+      <a class="knopf still" href="/eigene">{t('meine_einladungen', sprache)}</a>
+      <a class="knopf still" href="/abmelden">{t('abmelden', sprache)}</a>""", sprache)
 
 
-def seite_passwort_sicher(kennung, selbst):
+def seite_passwort_sicher(kennung, selbst, sprache):
     """Rueckfrage vor dem Zuruecksetzen - das neue Passwort erscheint nur einmal.
 
     Ohne diese Seite reichte ein Fehlklick: Der Verwalter setzte sich selbst ein
     Passwort, klickte die Anzeige weg und stand ausgesperrt da.
     """
     kurz = html.escape(kennung.split(':')[0].lstrip('@'))
-    wen = 'dein eigenes Passwort' if selbst else f'das Passwort von {kurz}'
-    folge = ('<b>Du wirst sofort überall abgemeldet</b> \u2014 auf dem Handy, im Browser, auch hier. '
-             'Das neue Passwort siehst du <b>genau einmal</b>; notiere es, bevor du weiterklickst.'
-             if selbst else
-             f'<b>{kurz} wird auf allen Geräten abgemeldet</b> und braucht das neue Passwort von dir. '
-             'Es wird <b>genau einmal</b> angezeigt.')
-    return seite('Passwort', f"""
-      <h1>Wirklich {wen} zurücksetzen?</h1>
+    wen = (t('pw_wen_selbst', sprache) if selbst
+           else t('pw_wen_anderer', sprache, kurz=kurz))
+    folge = (t('pw_folge_selbst', sprache) if selbst
+             else t('pw_folge_anderer', sprache, kurz=kurz))
+    return seite(t('pw_titel', sprache), f"""
+      <h1>{t('pw_frage', sprache, wen=wen)}</h1>
       <div class="karte">
         <p>{folge}</p>
-        <p class="leise" style="margin-top:10px">Verschlüsselte Nachrichten bleiben lesbar, sobald
-           das Konto auf einem Gerät wieder angemeldet und die Schlüsselsicherung eingegeben ist.</p>
+        <p class="leise" style="margin-top:10px">{t('pw_schluessel', sprache)}</p>
         <form method="post" action="/passwort-ja">
           <input type="hidden" name="nutzer" value="{html.escape(kennung)}">
-          <button type="submit" class="gefahrgross">Ja, zurücksetzen</button>
+          <button type="submit" class="gefahrgross">{t('pw_ja', sprache)}</button>
         </form>
-        <a class="knopf still" href="/verwaltung">Abbrechen</a>
-      </div>""")
+        <a class="knopf still" href="/verwaltung">{t('abbrechen', sprache)}</a>
+      </div>""", sprache)
 
 
-def seite_sperren_sicher(kennung):
+def seite_sperren_sicher(kennung, sprache):
     kurz = html.escape(kennung.split(':')[0].lstrip('@'))
-    return seite('Sperren', f"""
-      <h1>{kurz} wirklich sperren?</h1>
+    return seite(t('sperren_titel', sprache), f"""
+      <h1>{t('sperren_frage', sprache, kurz=kurz)}</h1>
       <div class="karte">
-        <p>Das Konto kann sich danach nicht mehr anmelden und wird aus allen Räumen entfernt.
-           <b>Der Chatverlauf der anderen bleibt erhalten.</b></p>
-        <p class="leise" style="margin-top:10px">Rückgängig machbar: Beim Entsperren
-           vergibt der Server ein neues Passwort. Die alten Schlüssel sind dann aber weg —
-           frühere verschlüsselte Nachrichten kann das Konto nicht mehr lesen.</p>
+        <p>{t('sperren_text', sprache)}</p>
+        <p class="leise" style="margin-top:10px">{t('sperren_leise', sprache)}</p>
         <form method="post" action="/sperren-ja">
           <input type="hidden" name="nutzer" value="{html.escape(kennung)}">
-          <button type="submit" class="gefahrgross">Ja, sperren</button>
+          <button type="submit" class="gefahrgross">{t('sperren_ja', sprache)}</button>
         </form>
-        <a class="knopf still" href="/">Abbrechen</a>
-      </div>""")
+        <a class="knopf still" href="/">{t('abbrechen', sprache)}</a>
+      </div>""", sprache)
 
 
 # ---------------------------------------------------------------- Aktualisierungen
@@ -1283,22 +1922,22 @@ def updates_ausstehend(daten):
     return False
 
 
-def vor_zeit(zeitpunkt):
+def vor_zeit(zeitpunkt, sprache):
     """'gerade eben', 'vor 5 Minuten', 'vor 3 Stunden', 'vor 2 Tagen'."""
     try:
         s = int(time.time() - int(zeitpunkt))
     except (TypeError, ValueError):
-        return 'unbekannt'
+        return t('vor_unbekannt', sprache)
     if s < 90:
-        return 'gerade eben'
+        return t('gerade_eben', sprache)
     if s < 3600:
         m = s // 60
-        return f'vor {m} Minute{"" if m == 1 else "n"}'
+        return t('vor_minute', sprache) if m == 1 else t('vor_minuten', sprache, n=m)
     if s < 86400:
         h = s // 3600
-        return f'vor {h} Stunde{"" if h == 1 else "n"}'
-    t = s // 86400
-    return f'vor {t} Tag{"" if t == 1 else "en"}'
+        return t('vor_stunde', sprache) if h == 1 else t('vor_stunden', sprache, n=h)
+    d = s // 86400
+    return t('vor_tag', sprache) if d == 1 else t('vor_tagen', sprache, n=d)
 
 
 def auftrag_liegt_vor():
@@ -1362,7 +2001,7 @@ def auftrag_schreiben():
         return False
 
 
-def karte_updates():
+def karte_updates(sprache):
     """Die Karte 'Aktualisierungen' oben auf der Verwaltungsseite."""
     daten, frisch = updates_stand()
     lauf, laeuft = lauf_stand(daten)
@@ -1370,39 +2009,38 @@ def karte_updates():
     # Ergebnis des letzten Einspielens - auch dann, wenn der Befund selbst alt ist.
     lauf_teil = ''
     if laeuft:
-        lauf_teil = (f'<p style="margin-top:12px"><b>Aktualisierung läuft gerade</b> '
-                     f'<span class="leise">(begonnen {vor_zeit(lauf.get("begonnen"))}). Der Chat '
-                     f'kann dabei kurz nicht erreichbar sein; lade diese Seite in ein paar Minuten '
-                     f'neu.</span></p>')
+        lauf_teil = (f'<p style="margin-top:12px">'
+                     f'{t("upd_laeuft", sprache, wann=vor_zeit(lauf.get("begonnen"), sprache))}</p>')
     elif lauf.get('status'):
         gut = lauf.get('status') == 'ok'
         farbe = 'var(--eigen)' if gut else 'var(--warn)'
         grund = html.escape(str(lauf.get('fehlgeschlagen') or ''))
         if gut:
-            text = 'erfolgreich'
+            text = t('upd_erfolgreich', sprache)
         elif lauf.get('status') == 'abgebrochen':
-            text = (f'abgebrochen <span class="leise">(nicht zu Ende gekommen, etwa durch einen '
-                    f'Neustart - einfach erneut anstoßen)</span>')
+            text = t('upd_abgebrochen', sprache)
         else:
-            text = f'mit Fehlern{(" (" + grund + ")") if grund else ""}'
+            text = t('upd_mit_fehlern', sprache) + ((' (' + grund + ')') if grund else '')
         zeilen = lauf.get('protokoll') or []
         proto = ''
         if isinstance(zeilen, list) and zeilen:
-            proto = ('<details style="margin-top:6px"><summary class="leise">Protokoll</summary>'
+            proto = (f'<details style="margin-top:6px"><summary class="leise">{t("protokoll", sprache)}</summary>'
                      '<pre class="mono" style="white-space:pre-wrap;margin:6px 0 0">'
                      + html.escape('\n'.join(str(z) for z in zeilen[-40:])) + '</pre></details>')
         # Ein abgebrochener Lauf hat kein Ende - dann zaehlt sein Beginn.
-        wann = vor_zeit(lauf.get('beendet') if lauf.get('beendet') is not None else lauf.get('begonnen'))
-        lauf_teil = (f'<p style="margin-top:12px">Letzte Aktualisierung '
-                     f'{wann}: <b style="color:{farbe}">{text}</b></p>{proto}')
+        wann = vor_zeit(lauf.get('beendet') if lauf.get('beendet') is not None else lauf.get('begonnen'),
+                        sprache)
+        lauf_teil = (f'<p style="margin-top:12px">{t("upd_letzte", sprache, wann=wann)}'
+                     f'<b style="color:{farbe}">{text}</b></p>{proto}')
 
     if not daten or not frisch:
         if daten:
-            hinweis = (f'Zuletzt geprüft {vor_zeit(daten.get("geprueft"))} — die tägliche Prüfung '
-                       f'läuft offenbar nicht mehr. Sag {html.escape(BETREIBER)} Bescheid.')
+            hinweis = t('upd_alt', sprache, wann=vor_zeit(daten.get('geprueft'), sprache),
+                        betreiber=html.escape(betreiber(sprache)))
         else:
-            hinweis = 'Die tägliche Prüfung hat noch kein Ergebnis abgelegt. Schau morgen wieder herein.'
-        return (f'<div class="karte"><h2>Aktualisierungen</h2><p><b>Noch nicht geprüft.</b></p>'
+            hinweis = t('upd_kein_befund', sprache)
+        return (f'<div class="karte"><h2>{t("upd_kopf", sprache)}</h2>'
+                f'<p><b>{t("upd_nicht_geprueft", sprache)}</b></p>'
                 f'<p class="leise">{hinweis}</p>{lauf_teil}</div>')
 
     # Kaputte Teile (kein Objekt, keine Liste) blockieren die Seite nicht: sie
@@ -1413,59 +2051,57 @@ def karte_updates():
 
     def zeile(was, teil):
         if not isinstance(teil, dict):
-            return (f'<tr><td>{was}</td><td class="leise">unbekannt</td>'
-                    f'<td style="text-align:right"><span class="leise">Befund unlesbar</span></td></tr>')
+            return (f'<tr><td>{was}</td><td class="leise">{t("vor_unbekannt", sprache)}</td>'
+                    f'<td style="text-align:right"><span class="leise">{t("upd_befund_unlesbar", sprache)}</span></td></tr>')
         ist, neu = teil.get('ist'), teil.get('neu')
         ist_html = (html.escape(str(ist)) if ist
-                    else '<span class="leise">nicht installiert</span>')
+                    else f'<span class="leise">{t("upd_nicht_installiert", sprache)}</span>')
         if not neu or neu == 'unbekannt':
-            stand = '<span class="leise">neueste Fassung gerade nicht ermittelbar</span>'
+            stand = f'<span class="leise">{t("upd_neueste_unbekannt", sprache)}</span>'
         elif neu == ist:
-            stand = '<span class="ok">aktuell</span>'
+            stand = f'<span class="ok">{t("aktuell", sprache)}</span>'
         else:
-            stand = f'<span style="color:var(--warn)">neu: {html.escape(str(neu))}</span>'
+            stand = (f'<span style="color:var(--warn)">'
+                     f'{t("upd_neu", sprache, neu=html.escape(str(neu)))}</span>')
         return (f'<tr><td>{was}</td><td class="mono" style="font-size:14px">{ist_html}</td>'
                 f'<td style="text-align:right">{stand}</td></tr>')
 
     gesamt = zahl(objekt(pakete).get('gesamt'))
     sicher = zahl(objekt(pakete).get('sicherheit'))
     if not isinstance(pakete, dict):
-        p_stand = '<span class="leise">unbekannt</span>'
+        p_stand = f'<span class="leise">{t("vor_unbekannt", sprache)}</span>'
     elif gesamt == 0:
-        p_stand = '<span class="ok">alles aktuell</span>'
+        p_stand = f'<span class="ok">{t("upd_alles_aktuell", sprache)}</span>'
     else:
-        p_stand = (f'<span style="color:var(--warn)">{gesamt} ausstehend'
-                   + (f', davon {sicher} Sicherheit' if sicher else '') + '</span>')
+        p_stand = (f'<span style="color:var(--warn)">{t("upd_ausstehend", sprache, n=gesamt)}'
+                   + (t('upd_davon_sicherheit', sprache, n=sicher) if sicher else '') + '</span>')
     liste = objekt(pakete).get('liste')
     namen = ', '.join(html.escape(str(p.get('name', '')))
                       for p in (liste if isinstance(liste, list) else [])
                       if isinstance(p, dict) and p.get('name'))
-    liste_teil = (f'<details><summary class="leise">Welche Pakete</summary>'
+    liste_teil = (f'<details><summary class="leise">{t("upd_welche", sprache)}</summary>'
                   f'<p class="leise mono">{namen}</p></details>') if namen else ''
-    zeilen = (zeile('Synapse (Chat-Server)', synapse)
-              + zeile('Element (Chat im Browser)', element)
-              + f'<tr><td>Systempakete</td><td></td><td style="text-align:right">{p_stand}</td></tr>')
+    zeilen = (zeile(t('upd_synapse', sprache), synapse)
+              + zeile(t('upd_element', sprache), element)
+              + f'<tr><td>{t("upd_pakete", sprache)}</td><td></td><td style="text-align:right">{p_stand}</td></tr>')
 
     tat = ''
     if updates_ausstehend(daten):
         if laeuft:
             pass                                  # steht schon oben in lauf_teil
         elif auftrag_liegt_vor():
-            tat = ('<p class="leise" style="margin-top:12px">Ein Auftrag liegt vor und wird '
-                   'gleich ausgeführt.</p>')
+            tat = f'<p class="leise" style="margin-top:12px">{t("upd_auftrag_liegt", sprache)}</p>'
         else:
             tat = ('<form method="post" action="/update">'
-                   '<button type="submit" class="gefahrgross">Jetzt aktualisieren</button></form>'
-                   '<p class="leise" style="margin-top:8px">Vorher wird nachgefragt. '
-                   'Von allein wird nie etwas eingespielt.</p>')
+                   f'<button type="submit" class="gefahrgross">{t("jetzt_aktualisieren", sprache)}</button></form>'
+                   f'<p class="leise" style="margin-top:8px">{t("upd_nachgefragt", sprache)}</p>')
 
-    return (f'<div class="karte"><h2>Aktualisierungen</h2>'
-            f'<p class="leise">Geprüft {vor_zeit(daten.get("geprueft"))}. '
-            f'Eingespielt wird nur auf Klick.</p>'
+    return (f'<div class="karte"><h2>{t("upd_kopf", sprache)}</h2>'
+            f'<p class="leise">{t("upd_geprueft", sprache, wann=vor_zeit(daten.get("geprueft"), sprache))}</p>'
             f'<table>{zeilen}</table>{liste_teil}{tat}{lauf_teil}</div>')
 
 
-def seite_update_sicher(daten):
+def seite_update_sicher(daten, sprache):
     """Rueckfrage vor dem Einspielen - wie seite_passwort_sicher, ohne JavaScript."""
     synapse = objekt(daten.get('synapse'))
     element = objekt(daten.get('element'))
@@ -1474,59 +2110,69 @@ def seite_update_sicher(daten):
     sicher = zahl(pakete.get('sicherheit'))
     punkte = []
     if gesamt:
-        davon = f' (davon {sicher} Sicherheitsupdate{"" if sicher == 1 else "s"})' if sicher else ''
-        punkte.append(f'<li><b>{gesamt} Systempaket{"" if gesamt == 1 else "e"}</b>{davon} '
-                      f'werden eingespielt.</li>')
+        davon = ''
+        if sicher == 1:
+            davon = t('upd_davon_ein', sprache)
+        elif sicher:
+            davon = t('upd_davon_mehr', sprache, n=sicher)
+        if gesamt == 1:
+            punkte.append('<li>' + t('upd_punkt_paket_ein', sprache, davon=davon) + '</li>')
+        else:
+            punkte.append('<li>' + t('upd_punkt_pakete', sprache, n=gesamt, davon=davon) + '</li>')
     if synapse.get('neu') and synapse.get('neu') != synapse.get('ist'):
-        punkte.append(f'<li><b>Synapse</b> (der Chat-Server) wird auf '
-                      f'{html.escape(str(synapse["neu"]))} gebracht und <b>startet neu</b> — '
-                      f'der Chat ist dabei kurz nicht erreichbar. Apps verbinden sich danach '
-                      f'von selbst wieder.</li>')
+        punkte.append('<li>' + t('upd_punkt_synapse', sprache,
+                                 neu=html.escape(str(synapse['neu']))) + '</li>')
     if element.get('neu') not in (None, '', 'unbekannt') and element.get('neu') != element.get('ist'):
-        punkte.append(f'<li><b>Element</b> (Chat im Browser) wird auf '
-                      f'{html.escape(str(element["neu"]))} gebracht — wer die Seite offen hat, '
-                      f'lädt sie einmal neu.</li>')
-    return seite('Aktualisieren', f"""
-      <h1>Jetzt wirklich aktualisieren?</h1>
+        punkte.append('<li>' + t('upd_punkt_element', sprache,
+                                 neu=html.escape(str(element['neu']))) + '</li>')
+    return seite(t('upd_sicher_titel', sprache), f"""
+      <h1>{t('upd_sicher_frage', sprache)}</h1>
       <div class="karte">
-        <p>Das passiert dann im Hintergrund:</p>
+        <p>{t('upd_sicher_hintergrund', sprache)}</p>
         <ul style="margin:8px 0 0;padding-left:22px">{''.join(punkte)}</ul>
-        <p class="leise" style="margin-top:10px">Das dauert einige Minuten. Das Ergebnis
-           erscheint danach oben auf der Verwaltungsseite; bis dahin wird kein zweiter
-           Auftrag angenommen.</p>
+        <p class="leise" style="margin-top:10px">{t('upd_sicher_dauer', sprache)}</p>
         <form method="post" action="/update-ja">
-          <button type="submit" class="gefahrgross">Ja, jetzt aktualisieren</button>
+          <button type="submit" class="gefahrgross">{t('upd_ja', sprache)}</button>
         </form>
-        <a class="knopf still" href="/verwaltung">Abbrechen</a>
-      </div>""")
+        <a class="knopf still" href="/verwaltung">{t('abbrechen', sprache)}</a>
+      </div>""", sprache)
 
 
-def seite_einladung(einlader, token, abgelaufen=False, schon_benutzt=False, zurueckgezogen=False):
+def seite_einladung(einlader, token, sprache, abgelaufen=False, schon_benutzt=False,
+                    zurueckgezogen=False):
     wer = html.escape(einlader.split(':')[0].lstrip('@'))
     if abgelaufen or schon_benutzt or zurueckgezogen:
-        grund = ('wurde zurückgezogen' if zurueckgezogen
-                 else 'ist abgelaufen' if abgelaufen else 'wurde schon benutzt')
-        return seite('Einladung', f"""
-          <h1>Diese Einladung {grund}</h1>
-          <p>Bitte frag {wer} nach einer neuen.</p>""")
-    return seite('Einladung', f"""
-      <h1>{wer} lädt dich ein</h1>
-      <p class="leise">In einen Chat, bei dem kein Konzern mitliest. Drei Schritte.</p>
+        grund = t('einl_zurueckgezogen' if zurueckgezogen
+                  else 'einl_abgelaufen' if abgelaufen else 'einl_benutzt', sprache)
+        return seite(t('einladung_titel', sprache), f"""
+          <h1>{t('einl_ungueltig_kopf', sprache, grund=grund)}</h1>
+          <p>{t('einl_neue', sprache, wer=wer)}</p>""", sprache)
+    return seite(t('einladung_titel', sprache), f"""
+      <h1>{t('einl_kopf', sprache, wer=wer)}</h1>
+      <p class="leise">{t('einl_unter', sprache)}</p>
       <div class="karte">
         <ol>
-          <li><b>App installieren</b><br>
-              <span class="leise">Suche im App Store oder bei Google Play nach
-              <b>Element</b> — oder nutze unten einfach den Browser.</span></li>
-          <li><b>Server eintragen</b><br>
-              <span class="leise">Die App fragt danach:</span>
+          <li><b>{t('einl_schritt1', sprache)}</b><br>
+              <span class="leise">{t('einl_schritt1_text', sprache)}</span></li>
+          <li><b>{t('einl_schritt2', sprache)}</b><br>
+              <span class="leise">{t('einl_schritt2_text', sprache)}</span>
               <div class="wert">{SERVERNAME}</div></li>
-          <li><b>Diesen Einladungscode eingeben</b>
+          <li><b>{t('einl_schritt3', sprache)}</b>
               <div class="wert">{html.escape(token)}</div></li>
         </ol>
-        <a class="knopf" href="{ELEMENT}/#/register">Lieber im Browser öffnen</a>
+        <a class="knopf" href="{ELEMENT}/#/register">{t('einl_browser', sprache)}</a>
       </div>
-      <p class="leise">Ohne diesen Code kommt niemand auf den Server — es gibt keine
-         offene Anmeldung. Deshalb bitte nicht weiterleiten.</p>""")
+      <p class="leise">{t('einl_nicht_weiterleiten', sprache)}</p>""", sprache)
+
+
+def seite_kurz(titel, kopf, text, sprache, knopf_ziel='/', knopf_text=None, knopf_still=False):
+    """Eine Ueberschrift, ein Satz, ein Knopf - fuer Fehler und 'nicht gefunden'."""
+    knopf = ''
+    if knopf_text:
+        klasse = 'knopf still' if knopf_still else 'knopf'
+        knopf = f'<a class="{klasse}" href="{knopf_ziel}">{knopf_text}</a>'
+    absatz = f'<p>{text}</p>' if text else ''
+    return seite(titel, f'<h1>{kopf}</h1>{absatz}{knopf}', sprache)
 
 
 # ---------------------------------------------------------------- Netz
@@ -1588,11 +2234,27 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         roh = self.rfile.read(laenge).decode('utf-8', 'replace')
         return {k: v[0] for k, v in urllib.parse.parse_qs(roh).items()}
 
+    def fehlerseite(self, schluessel_text, code, sprache):
+        """'Das hat nicht geklappt' mit Grund und Zurueck-Knopf."""
+        return self.antwort(seite_kurz(
+            t('titel_einladungen', sprache), t('nicht_geklappt', sprache),
+            t(schluessel_text, sprache, betreiber=html.escape(betreiber(sprache))),
+            sprache, '/', t('zurueck', sprache)), code)
+
+    def kein_zugriff(self, sprache, mit_knopf=False):
+        knopf = t('zu_meinen_einladungen', sprache) if mit_knopf else None
+        return self.antwort(seite_kurz(
+            t('titel_verwaltung', sprache), t('kein_zugriff', sprache),
+            t('kein_zugriff_text', sprache) if mit_knopf else '',
+            sprache, '/eigene', knopf, knopf_still=True), 403)
+
     # -------------------------------------------------- Abrufe
     def do_GET(self):
         pfad = urllib.parse.urlparse(self.path).path
         if pfad.startswith('/e/'):
             return self.einladung_zeigen(pfad[3:])
+        # Alle anderen Seiten sprechen die Sprache, die der Verwalter gewaehlt hat.
+        sprache = server_sprache()
         if pfad == '/abmelden':
             # Den Keks nicht nur im Browser loeschen, sondern serverseitig sperren:
             # eine Kopie des Kekses liefe sonst bis zu SITZUNG_STUNDEN weiter.
@@ -1602,69 +2264,66 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.weiter('/', {'Set-Cookie': 'sitzung=; Path=/; Max-Age=0'})
         if pfad == '/zweitfaktor':
             nutzer = self.wer()
-            return self.antwort(seite_zweitfaktor(nutzer)) if nutzer else self.weiter('/')
+            return self.antwort(seite_zweitfaktor(nutzer, sprache)) if nutzer else self.weiter('/')
         if pfad not in ('/', '/verwaltung', '/eigene'):
-            return self.antwort(seite('Nicht gefunden', '<h1>Nicht gefunden</h1>'), 404)
+            return self.antwort(seite_kurz(t('nicht_gefunden', sprache), t('nicht_gefunden', sprache),
+                                           '', sprache), 404)
 
         nutzer = self.wer()
         if not nutzer:
-            return self.antwort(seite_anmelden(verwaltung=self.unter_verwaltung()))
+            return self.antwort(seite_anmelden(sprache, verwaltung=self.unter_verwaltung()))
 
         # Unter dem Verwaltungsnamen zeigt die Startseite direkt die Verwaltung.
         # Dieselbe Anwendung, zwei Gesichter - getrennt nach Zustaendigkeit,
         # nicht nach Technik.
-        hier_verwaltung = (pfad == '/verwaltung') or \
-                          (pfad == '/' and VERWALTUNG_HOST and
-                           self.headers.get('Host', '').split(':')[0] == VERWALTUNG_HOST)
+        hier_verwaltung = (pfad == '/verwaltung') or (pfad == '/' and self.unter_verwaltung())
         if hier_verwaltung:
             if not ist_verwalter(nutzer):
-                return self.antwort(seite('Verwaltung',
-                    '<h1>Kein Zugriff</h1><p>Diese Seite ist den Verwaltern des Servers '
-                    'vorbehalten.</p><a class="knopf still" href="/eigene">Zu meinen '
-                    'Einladungen</a>'), 403)
-            return self.antwort(seite_verwaltung(nutzer))
+                return self.kein_zugriff(sprache, mit_knopf=True)
+            return self.antwort(seite_verwaltung(nutzer, sprache))
 
         try:
             kette_nachfuehren()
         except Exception:
             pass
-        self.antwort(seite_uebersicht(nutzer))
+        self.antwort(seite_uebersicht(nutzer, sprache))
 
     def do_POST(self):
         pfad = urllib.parse.urlparse(self.path).path
+        sprache = server_sprache()
         if pfad == '/anmelden':
-            return self.anmelden()
+            return self.anmelden(sprache)
         if pfad == '/code':
-            return self.code_pruefen()
+            return self.code_pruefen(sprache)
         if pfad == '/zweitfaktor':
-            return self.zweitfaktor()
+            return self.zweitfaktor(sprache)
         if pfad == '/zurueckziehen':
-            return self.zurueckziehen()
+            return self.zurueckziehen(sprache)
         if pfad == '/erzeugen':
-            return self.erzeugen()
+            return self.erzeugen(sprache)
         if pfad in ('/kontingent', '/standard'):
-            return self.kontingent_aendern(pfad)
+            return self.kontingent_aendern(pfad, sprache)
+        if pfad == '/sprache':
+            return self.sprache_aendern(sprache)
         if pfad in ('/anlegen', '/passwort', '/passwort-ja', '/sperren', '/sperren-ja',
                     '/entsperren', '/verwalter'):
-            return self.konten_verwalten(pfad)
+            return self.konten_verwalten(pfad, sprache)
         if pfad in ('/update', '/update-ja'):
-            return self.aktualisieren(pfad)
-        self.antwort(seite('Nicht gefunden', '<h1>Nicht gefunden</h1>'), 404)
+            return self.aktualisieren(pfad, sprache)
+        self.antwort(seite_kurz(t('nicht_gefunden', sprache), t('nicht_gefunden', sprache),
+                                '', sprache), 404)
 
     # -------------------------------------------------- Vorgaenge
-    MELDUNG = {
-        'falsch':   'Benutzername oder Passwort stimmt nicht.',
-        'gebremst': 'Zu viele Versuche kurz hintereinander. Bitte eine Minute warten '
-                    'und es dann nochmal probieren — dein Passwort ist vermutlich richtig.',
-        'weg':      'Der Chat-Server antwortet gerade nicht. Bitte später nochmal.',
-    }
+    # Welcher Text zu welchem Ergebnis von anmeldung_pruefen gehoert.
+    ANMELDE_MELDUNG = {'falsch': 'anmeldung_falsch', 'gebremst': 'anmeldung_gebremst',
+                       'weg': 'anmeldung_weg'}
 
     def unter_verwaltung(self):
         """Wird diese Anfrage unter dem Verwaltungsnamen gestellt?"""
         return bool(VERWALTUNG_HOST) and \
             self.headers.get('Host', '').split(':')[0] == VERWALTUNG_HOST
 
-    def anmelden(self):
+    def anmelden(self, sprache):
         f = self.formular()
         zustand, nutzer = anmeldung_pruefen(f.get('benutzer', '').strip(),
                                             f.get('passwort', ''))
@@ -1673,35 +2332,33 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                 time.sleep(1.5)               # bremst Durchprobieren zusaetzlich
                 protokoll('anmeldung_falsch', f.get('benutzer', '')[:40])
             code = 429 if zustand == 'gebremst' else (502 if zustand == 'weg' else 401)
-            return self.antwort(
-                seite_anmelden(self.MELDUNG[zustand], self.unter_verwaltung()), code)
+            return self.antwort(seite_anmelden(
+                sprache, t(self.ANMELDE_MELDUNG[zustand], sprache), self.unter_verwaltung()), code)
 
         _, zf_an = zf_stand(nutzer)
         if zf_an:
             # Passwort stimmt, aber die Sitzung bleibt halb, bis der Code da ist.
-            return self.antwort(seite_code(), 200, self.keks_setzen(nutzer, 'halb'))
+            return self.antwort(seite_code(sprache), 200, self.keks_setzen(nutzer, 'halb'))
         protokoll('angemeldet', nutzer)
         self.weiter('/', self.keks_setzen(nutzer))
 
-    def code_pruefen(self):
+    def code_pruefen(self, sprache):
         nutzer, stufe = self.sitzung()
         if not nutzer or stufe != 'halb':
             return self.weiter('/')
         if gebremst(nutzer):
             protokoll('2fa_gebremst', nutzer)
-            return self.antwort(seite_code(
-                'Zu viele falsche Codes. Bitte eine Viertelstunde warten.'), 429)
+            return self.antwort(seite_code(sprache, t('code_zu_viele', sprache)), 429)
         if not zf_pruefen(nutzer, self.formular().get('code', '')):
             fehlversuch(nutzer)
             protokoll('2fa_falsch', nutzer)
             time.sleep(1.0)
-            return self.antwort(seite_code('Der Code stimmt nicht. '
-                                           'Stimmt die Uhrzeit auf deinem Telefon?'), 401)
+            return self.antwort(seite_code(sprache, t('code_falsch', sprache)), 401)
         versuche_loeschen(nutzer)
         protokoll('2fa_ok', nutzer)
         self.weiter('/', self.keks_setzen(nutzer))
 
-    def zweitfaktor(self):
+    def zweitfaktor(self, sprache):
         nutzer = self.wer()
         if not nutzer:
             return self.weiter('/')
@@ -1709,25 +2366,24 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         tat = f.get('tat', '')
         if gebremst(nutzer):
             return self.antwort(seite_zweitfaktor(
-                nutzer, fehler='Zu viele falsche Codes. Bitte eine Viertelstunde warten.'), 429)
+                nutzer, sprache, fehler=t('code_zu_viele', sprache)), 429)
         if not zf_pruefen(nutzer, f.get('code', '')):
             fehlversuch(nutzer)
             protokoll('2fa_einrichtung_falsch', nutzer)
             return self.antwort(seite_zweitfaktor(
-                nutzer, fehler='Der Code stimmt nicht. Stimmt die Uhrzeit auf dem Telefon?'), 401)
+                nutzer, sprache, fehler=t('code_falsch', sprache)), 401)
         versuche_loeschen(nutzer)
         # Das Aendern sperrt alle bisherigen Sitzungen des Kontos - auch diese.
         # Deshalb gleich ein frischer Keks, damit nur die ANDEREN hinausfliegen.
         if tat == 'aus':
             zf_entfernen(nutzer)
-            return self.antwort(seite_zweitfaktor(nutzer, hinweis='Zweiter Faktor ist aus.'),
+            return self.antwort(seite_zweitfaktor(nutzer, sprache, hinweis=t('zf_ist_aus', sprache)),
                                 200, self.keks_setzen(nutzer))
         zf_einschalten(nutzer)
-        return self.antwort(seite_zweitfaktor(
-            nutzer, hinweis='Zweiter Faktor ist an. Ab jetzt beim Anmelden nötig.'),
-            200, self.keks_setzen(nutzer))
+        return self.antwort(seite_zweitfaktor(nutzer, sprache, hinweis=t('zf_ist_an', sprache)),
+                            200, self.keks_setzen(nutzer))
 
-    def zurueckziehen(self):
+    def zurueckziehen(self, sprache):
         """Eine offene Einladung ungueltig machen - nur die eigene, Verwalter jede."""
         code = self.formular().get('code', '').strip()   # Rumpf zuerst, er ist nur einmal lesbar
         nutzer = self.wer()
@@ -1736,32 +2392,34 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         with db() as v:
             e = v.execute('SELECT * FROM einladung WHERE code=?', (code,)).fetchone()
         if not e or (e['einlader'] != nutzer and not ist_verwalter(nutzer)):
-            return self.antwort(seite_uebersicht(nutzer, hinweis='Diese Einladung gibt es nicht.'), 404)
+            return self.antwort(seite_uebersicht(
+                nutzer, sprache, hinweis=t('einl_gibt_es_nicht_kurz', sprache)), 404)
         if e['eingeloest_am'] or e['benutzt_am'] or e['zurueckgezogen_am']:
             return self.antwort(seite_uebersicht(
-                nutzer, hinweis='Diese Einladung ist schon benutzt oder zurückgezogen.'), 400)
+                nutzer, sprache, hinweis=t('einl_schon_benutzt', sprache)), 400)
         # Erst der Token bei Synapse, dann die Ablage: schlaegt das Loeschen fehl, bleibt
         # die Einladung sichtbar offen, statt hier "zurueckgezogen" und dort noch gueltig.
         try:
             token_loeschen(e['token'])
         except Exception:
-            return self.antwort(seite('Einladungen',
-                '<h1>Das hat nicht geklappt</h1><p>Der Server antwortet gerade nicht. '
-                f'Bitte später nochmal — oder sag {BETREIBER} Bescheid.</p>'
-                '<a class="knopf" href="/">Zurück</a>'), 502)
+            return self.fehlerseite('server_antwortet_nicht', 502, sprache)
         with db() as v:
             n = v.execute('UPDATE einladung SET zurueckgezogen_am=? WHERE code=? '
                           'AND eingeloest_am IS NULL AND benutzt_am IS NULL',
                           (int(time.time()), code)).rowcount
         if n != 1:   # der Hintergrundfaden war schneller: inzwischen eingeloest
             return self.antwort(seite_uebersicht(
-                nutzer, hinweis='Zu spät — die Einladung wurde gerade eingelöst.'), 409)
+                nutzer, sprache, hinweis=t('einl_zu_spaet', sprache)), 409)
         protokoll('zurueckgezogen', nutzer, code)
-        return self.antwort(seite_uebersicht(nutzer,
-            hinweis='Einladung zurückgezogen. Der Link funktioniert nicht mehr, dein Kontingent ist wieder frei.'))
+        return self.antwort(seite_uebersicht(
+            nutzer, sprache, hinweis=t('einl_zurueckgezogen_ok', sprache)))
 
-    def erzeugen(self):
-        gewaehlt = self.formular().get('raum', '').strip()   # Rumpf zuerst, er ist nur einmal lesbar
+    def erzeugen(self, sprache):
+        f = self.formular()                                 # Rumpf zuerst, er ist nur einmal lesbar
+        gewaehlt = f.get('raum', '').strip()
+        # Sprache der Einladungsseite: was der Einladende gewaehlt hat, sonst NULL
+        # (= automatisch: Browser des Eingeladenen, sonst Serversprache).
+        einladungssprache = sprache_normieren(f.get('sprache', ''))
         nutzer = self.wer()
         if not nutzer:
             return self.weiter('/')
@@ -1774,37 +2432,32 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             # Registrierungs-Token bei Synapse verwaist.
             treffer = next((r for r in raeume_von(nutzer) if r['id'] == gewaehlt), None)
             if not treffer:
-                return self.antwort(seite('Einladungen',
-                    '<h1>Das hat nicht geklappt</h1><p>Der gewählte Raum ließ sich gerade '
-                    'nicht bestätigen. Bitte die Seite neu laden und nochmal versuchen.</p>'
-                    '<a class="knopf" href="/">Zurück</a>'), 502)
+                return self.fehlerseite('raum_nicht_bestaetigt', 502, sprache)
             raum, raum_name = treffer['id'], treffer['name']
         # Pruefung, Token und Eintrag unter EINER Sperre: jede Anfrage laeuft in ihrem
         # eigenen Faden, und zwischen Pruefung und Eintrag liegt ein Netzaufruf. Ohne
         # Sperre kamen zehn gleichzeitige Klicks bei Kontingent 1 alle durch.
         with ERZEUGEN_SPERRE:
             if verbleibend(nutzer) == 0:
-                return self.antwort(seite_uebersicht(nutzer))
+                return self.antwort(seite_uebersicht(nutzer, sprache))
             try:
                 token, laeuft_ab = token_erzeugen()
             except Exception:
-                return self.antwort(seite('Einladungen',
-                    '<h1>Das hat nicht geklappt</h1><p>Der Server antwortet gerade nicht. '
-                    f'Bitte später nochmal — oder sag {BETREIBER} Bescheid.</p>'
-                    '<a class="knopf" href="/">Zurück</a>'), 502)
+                return self.fehlerseite('server_antwortet_nicht', 502, sprache)
             code = secrets.token_urlsafe(9)
             with db() as v:
                 v.execute('INSERT INTO einladung (code, token, einlader, erstellt, laeuft_ab, '
-                          'raum, raum_name) VALUES (?,?,?,?,?,?,?)',
-                          (code, token, nutzer, int(time.time()), laeuft_ab, raum, raum_name))
-        self.antwort(seite_uebersicht(nutzer, f'{EIGENE_URL}/e/{code}'))
+                          'raum, raum_name, sprache) VALUES (?,?,?,?,?,?,?,?)',
+                          (code, token, nutzer, int(time.time()), laeuft_ab, raum, raum_name,
+                           einladungssprache))
+        self.antwort(seite_uebersicht(nutzer, sprache, f'{EIGENE_URL}/e/{code}'))
 
-    def kontingent_aendern(self, pfad):
+    def kontingent_aendern(self, pfad, sprache):
         nutzer = self.wer()
         if not nutzer:
             return self.weiter('/')
         if not ist_verwalter(nutzer):
-            return self.antwort(seite('Verwaltung', '<h1>Kein Zugriff</h1>'), 403)
+            return self.kein_zugriff(sprache)
         f = self.formular()
         if f.get('unbegrenzt'):
             wert = -1
@@ -1813,28 +2466,44 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                 wert = int(f.get('gesamt', '').strip() or '0')
             except ValueError:
                 return self.antwort(seite_verwaltung(
-                    nutzer, 'Bitte eine Zahl eintragen oder „unbegrenzt“ ankreuzen.'), 400)
+                    nutzer, sprache, t('zahl_oder_unbegrenzt', sprache)), 400)
             if wert < 0 or wert > HOECHSTWERT:
                 return self.antwort(seite_verwaltung(
-                    nutzer, f'Bitte eine Zahl zwischen 0 und {HOECHSTWERT}.'), 400)
+                    nutzer, sprache, t('zahl_zwischen', sprache, max=HOECHSTWERT)), 400)
 
         if pfad == '/standard':
             standard_setzen(wert)
-            return self.antwort(seite_verwaltung(nutzer, f'Vorgabe steht auf {menge(wert)}.'))
+            return self.antwort(seite_verwaltung(
+                nutzer, sprache, t('vorgabe_steht', sprache, menge=menge(wert, sprache))))
 
         ziel = f.get('nutzer', '').strip()
         if not ziel.startswith('@'):
-            return self.antwort(seite_verwaltung(nutzer, 'Unbekanntes Konto.'), 400)
+            return self.antwort(seite_verwaltung(nutzer, sprache, t('unbekanntes_konto', sprache)), 400)
         kontingent_setzen(ziel, wert)
         kurz = ziel.split(':')[0].lstrip('@')
-        return self.antwort(seite_verwaltung(nutzer, f'{kurz}: {menge(wert)}.'))
+        return self.antwort(seite_verwaltung(
+            nutzer, sprache, t('kontingent_gesetzt', sprache, kurz=kurz, menge=menge(wert, sprache))))
 
-    def konten_verwalten(self, pfad):
+    def sprache_aendern(self, sprache):
+        """Serversprache umstellen - gilt sofort fuer alle Seiten, auch fuer diese Antwort."""
         nutzer = self.wer()
         if not nutzer:
             return self.weiter('/')
         if not ist_verwalter(nutzer):
-            return self.antwort(seite('Verwaltung', '<h1>Kein Zugriff</h1>'), 403)
+            return self.kein_zugriff(sprache)
+        neu = sprache_normieren(self.formular().get('sprache', ''))
+        if not neu:
+            return self.antwort(seite_verwaltung(nutzer, sprache, t('sprache_ungueltig', sprache)), 400)
+        sprache_setzen(neu)
+        protokoll('sprache_gesetzt', nutzer, neu)
+        return self.antwort(seite_verwaltung(nutzer, neu, t('sprache_gesetzt', neu)))
+
+    def konten_verwalten(self, pfad, sprache):
+        nutzer = self.wer()
+        if not nutzer:
+            return self.weiter('/')
+        if not ist_verwalter(nutzer):
+            return self.kein_zugriff(sprache)
         f = self.formular()
         ziel = f.get('nutzer', '').strip()
 
@@ -1842,72 +2511,72 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             if pfad == '/anlegen':
                 name = f.get('name', '').strip().lower()
                 if not re.fullmatch(r'[a-z0-9._=-]{1,60}', name):
-                    return self.antwort(seite_verwaltung(nutzer,
-                        'Benutzername: nur Kleinbuchstaben, Ziffern und . _ = -'), 400)
+                    return self.antwort(seite_verwaltung(nutzer, sprache, t('name_regel', sprache)), 400)
                 try:
                     kennung, pw = nutzer_anlegen(name, f.get('anzeige', '').strip())
                 except KontoVergeben:
-                    return self.antwort(seite_verwaltung(nutzer,
-                        f'Diesen Benutzernamen gibt es schon: {name}.'), 400)
-                return self.antwort(seite_verwaltung(nutzer,
-                    f'Konto {name} angelegt.', geheim=(name, pw)))
+                    return self.antwort(seite_verwaltung(
+                        nutzer, sprache, t('name_vergeben', sprache, name=name)), 400)
+                return self.antwort(seite_verwaltung(
+                    nutzer, sprache, t('konto_angelegt', sprache, name=name), geheim=(name, pw)))
 
             if not ziel.startswith('@'):
-                return self.antwort(seite_verwaltung(nutzer, 'Unbekanntes Konto.'), 400)
+                return self.antwort(seite_verwaltung(nutzer, sprache, t('unbekanntes_konto', sprache)), 400)
             kurz = ziel.split(':')[0].lstrip('@')
 
             if pfad == '/passwort':
                 # Erst fragen. Das Zuruecksetzen selbst macht /passwort-ja.
-                return self.antwort(seite_passwort_sicher(ziel, ziel == nutzer))
+                return self.antwort(seite_passwort_sicher(ziel, ziel == nutzer, sprache))
 
             if pfad == '/passwort-ja':
                 pw = passwort_neu(ziel)
                 # Eigenes Passwort: die Sperre traefe auch diese Sitzung - frischer Keks.
                 frisch = self.keks_setzen(nutzer) if ziel == nutzer else None
-                return self.antwort(seite_verwaltung(nutzer,
-                    f'Neues Passwort für {kurz}. Alle Geräte wurden abgemeldet.',
-                    geheim=(kurz, pw)), 200, frisch)
+                return self.antwort(seite_verwaltung(
+                    nutzer, sprache, t('pw_gesetzt', sprache, kurz=kurz), geheim=(kurz, pw)),
+                    200, frisch)
 
             if pfad == '/sperren':
                 if ziel == nutzer:
-                    return self.antwort(seite_verwaltung(nutzer,
-                        'Dich selbst kannst du nicht sperren.'), 400)
-                return self.antwort(seite_sperren_sicher(ziel))
+                    return self.antwort(seite_verwaltung(
+                        nutzer, sprache, t('selbst_sperren', sprache)), 400)
+                return self.antwort(seite_sperren_sicher(ziel, sprache))
 
             if pfad == '/sperren-ja':
                 if ziel == nutzer:
-                    return self.antwort(seite_verwaltung(nutzer,
-                        'Dich selbst kannst du nicht sperren.'), 400)
+                    return self.antwort(seite_verwaltung(
+                        nutzer, sprache, t('selbst_sperren', sprache)), 400)
                 konto_sperren(ziel)
-                return self.antwort(seite_verwaltung(nutzer, f'{kurz} ist gesperrt.'))
+                return self.antwort(seite_verwaltung(
+                    nutzer, sprache, t('ist_gesperrt', sprache, kurz=kurz)))
 
             if pfad == '/entsperren':
-                return self.antwort(seite_verwaltung(nutzer,
-                    f'{kurz} ist wieder frei — mit neuem Passwort.',
+                return self.antwort(seite_verwaltung(
+                    nutzer, sprache, t('wieder_frei', sprache, kurz=kurz),
                     geheim=(kurz, konto_entsperren(ziel))))
 
             if pfad == '/verwalter':
                 if ziel == nutzer:
-                    return self.antwort(seite_verwaltung(nutzer,
-                        'Deine eigenen Rechte kannst du hier nicht ändern.'), 400)
+                    return self.antwort(seite_verwaltung(
+                        nutzer, sprache, t('eigene_rechte', sprache)), 400)
                 # Die Richtung kommt vom Knopf, nicht vom Umschalten des Ist-Zustands:
                 # lieferte die Kontenliste gerade nichts, machte 'Verwalter aus' sonst
                 # das Konto zum Verwalter.
                 richtung = f.get('richtung', '')
                 if richtung not in ('ja', 'nein'):
-                    return self.antwort(seite_verwaltung(nutzer,
-                        'Unklare Anfrage. Bitte die Seite neu laden.'), 400)
+                    return self.antwort(seite_verwaltung(
+                        nutzer, sprache, t('unklare_anfrage', sprache)), 400)
                 verwalter_setzen(ziel, richtung == 'ja')
-                return self.antwort(seite_verwaltung(nutzer,
-                    f'{kurz} ist {"jetzt Verwalter" if richtung == "ja" else "kein Verwalter mehr"}.'))
+                return self.antwort(seite_verwaltung(
+                    nutzer, sprache,
+                    t('jetzt_verwalter' if richtung == 'ja' else 'kein_verwalter_mehr', sprache, kurz=kurz)))
         except urllib.error.HTTPError as fehl:
-            return self.antwort(seite_verwaltung(nutzer,
-                f'Der Server hat abgelehnt (HTTP {fehl.code}).'), 502)
+            return self.antwort(seite_verwaltung(
+                nutzer, sprache, t('server_abgelehnt', sprache, code=fehl.code)), 502)
         except Exception:
-            return self.antwort(seite_verwaltung(nutzer,
-                'Das hat nicht geklappt. Bitte nochmal.'), 502)
+            return self.antwort(seite_verwaltung(nutzer, sprache, t('nochmal', sprache)), 502)
 
-    def aktualisieren(self, pfad):
+    def aktualisieren(self, pfad, sprache):
         """'/update' fragt nach, '/update-ja' legt den Auftrag ab - mehr tut der Dienst nicht.
 
         Das Einspielen selbst macht root (messenger-update.service), angestossen
@@ -1918,34 +2587,42 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         if not nutzer:
             return self.weiter('/')
         if not ist_verwalter(nutzer):
-            return self.antwort(seite('Verwaltung', '<h1>Kein Zugriff</h1>'), 403)
+            return self.kein_zugriff(sprache)
         daten, frisch = updates_stand()
         if auftrag_laeuft(daten) or auftrag_liegt_vor():
-            return self.antwort(seite_verwaltung(nutzer,
-                'Eine Aktualisierung ist schon beauftragt oder läuft gerade. '
-                'Das Ergebnis erscheint hier.'), 409)
+            return self.antwort(seite_verwaltung(
+                nutzer, sprache, t('upd_schon_beauftragt', sprache)), 409)
         if not frisch or not updates_ausstehend(daten):
-            return self.antwort(seite_verwaltung(nutzer,
-                'Es liegt nichts an, das eingespielt werden müsste.'), 400)
+            return self.antwort(seite_verwaltung(nutzer, sprache, t('upd_nichts', sprache)), 400)
         if pfad == '/update':
-            return self.antwort(seite_update_sicher(daten))
+            return self.antwort(seite_update_sicher(daten, sprache))
         if not auftrag_schreiben():
             protokoll('update_auftrag_fehlgeschlagen', nutzer)
-            return self.antwort(seite_verwaltung(nutzer,
-                f'Der Auftrag ließ sich nicht ablegen. Sag {BETREIBER} Bescheid.'), 500)
+            return self.antwort(seite_verwaltung(
+                nutzer, sprache, t('upd_auftrag_fehler', sprache, betreiber=betreiber(sprache))), 500)
         protokoll('update_beauftragt', nutzer)
-        return self.antwort(seite_verwaltung(nutzer,
-            'Auftrag angenommen. Die Aktualisierung läuft im Hintergrund und dauert '
-            'einige Minuten; das Ergebnis erscheint hier oben.'))
+        return self.antwort(seite_verwaltung(nutzer, sprache, t('upd_angenommen', sprache)))
+
+    def einladungssprache(self, e):
+        """Sprache der Einladungsseite: fest gewaehlt, sonst Browser, sonst Server.
+
+        Die Einladungsseite ist die einzige, die Fremde sehen - ihr Browser
+        darf mitreden, wenn der Einladende nichts festgelegt hat.
+        """
+        fest = sprache_normieren(e['sprache'] if 'sprache' in e.keys() else '')
+        if fest:
+            return fest
+        return sprache_aus_header(self.headers.get('Accept-Language', '')) or server_sprache()
 
     def einladung_zeigen(self, code):
         with db() as v:
             e = v.execute('SELECT * FROM einladung WHERE code=?', (code,)).fetchone()
         if not e:
-            return self.antwort(seite('Einladung',
-                '<h1>Diese Einladung gibt es nicht</h1>'
-                '<p>Vielleicht ist der Link unterwegs abgeschnitten worden.</p>'), 404)
-        self.antwort(seite_einladung(e['einlader'], e['token'],
+            sprache = sprache_aus_header(self.headers.get('Accept-Language', '')) or server_sprache()
+            return self.antwort(seite_kurz(
+                t('einladung_titel', sprache), t('einl_gibt_es_nicht', sprache),
+                t('einl_abgeschnitten', sprache), sprache), 404)
+        self.antwort(seite_einladung(e['einlader'], e['token'], self.einladungssprache(e),
                                      abgelaufen=e['laeuft_ab'] < time.time(),
                                      schon_benutzt=e['eingeloest_am'] is not None
                                                    or e['benutzt_am'] is not None,
@@ -1960,6 +2637,7 @@ class Dienst(socketserver.ThreadingTCPServer):
 def kommandozeile(argumente):
     """Notausgang: Wer SSH auf den Server hat, kann den zweiten Faktor zuruecksetzen.
     Das ersetzt Rueckfallcodes - der Betreiber kommt immer an seine Maschine."""
+    sprache = server_sprache()
     if argumente[:1] == ['--zweitfaktor-aus'] and len(argumente) == 2:
         nutzer = argumente[1]
         if not nutzer.startswith('@'):
@@ -1972,14 +2650,12 @@ def kommandozeile(argumente):
             nutzer = treffer[0] if treffer else f'@{nutzer}:{SERVERNAME}'
         eingerichtet, _ = zf_stand(nutzer)
         if not eingerichtet:
-            print(f'{nutzer}: kein zweiter Faktor hinterlegt.'); return 1
+            print(t('cli_kein_zf', sprache, nutzer=nutzer)); return 1
         zf_entfernen(nutzer)
         versuche_loeschen(nutzer)
-        print(f'{nutzer}: zweiter Faktor entfernt. Beim naechsten Anmelden reicht das Passwort.')
+        print(t('cli_zf_entfernt', sprache, nutzer=nutzer))
         return 0
-    print('Aufruf:\n'
-          '  einladung.py                         Dienst starten\n'
-          '  einladung.py --zweitfaktor-aus NAME  zweiten Faktor eines Kontos zuruecksetzen')
+    print(t('cli_aufruf', sprache))
     return 2
 
 
@@ -2001,6 +2677,6 @@ if __name__ == '__main__':
     ablage_vorbereiten()
     if len(sys.argv) > 1:
         raise SystemExit(kommandozeile(sys.argv[1:]))
-    protokoll('dienst_gestartet', '', f'{ADRESSE}:{PORT}')
+    protokoll('dienst_gestartet', '', f'{ADRESSE}:{PORT} {SPRACHE_VORGABE}')
     threading.Thread(target=im_hintergrund, daemon=True).start()
     Dienst((ADRESSE, PORT), Bedienung).serve_forever()

@@ -156,7 +156,7 @@ real bug:
 
 **1. No way for servers behind an existing reverse proxy.**
 The script fetched certificates via port 80 on the server itself. Anyone already
-running a proxy at home can't do that. Fixed: new switch `--hinter-proxy`.
+running a proxy at home can't do that. Fixed: new switch `--hinter-proxy` (today also `--behind-proxy`).
 The server then serves plain text on port 80, the proxy takes care of TLS.
 
 **2. The name check aborted with split internal and external DNS.**
@@ -197,7 +197,7 @@ that was only set afterwards — the line stayed empty.
 
 ### Final state
 
-Installer output (the installer currently speaks German):
+Installer output (this run was in German; since then the installer has `--language en|de`, default English):
 
 ```
 == Nachkontrolle

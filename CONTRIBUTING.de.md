@@ -20,8 +20,11 @@ wenn es etwas Größeres ist; dann spart ihr euch Arbeit, die vielleicht nicht p
 
 Damit Beiträge sich einfügen:
 
-- **Deutsch.** Kommentare, Variablennamen, Oberfläche, Dokumentation. Das ist Absicht —
-  das Projekt richtet sich an Leute, die keine englischen Anleitungen lesen wollen.
+- **Deutsch im Code.** Kommentare und Bezeichner bleiben deutsch. Nutzertexte stehen in
+  Sprachtabellen in beiden Sprachen (`TEXTE` in `einladung.py`, `T_de`/`T_en` in
+  `install.sh`, `VORLAGEN` in `kundenanleitung.py`); ein neuer Text braucht einen
+  Schlüssel in beiden, die Tests prüfen das. Dokumentation gibt es auf Englisch und
+  Deutsch nebeneinander.
 - **Keine Fremdpakete ohne guten Grund.** Die Einladungsseite kommt mit dem aus, was Python
   und Debian mitbringen. Jede Abhängigkeit ist etwas, das jemand pflegen muss.
 - **Kommentare erklären das Warum, nicht das Was.** Dass eine Zeile ein Token erzeugt, sieht

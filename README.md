@@ -54,7 +54,7 @@ If you have tried it, let us know — then it will be listed here as tested next
 
 **A server that already runs something else.** The installer wants ports, an `nginx`
 and a PostgreSQL database. If a web server is already there, it aborts. Exception: if
-a reverse proxy is already running in your house, use `--hinter-proxy` (see Installation).
+a reverse proxy is already running in your house, use `--behind-proxy` (see Installation).
 
 ### Do I meet this?
 
@@ -109,8 +109,11 @@ This project closes both gaps.
   invitation sent twice, not for the redeemed one.
 - **Sensible defaults**: encryption on, registration by invitation only, no previews of
   external pages, cached media from other servers cleared after 90 days
-- **German interface and documentation** — for people who don't want to read English.
-  The installer and the web pages currently speak German; an English mode is in the works
+- **Two languages, English and German, on equal footing.** The installer takes
+  `--language en|de` (default `en`); the admin page can switch the server language at any
+  time (card "Sprache / Language", takes effect immediately); each invitation carries its
+  own language, and without one the invitation page follows the browser. Documentation
+  and the customer guide exist in both languages.
 - **A ready-made customer guide**, filled in with the real credentials during installation
 
 ## What it is not
@@ -134,7 +137,7 @@ The key figures are above under **[Will it run for me?](#will-it-run-for-me)**. 
 | Domain | your own — it is baked into every user ID for good |
 | DNS | six A records (see below) |
 | At home? | Works — but many connections have no public IPv4 of their own (DS-Lite). Then it won't work. The installer tells you. |
-| Already have a proxy? | Then use `--hinter-proxy` (see Installation). |
+| Already have a proxy? | Then use `--behind-proxy` (see Installation). |
 
 **The domain cannot be changed later** without recreating all accounts. Think about it first.
 
@@ -177,10 +180,16 @@ DNS names and the ports — and aborts without having touched anything if someth
 missing (single exception: a missing `curl` is installed beforehand, the check needs
 it). At the end ten final checks run, eleven with `--sicherung`.
 
-To repeat a single section: `--nur turn` (see `--hilfe`). With
+To repeat a single section: `--nur turn` (see `--help`). With
 `--betreiber "Name, mail@example.de"` the name and contact details of the person looking
 after the server appear in the customer guide and in the notes of the invitation
-service — otherwise it just says "dein Betreuer" (your contact person).
+service — otherwise it just says "your contact person" / "the operator" (or the German
+equivalent). `--language en|de` sets the language of the installer's output, the web
+pages and the customer guide; the default is English, and the admin page can switch the
+web pages later. A repeat run keeps the language of the existing installation;
+`--language` sets it anew. The switches, section names and host name prefixes (`matrix.`, `chat.`,
+`einladung.`, `verwaltung.`, `turn.`) are the same in both languages — they are part of
+the DNS setup, not of the interface.
 
 ### Already have a reverse proxy in the house?
 
@@ -188,11 +197,12 @@ If you already run a Nginx Proxy Manager, Traefik or Caddy at home, ports 80 and
 the public address already belong to it. Then:
 
 ```bash
-sudo ./install.sh --domain deinedomain.de --verwalter dein-name --hinter-proxy
+sudo ./install.sh --domain deinedomain.de --verwalter dein-name --behind-proxy
 ```
 
-In this mode the installer fetches **no** certificate and serves everything as plain
-text on port 80 — the existing proxy takes care of TLS. At the end it tells you which
+(`--hinter-proxy` is the same switch under its German name; both work.) In this mode
+the installer fetches **no** certificate and serves everything as plain HTTP
+(unencrypted) on port 80 — the existing proxy takes care of TLS. At the end it tells you which
 five entries you need to create there. The DNS names may then point to the proxy
 instead of this server; the installer accepts that and only reports it.
 
@@ -292,9 +302,13 @@ In detail: **[docs/operator.md](docs/operator.md)**
 
 At the end the installer produces a ready-made guide — filled in with the real
 address, the real account name and the initial password, with pictures, to print out
-or pass on as a PDF. This is what it looks like (with placeholders, in German):
+or pass on as a PDF, in the language chosen with `--language`. This is what it looks
+like (with placeholders):
 
-**[docs/muster-kundenanleitung.html](docs/muster-kundenanleitung.html)**
+**[docs/sample-customer-guide.html](docs/sample-customer-guide.html)** (English) ·
+**[docs/muster-kundenanleitung.html](docs/muster-kundenanleitung.html)** (German)
+
+The screenshots in it show the German interface; the English guide says so.
 
 ## Tested
 
@@ -342,7 +356,7 @@ project**. That needs saying:
    mechanism by which a **normal user** can invite someone.
 3. **The defaults** — each one trivial on its own, together the difference between
    "works for a family" and "an administrator's tinkering project"
-4. **Documentation in German first, English alongside**
+4. **Interface and documentation in two languages**, English and German, neither an afterthought
 
 Synapse and the other components are **not shipped** here; they are fetched from their
 official sources during installation. This project is not affiliated with the

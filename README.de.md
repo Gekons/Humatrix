@@ -113,7 +113,11 @@ Dieses Projekt schließt beide Lücken.
 - **Vernünftige Voreinstellungen**: Verschlüsselung an, Registrierung nur per Einladung,
   keine Vorschauen von fremden Seiten, zwischengespeicherte Medien fremder Server
   werden nach 90 Tagen geräumt
-- **Deutsche Oberfläche und Dokumentation** — für Leute, die kein Englisch lesen wollen
+- **Zwei Sprachen, Deutsch und Englisch, gleichwertig.** Der Installer nimmt
+  `--language en|de` (Vorgabe `en`); die Verwaltung kann die Serversprache jederzeit
+  umschalten (Karte „Sprache / Language“, gilt sofort); jede Einladung trägt ihre eigene
+  Sprache, und ohne eine folgt die Einladungsseite dem Browser. Dokumentation und
+  Kundenanleitung gibt es in beiden Sprachen.
 - **Eine fertige Kundenanleitung**, bei der Installation mit den echten Zugangsdaten befüllt
 
 ## Was es nicht ist
@@ -183,7 +187,13 @@ braucht es). Am Ende laufen zehn Nachkontrollen, mit `--sicherung` elf.
 Einzelnen Abschnitt wiederholen: `--nur turn` (siehe `--hilfe`). Mit
 `--betreiber "Name, mail@example.de"` stehen Name und Erreichbarkeit des Betreuers in
 der Kundenanleitung und in den Hinweisen des Einladungsdienstes — sonst steht dort nur
-„dein Betreuer".
+„dein Betreuer" bzw. „der Betreiber". `--language en|de` legt die Sprache der
+Installer-Ausgabe, der Webseiten und der Kundenanleitung fest; Vorgabe ist Englisch, also
+für einen deutschen Kunden `--language de` angeben. Die Verwaltung kann die Webseiten
+später umschalten. Ein Wiederholungslauf behält die Sprache der vorhandenen
+Installation; `--language` setzt sie neu. Die Schalter, Abschnittsnamen und Hostnamen-Präfixe (`matrix.`,
+`chat.`, `einladung.`, `verwaltung.`, `turn.`) sind in beiden Sprachen gleich — sie
+gehören zur DNS-Einrichtung, nicht zur Oberfläche.
 
 ### Schon ein Reverse-Proxy im Haus?
 
@@ -194,6 +204,7 @@ gehören die Ports 80 und 443 der öffentlichen Adresse bereits. Dann:
 sudo ./install.sh --domain deinedomain.de --verwalter dein-name --hinter-proxy
 ```
 
+(`--behind-proxy` ist derselbe Schalter unter seinem englischen Namen; beide gehen.)
 In diesem Modus holt der Installer **kein** Zertifikat und liefert alles als
 Klartext auf Port 80 aus — um TLS kümmert sich der vorhandene Proxy. Am Ende
 sagt er dir, welche fünf Einträge du dort anlegen musst. Die DNS-Namen dürfen
@@ -297,9 +308,13 @@ Ausführlich: **[docs/betreiber.md](docs/betreiber.md)**
 
 Der Installer erzeugt am Ende eine fertige Anleitung — befüllt mit der echten
 Adresse, dem echten Kontonamen und dem Startpasswort, mit Bildern, zum
-Ausdrucken oder als PDF weitergeben. So sieht sie aus (mit Platzhaltern):
+Ausdrucken oder als PDF weitergeben, in der mit `--language` gewählten Sprache. So
+sieht sie aus (mit Platzhaltern):
 
-**[docs/muster-kundenanleitung.html](docs/muster-kundenanleitung.html)**
+**[docs/muster-kundenanleitung.html](docs/muster-kundenanleitung.html)** (deutsch) ·
+**[docs/sample-customer-guide.html](docs/sample-customer-guide.html)** (englisch)
+
+Die Bildschirmfotos darin zeigen die deutsche Oberfläche; die englische Anleitung sagt das dazu.
 
 ## Getestet
 
@@ -347,7 +362,7 @@ Projekt**. Das gehört gesagt:
    Mechanismus, mit dem ein **normaler Nutzer** jemanden einladen kann.
 3. **Die Voreinstellungen** — jede einzeln trivial, zusammen der Unterschied zwischen
    „läuft für eine Familie" und „Bastelprojekt eines Administrators"
-4. **Dokumentation auf Deutsch zuerst, Englisch daneben**
+4. **Oberfläche und Dokumentation in zwei Sprachen**, Deutsch und Englisch, keine davon nachrangig
 
 Synapse und die anderen Bestandteile werden hier **nicht mitgeliefert**, sondern bei der
 Installation aus ihren offiziellen Quellen geholt. Dieses Projekt ist nicht mit der

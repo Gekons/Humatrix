@@ -100,8 +100,18 @@ cd /root/Humatrix
 - `--betreiber` is optional, but sensible when serving customers: name and contact
   details then appear in the customer guide ("Betreut von …", "Melde dich bei …" —
   "looked after by", "get in touch with") and in the notes of the invitation service.
-  Without it, it just says "dein Betreuer" (your contact person) or "der Betreiber"
-  (the operator).
+  Without it, it just says "your contact person" / "the operator" (or the German
+  equivalent).
+- `--language en|de` is the language of the installer's output, the web pages
+  (invitation and admin page) and the customer guide. Default `en` — for a German
+  customer pass `--language de`. A repeat run keeps the language of the existing
+  installation; `--language` sets it anew. The customer can switch the web pages later in the
+  admin page (card "Sprache / Language"); each invitation also carries its own language,
+  chosen when it is created, and an invitation without one follows the browser of the
+  person who opens it. The switches themselves, the section names for `--nur` and the
+  host name prefixes stay the same in both languages.
+- `--behind-proxy` (same as `--hinter-proxy`) if a reverse proxy in front already owns
+  ports 80 and 443 — see the README for what changes then.
 - `--sicherung` is optional. Without it the server backs up locally to
   `/var/backups/messenger` (14 days) — better than nothing, but not a real backup.
   With it, the **server's SSH key must be registered at the target**: the installer
@@ -208,8 +218,8 @@ others (`chown root:matrix-synapse`, `chmod 640`), then
 | Customer has lost their phone (2FA) | — | `python3 /opt/einladung/einladung.py --zweitfaktor-aus <name>` as root on the server; the username is enough, the full ID works too |
 | Customer has forgotten their password | — | reset via the admin page ("Passwort neu" — with confirmation; the new password appears **exactly once**, write it down immediately and pass it on). If it concerns the admin account itself, as root via the admin API, see below. `register_new_matrix_user` is **not** suitable for this — it only creates new accounts and aborts if the ID is taken |
 | Repeat a single section | — | `./install.sh --domain … --mail … --nur turn` |
-| Admin page shows "Noch nicht geprüft" (not checked yet) | timer not running or the check fails | `systemctl status messenger-update-pruefen.timer`, then `messenger-update-pruefen.sh` by hand — the error appears on screen. Existing server without this card: run the installer again **in full** (it is repeatable) — that also brings the invitation service up to date |
-| "Jetzt aktualisieren" does nothing | path unit not active or the service may not write to the job folder | `systemctl status messenger-update.path`, `ls -ld /var/lib/messenger/auftraege` (owned by `einladung`, 750), `journalctl -u messenger-update -n 50` |
+| Admin page shows "Noch nicht geprüft" / "Not checked yet" | timer not running or the check fails | `systemctl status messenger-update-pruefen.timer`, then `messenger-update-pruefen.sh` by hand — the error appears on screen. Existing server without this card: run the installer again **in full** (it is repeatable) — that also brings the invitation service up to date |
+| "Jetzt aktualisieren" / "Update now" does nothing | path unit not active or the service may not write to the job folder | `systemctl status messenger-update.path`, `ls -ld /var/lib/messenger/auftraege` (owned by `einladung`, 750), `journalctl -u messenger-update -n 50` |
 | Your own firewall rules (WireGuard, restricted SSH) | — | are kept on repeat runs: `ufw` is only reset while it is not yet active; after that the hardening only sets its own rules and takes the SSH port from the running `sshd` configuration |
 
 **Reset a password as root** — for any account, including the admin account. The
