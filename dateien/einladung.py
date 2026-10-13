@@ -132,6 +132,10 @@ def ablage_vorbereiten():
             # Token laut Synapse benutzt - getrennt von eingeloest_am/_von, die es
             # nur bei eindeutiger Zuordnung zu einem Konto gibt (kette_nachfuehren).
             v.execute('ALTER TABLE einladung ADD COLUMN benutzt_am INTEGER')
+        if 'zurueckgezogen_am' not in spalten:
+            # Vom Einladenden zurueckgezogen: Token bei Synapse geloescht, Kontingent
+            # wieder frei, der Link sagt es dem Eingeladenen.
+            v.execute('ALTER TABLE einladung ADD COLUMN zurueckgezogen_am INTEGER')
         spalten = {z[1] for z in v.execute('PRAGMA table_info(zweiter_faktor)')}
         if 'letzter_schritt' not in spalten:
             v.execute('ALTER TABLE zweiter_faktor ADD COLUMN letzter_schritt INTEGER')
@@ -190,7 +194,7 @@ def verbraucht_von(nutzer):
     jetzt = int(time.time())
     with db() as v:
         return v.execute(
-            'SELECT count(*) FROM einladung WHERE einlader=? '
+            'SELECT count(*) FROM einladung WHERE einlader=? AND zurueckgezogen_am IS NULL '
             'AND (eingeloest_am IS NOT NULL OR benutzt_am IS NOT NULL OR laeuft_ab > ?)',
             (nutzer, jetzt)).fetchone()[0]
 
@@ -399,6 +403,16 @@ def token_erzeugen():
                             {'token': token_text(), 'uses_allowed': 1, 'expiry_time': bis},
                             token=admin_token())
     return antwort['token'], bis // 1000
+
+
+def token_loeschen(token):
+    """Registrierungs-Token bei Synapse entfernen. 404 heisst: war schon weg - auch gut."""
+    try:
+        matrix_aufruf('/_synapse/admin/v1/registration_tokens/' + urllib.parse.quote(token),
+                      token=admin_token(), methode='DELETE')
+    except urllib.error.HTTPError as f:
+        if f.code != 404:
+            raise
 
 
 def token_zustand():
@@ -624,7 +638,8 @@ def kette_nachfuehren():
     """
     with db() as v:
         offen = v.execute('SELECT code, token, erstellt, einlader, raum, benutzt_am '
-                          'FROM einladung WHERE eingeloest_am IS NULL').fetchall()
+                          'FROM einladung WHERE eingeloest_am IS NULL '
+                          'AND zurueckgezogen_am IS NULL').fetchall()
         if not offen:
             return
         vergeben = {z[0] for z in v.execute(
@@ -909,17 +924,19 @@ def restlaufzeit(sekunden):
     return f'noch {tage} {"Tag" if tage == 1 else "Tage"}'
 
 
-def seite_uebersicht(nutzer, neuer_link=''):
+def seite_uebersicht(nutzer, neuer_link='', hinweis=''):
     gesamt = kontingent_von(nutzer)
     offen = verbleibend(nutzer)
     kurz = html.escape(nutzer.split(':')[0].lstrip('@'))
 
     with db() as v:
         liste = v.execute('SELECT code, erstellt, laeuft_ab, eingeloest_am, eingeloest_von, '
-                          'benutzt_am, raum_name, raum_fehler FROM einladung WHERE einlader=? '
+                          'benutzt_am, zurueckgezogen_am, raum_name, raum_fehler '
+                          'FROM einladung WHERE einlader=? '
                           'ORDER BY erstellt DESC LIMIT 20', (nutzer,)).fetchall()
     zeilen = ''
     for e in liste:
+        weg = ''                       # das x gibt es nur bei offenen Einladungen
         if e['eingeloest_von']:
             zustand = (f'<span class="ok">angenommen</span><br>'
                        f'<span class="leise">{html.escape(e["eingeloest_von"])}</span>')
@@ -927,19 +944,31 @@ def seite_uebersicht(nutzer, neuer_link=''):
             # Token benutzt, aber kein Konto sicher zuzuordnen - nicht 'offen' anzeigen,
             # sonst wird der verbrauchte Link nochmal verschickt.
             zustand = '<span class="ok">eingelöst</span><br><span class="leise">Zuordnung unklar</span>'
+        elif e['zurueckgezogen_am']:
+            zustand = '<span class="leise">zurückgezogen</span>'
         elif e['laeuft_ab'] < time.time():
             zustand = '<span class="leise">abgelaufen</span>'
         else:
             zustand = f'offen<br><span class="leise">{restlaufzeit(e["laeuft_ab"] - time.time())}</span>'
+            # Offen: darf zurueckgezogen werden - fuer die doppelt verschickte Einladung.
+            # Ein eigenes x am rechten Rand, gross genug fuer den Daumen.
+            weg = (f'<form method="post" action="/zurueckziehen" style="margin:0">'
+                   f'<input type="hidden" name="code" value="{html.escape(e["code"])}">'
+                   f'<button type="submit" aria-label="Einladung zurückziehen" title="Einladung zurückziehen" '
+                   f'style="width:auto;padding:4px 10px;font-size:24px;line-height:1;background:transparent;'
+                   f'color:var(--warn);border:0">✕</button></form>')
         datum = time.strftime('%d.%m.%Y', time.localtime(e['erstellt']))
         ziel = (f'<br><span class="leise">→ {html.escape(e["raum_name"])}</span>'
                 if e['raum_name'] else '')
         if e['raum_fehler']:
             ziel += ('<br><span class="leise" style="color:var(--warn)">'
                      'Raumeinladung klappte nicht</span>')
-        zeilen += f'<tr><td>{datum}{ziel}</td><td>{zustand}</td></tr>'
+        zeilen += (f'<tr><td>{datum}{ziel}</td><td>{zustand}</td>'
+                   f'<td style="text-align:right;width:1%;vertical-align:middle">{weg}</td></tr>')
     tabelle = (f'<div class="karte"><h2>Deine Einladungen</h2><table>{zeilen}</table></div>'
                if zeilen else '')
+    meldung = (f'<div class="karte" style="border-color:var(--eigen)"><p>{html.escape(hinweis)}</p></div>'
+               if hinweis else '')
 
     if neuer_link:
         link = html.escape(neuer_link)
@@ -982,6 +1011,7 @@ def seite_uebersicht(nutzer, neuer_link=''):
 
     return seite('Einladungen', f"""
       <h1>Hallo {kurz}</h1>
+      {meldung}
       {frisch}
       <div class="karte">
         <p class="leise">Du kannst noch einladen</p>
@@ -1158,10 +1188,11 @@ def seite_sperren_sicher(kennung):
       </div>""")
 
 
-def seite_einladung(einlader, token, abgelaufen=False, schon_benutzt=False):
+def seite_einladung(einlader, token, abgelaufen=False, schon_benutzt=False, zurueckgezogen=False):
     wer = html.escape(einlader.split(':')[0].lstrip('@'))
-    if abgelaufen or schon_benutzt:
-        grund = 'ist abgelaufen' if abgelaufen else 'wurde schon benutzt'
+    if abgelaufen or schon_benutzt or zurueckgezogen:
+        grund = ('wurde zurückgezogen' if zurueckgezogen
+                 else 'ist abgelaufen' if abgelaufen else 'wurde schon benutzt')
         return seite('Einladung', f"""
           <h1>Diese Einladung {grund}</h1>
           <p>Bitte frag {wer} nach einer neuen.</p>""")
@@ -1294,6 +1325,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.code_pruefen()
         if pfad == '/zweitfaktor':
             return self.zweitfaktor()
+        if pfad == '/zurueckziehen':
+            return self.zurueckziehen()
         if pfad == '/erzeugen':
             return self.erzeugen()
         if pfad in ('/kontingent', '/standard'):
@@ -1378,6 +1411,39 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         return self.antwort(seite_zweitfaktor(
             nutzer, hinweis='Zweiter Faktor ist an. Ab jetzt beim Anmelden nötig.'),
             200, self.keks_setzen(nutzer))
+
+    def zurueckziehen(self):
+        """Eine offene Einladung ungueltig machen - nur die eigene, Verwalter jede."""
+        code = self.formular().get('code', '').strip()   # Rumpf zuerst, er ist nur einmal lesbar
+        nutzer = self.wer()
+        if not nutzer:
+            return self.weiter('/')
+        with db() as v:
+            e = v.execute('SELECT * FROM einladung WHERE code=?', (code,)).fetchone()
+        if not e or (e['einlader'] != nutzer and not ist_verwalter(nutzer)):
+            return self.antwort(seite_uebersicht(nutzer, hinweis='Diese Einladung gibt es nicht.'), 404)
+        if e['eingeloest_am'] or e['benutzt_am'] or e['zurueckgezogen_am']:
+            return self.antwort(seite_uebersicht(
+                nutzer, hinweis='Diese Einladung ist schon benutzt oder zurückgezogen.'), 400)
+        # Erst der Token bei Synapse, dann die Ablage: schlaegt das Loeschen fehl, bleibt
+        # die Einladung sichtbar offen, statt hier "zurueckgezogen" und dort noch gueltig.
+        try:
+            token_loeschen(e['token'])
+        except Exception:
+            return self.antwort(seite('Einladungen',
+                '<h1>Das hat nicht geklappt</h1><p>Der Server antwortet gerade nicht. '
+                f'Bitte später nochmal — oder sag {BETREIBER} Bescheid.</p>'
+                '<a class="knopf" href="/">Zurück</a>'), 502)
+        with db() as v:
+            n = v.execute('UPDATE einladung SET zurueckgezogen_am=? WHERE code=? '
+                          'AND eingeloest_am IS NULL AND benutzt_am IS NULL',
+                          (int(time.time()), code)).rowcount
+        if n != 1:   # der Hintergrundfaden war schneller: inzwischen eingeloest
+            return self.antwort(seite_uebersicht(
+                nutzer, hinweis='Zu spät — die Einladung wurde gerade eingelöst.'), 409)
+        protokoll('zurueckgezogen', nutzer, code)
+        return self.antwort(seite_uebersicht(nutzer,
+            hinweis='Einladung zurückgezogen. Der Link funktioniert nicht mehr, dein Kontingent ist wieder frei.'))
 
     def erzeugen(self):
         gewaehlt = self.formular().get('raum', '').strip()   # Rumpf zuerst, er ist nur einmal lesbar
@@ -1532,7 +1598,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         self.antwort(seite_einladung(e['einlader'], e['token'],
                                      abgelaufen=e['laeuft_ab'] < time.time(),
                                      schon_benutzt=e['eingeloest_am'] is not None
-                                                   or e['benutzt_am'] is not None))
+                                                   or e['benutzt_am'] is not None,
+                                     zurueckgezogen=e['zurueckgezogen_am'] is not None))
 
 
 class Dienst(socketserver.ThreadingTCPServer):
