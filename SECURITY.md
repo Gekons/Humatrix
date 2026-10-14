@@ -13,12 +13,15 @@ honest expectation is worth more than a big promise.
 **Please not as a public ticket.** Instead:
 
 - **E-mail:** `humatrix@gekons.de`
-- or via GitHub's private reporting ("Report a vulnerability" in the "Security"
-  tab). The button is only there if the feature is enabled in the repository
-  (Settings → Code security → "Private vulnerability reporting") — whoever runs the
-  repository has to do that themselves. If the button is missing: please e-mail, no ticket.
+- or via GitHub's private reporting: "Report a vulnerability" in the "Security" tab
+  of this repository. If the button is missing, please e-mail — no ticket.
 
 Helpful: what is affected, how it can be reproduced, which version you are using.
+
+## Supported versions
+
+Only the current state of `main` and the latest release. There are no maintenance
+branches for older versions — update instead.
 
 ## What you can expect
 
@@ -61,5 +64,7 @@ Not bugs, but design — so nobody assumes something that isn't true:
   and thus, in theory, take over an account. They still can't read old messages,
   the keys are on the devices. The emoji device verification would make such an
   attempt visible.
-- **No automatic updates for Synapse and Element Web.** Deliberately — but someone has
-  to trigger them (`apt` or `./install.sh … --nur element`, see docs/operator.md).
+- **Only Debian security updates are automatic.** Synapse, Element Web and the other
+  packages are checked daily and shown in the admin page, but installed only when the
+  admin clicks (or runs `messenger-update-ausfuehren.sh`). If nobody clicks, nothing
+  gets updated — see docs/operator.md.
