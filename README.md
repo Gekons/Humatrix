@@ -155,8 +155,8 @@ sudo bash setup.sh
 
 The script checks that this is Debian 12 or 13 on amd64, installs `python3` and `curl`,
 fetches the installer into `/opt/humatrix` and prints an address like
-`http://203.0.113.5:8088/` together with a one-time code. Open the address, enter the
-code, and the page asks for the rest in five steps: the domain and where the server
+`http://203.0.113.5:8088/` together with a one-time code. Open the address, choose the
+language, enter the code, and the page asks for the rest in five steps: the domain and where the server
 stands (rented server, at home behind a router, behind a reverse proxy; it detects which
 is likely), then a preparation page that lists exactly what has to be done outside the
 server for that situation (fixed address and port forwards in the router with the

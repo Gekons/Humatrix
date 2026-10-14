@@ -161,8 +161,8 @@ sudo bash setup.sh
 
 Das Skript prüft, dass es Debian 12 oder 13 auf amd64 ist, installiert `python3` und
 `curl`, holt den Installer nach `/opt/humatrix` und gibt eine Adresse wie
-`http://203.0.113.5:8088/` samt Einmalcode aus. Adresse öffnen, Code eingeben, den Rest
-fragt die Seite in fünf Schritten: die Domain und wo der Server steht (gemieteter
+`http://203.0.113.5:8088/` samt Einmalcode aus. Adresse öffnen, Sprache wählen, Code
+eingeben, den Rest fragt die Seite in fünf Schritten: die Domain und wo der Server steht (gemieteter
 Server, zuhause hinter einem Router, hinter einem Reverse-Proxy; sie erkennt, was
 wahrscheinlich ist), dann eine Vorbereitungsseite, die für genau diese Situation
 auflistet, was außerhalb des Servers zu tun ist (feste Adresse und Portfreigaben im

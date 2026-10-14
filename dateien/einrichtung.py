@@ -923,6 +923,18 @@ def fehlerkasten(text):
     return f'<p class="fehler">{text}</p>' if text else ''
 
 
+def seite_sprache():
+    """Allererste Seite, zweisprachig: erst die Sprache, dann alles andere darin."""
+    return seite('Humatrix', """
+      <div class="kopfzeile"><span class="leise">Humatrix</span></div>
+      <h1>Sprache wählen<br>Choose your language</h1>
+      <p class="leise">Alles Weitere erscheint in dieser Sprache. · Everything that follows will be in this language.</p>
+      <div class="karte">
+        <a class="knopf" href="/sprache?zu=de&amp;dann=/" style="margin-top:0">Deutsch</a>
+        <a class="knopf" href="/sprache?zu=en&amp;dann=/">English</a>
+      </div>""", 'de')
+
+
 def seite_code(sprache, fehler=''):
     if VERSUCHE['gesperrt']:
         fehler = t('code_gesperrt', sprache)
@@ -940,10 +952,7 @@ def seite_code(sprache, fehler=''):
       <h1>{t('code_kopf', sprache)}</h1>
       <p class="leise">{t('code_unter', sprache)}</p>
       {fehlerkasten(fehler)}
-      {formular}
-      <div class="sprachen"><span class="leise">{t('sprache_wahl', sprache)}</span>
-        <a href="/sprache?zu=de&amp;dann=/" class="{'hier' if sprache == 'de' else ''}">Deutsch</a>
-        <a href="/sprache?zu=en&amp;dann=/" class="{'hier' if sprache == 'en' else ''}">English</a></div>""", sprache)
+      {formular}""", sprache)
 
 
 def seite_server(sprache, a, fehler=''):
@@ -1389,6 +1398,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                 antworten_setzen(sprache=zu)
             dann = frage.get('dann', ['/'])[0]
             return self.weiter(dann if dann in SEITEN else '/')
+        if not antworten().get('sprache'):
+            return self.antwort(seite_sprache())
         if not self.angemeldet():
             return self.antwort(seite_code(sprache), 401 if pfad != '/' else 200)
         a = antworten()
@@ -1463,6 +1474,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         sprache = self.sprache()
         f = self.formular()
         if pfad == '/code':
+            if not antworten().get('sprache'):
+                return self.weiter('/')
             with SCHLOSS:
                 if VERSUCHE['gesperrt']:
                     return self.antwort(seite_code(sprache), 403)
@@ -1470,8 +1483,6 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                     VERSUCHE['anzahl'] = 0
                     keks = (f'einrichtung={sitzung_bauen()}; Path=/; HttpOnly; SameSite=Strict; '
                             f'Max-Age={SITZUNG_STUNDEN * 3600}')
-                    if not antworten().get('sprache'):
-                        antworten_setzen(sprache=sprache)
                     return self.weiter('/', {'Set-Cookie': keks})
                 VERSUCHE['anzahl'] += 1
                 if VERSUCHE['anzahl'] >= VERSUCHE_MAX:
