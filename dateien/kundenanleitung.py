@@ -429,7 +429,7 @@ TEXTE = {
     '03-erzeugt.png': 'Nach dem Knopfdruck: der fertige Link zum Verschicken.',
     '04-einladung.png': 'Was der Eingeladene sieht — drei Schritte, mehr nicht.',
     '05-verwaltung.png': 'Die Verwaltung: Aktualisierungen, Vorgabe für neue Konten, Sprache, '
-                         'Konten anlegen und verwalten, und wer wen geholt hat.',
+                         'Konten anlegen und verwalten.',
     '06-zweitfaktor.png': 'Den QR-Code mit der Authenticator-App scannen.',
   },
   'en': {
@@ -441,7 +441,7 @@ TEXTE = {
     '03-erzeugt.png': 'After the click: the finished link to send.',
     '04-einladung.png': 'What the invited person sees — three steps, nothing more.',
     '05-verwaltung.png': 'The admin page: updates, the default for new accounts, language, '
-                         'creating and managing accounts, and who brought in whom.',
+                         'creating and managing accounts.',
     '06-zweitfaktor.png': 'Scan the QR code with the authenticator app.',
   },
 }
