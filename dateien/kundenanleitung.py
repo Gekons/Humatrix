@@ -435,8 +435,7 @@ TEXTE = {
   'en': {
     'betreiber_zeile': '<br>Looked after by {betreiber}',
     'betreiber_vorgabe': 'your contact person',
-    'bild_hinweis': '<p class="klein leise">The screenshots in this guide show the German '
-                    'interface — the pages look the same in English, only the words differ.</p>',
+    'bild_hinweis': '',
     '01-anmelden.png': 'The invitation page — log in with the usual chat account.',
     '02-nutzer.png': 'Everyone sees here how many invitations they have left.',
     '03-erzeugt.png': 'After the click: the finished link to send.',
@@ -503,8 +502,8 @@ def main():
         verwalter=e(w.verwalter),
         passwort=e(w.passwort),
         chat=f'https://chat.{e(w.domain)}',
-        einladung=f'https://einladung.{e(w.domain)}',
-        verwaltung=f'https://verwaltung.{e(w.domain)}',
+        einladung=f'https://invite.{e(w.domain)}',
+        verwaltung=f'https://admin.{e(w.domain)}',
         datum=heutiges_datum(sprache),
         betreiber_zeile=texte['betreiber_zeile'].format(betreiber=e(betreiber)) if betreiber else '',
         betreiber_kurz=e(betreiber.split(',')[0]) if betreiber else texte['betreiber_vorgabe'],

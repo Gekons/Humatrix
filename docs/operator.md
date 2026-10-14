@@ -63,15 +63,15 @@ Six A records pointing to the IP of the new server:
 <domain>              A   <IP>
 matrix.<domain>       A   <IP>
 chat.<domain>         A   <IP>
-einladung.<domain>    A   <IP>
-verwaltung.<domain>   A   <IP>
+invite.<domain>       A   <IP>
+admin.<domain>        A   <IP>
 turn.<domain>         A   <IP>
 ```
 
 Then **wait until they are visible** — usually one to ten minutes. Check with:
 
 ```bash
-for n in "" matrix. chat. einladung. verwaltung. turn.; do
+for n in "" matrix. chat. invite. admin. turn.; do
   echo "$n<domain> -> $(dig +short @1.1.1.1 $n<domain> A)"
 done
 ```
@@ -225,7 +225,7 @@ others (`chown root:matrix-synapse`, `chmod 640`), then
 **Reset a password as root** — for any account, including the admin account. The
 better way is the admin page ("Passwort neu"): it sets the password, logs out the
 Matrix devices **and** ends a running session of the account on
-`einladung.`/`verwaltung.<domain>`. The call below (it is also in
+`invite.`/`admin.<domain>`. The call below (it is also in
 `/root/zugangsdaten-messenger.txt` under "PASSWORT NEU SETZEN") is the emergency exit
 when nobody can get into the admin page any more. It affects **Matrix only**: a session
 on the invitation or admin page keeps running for up to twelve hours afterwards.

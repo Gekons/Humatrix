@@ -151,8 +151,8 @@ Die Eckdaten stehen oben unter **[Läuft das bei mir?](#läuft-das-bei-mir)**. H
 deinedomain.de              A   <IP>
 matrix.deinedomain.de       A   <IP>
 chat.deinedomain.de         A   <IP>
-einladung.deinedomain.de    A   <IP>
-verwaltung.deinedomain.de   A   <IP>
+invite.deinedomain.de       A   <IP>
+admin.deinedomain.de        A   <IP>
 turn.deinedomain.de         A   <IP>
 ```
 
@@ -192,7 +192,7 @@ Installer-Ausgabe, der Webseiten und der Kundenanleitung fest; Vorgabe ist Engli
 für einen deutschen Kunden `--language de` angeben. Die Verwaltung kann die Webseiten
 später umschalten. Ein Wiederholungslauf behält die Sprache der vorhandenen
 Installation; `--language` setzt sie neu. Die Schalter, Abschnittsnamen und Hostnamen-Präfixe (`matrix.`,
-`chat.`, `einladung.`, `verwaltung.`, `turn.`) sind in beiden Sprachen gleich — sie
+`chat.`, `invite.`, `admin.`, `turn.`) sind in beiden Sprachen gleich — sie
 gehören zur DNS-Einrichtung, nicht zur Oberfläche.
 
 ### Schon ein Reverse-Proxy im Haus?
@@ -221,8 +221,8 @@ TURN leitet nur weiter.
 | Adresse | für wen |
 |---|---|
 | `https://chat.deinedomain.de` | alle — Chat im Browser |
-| `https://einladung.deinedomain.de` | alle — Einladungen verschicken |
-| `https://verwaltung.deinedomain.de` | nur Verwalter — Konten und Kontingente |
+| `https://invite.deinedomain.de` | alle — Einladungen verschicken |
+| `https://admin.deinedomain.de` | nur Verwalter — Konten und Kontingente |
 | Handy-App | FluffyChat oder Element X, als Server `deinedomain.de` eintragen |
 
 ### Einladen kann jeder — so viel, wie du erlaubst

@@ -46,7 +46,7 @@ from cryptography.fernet import Fernet, InvalidToken
 HEIMSERVER = os.environ.get('MESSENGER_HEIMSERVER', 'https://matrix.beispieldomain.de')
 SERVERNAME = os.environ.get('MESSENGER_SERVERNAME', 'beispieldomain.de')   # was in die App getippt wird
 ELEMENT    = os.environ.get('MESSENGER_ELEMENT',    'https://chat.beispieldomain.de')
-EIGENE_URL = os.environ.get('MESSENGER_EIGENE_URL', 'https://einladung.beispieldomain.de')
+EIGENE_URL = os.environ.get('MESSENGER_EIGENE_URL', 'https://invite.beispieldomain.de')
 # Wie der Betreiber in Hinweisen fuer Endnutzer genannt wird ("sag ... Bescheid").
 # Leer heisst: die Vorgabe der jeweiligen Sprache (siehe betreiber()).
 BETREIBER  = os.environ.get('MESSENGER_BETREIBER',  '').strip()
@@ -1449,7 +1449,7 @@ def seite_anmelden(sprache, fehler='', verwaltung=False):
     """Dieselbe Anmeldung, aber unter dem Verwaltungsnamen mit passender Aufschrift.
 
     Vorher stand auch dort "Jemanden einladen" - das verwirrt, weil die Seite
-    unter verwaltung.<domain> gerade NICHT zum Einladen da ist.
+    unter admin.<domain> gerade NICHT zum Einladen da ist.
     """
     hinweis = f'<p class="fehler">{html.escape(fehler)}</p>' if fehler else ''
     titel = t('titel_verwaltung' if verwaltung else 'titel_einladungen', sprache)

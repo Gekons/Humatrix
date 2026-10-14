@@ -16,7 +16,7 @@ Where the limits are — metadata, passwords, the browser client — is covered 
 **[What the operator can see — and what they can't](#what-the-operator-can-see--and-what-they-cant)**.
 
 <p align="center">
-  <img src="dateien/bilder/04-einladung.png" width="420" alt="Invitation page">
+  <img src="dateien/bilder/en/04-einladung.png" width="420" alt="Invitation page">
 </p>
 
 ---
@@ -147,8 +147,8 @@ The key figures are above under **[Will it run for me?](#will-it-run-for-me)**. 
 deinedomain.de              A   <IP>
 matrix.deinedomain.de       A   <IP>
 chat.deinedomain.de         A   <IP>
-einladung.deinedomain.de    A   <IP>
-verwaltung.deinedomain.de   A   <IP>
+invite.deinedomain.de       A   <IP>
+admin.deinedomain.de        A   <IP>
 turn.deinedomain.de         A   <IP>
 ```
 
@@ -188,7 +188,7 @@ equivalent). `--language en|de` sets the language of the installer's output, the
 pages and the customer guide; the default is English, and the admin page can switch the
 web pages later. A repeat run keeps the language of the existing installation;
 `--language` sets it anew. The switches, section names and host name prefixes (`matrix.`, `chat.`,
-`einladung.`, `verwaltung.`, `turn.`) are the same in both languages — they are part of
+`invite.`, `admin.`, `turn.`) are the same in both languages — they are part of
 the DNS setup, not of the interface.
 
 ### Already have a reverse proxy in the house?
@@ -215,15 +215,15 @@ the call content is end-to-end encrypted anyway; TURN only relays.
 | Address | for whom |
 |---|---|
 | `https://chat.deinedomain.de` | everyone — chat in the browser |
-| `https://einladung.deinedomain.de` | everyone — send invitations |
-| `https://verwaltung.deinedomain.de` | admins only — accounts and quotas |
+| `https://invite.deinedomain.de` | everyone — send invitations |
+| `https://admin.deinedomain.de` | admins only — accounts and quotas |
 | Phone app | FluffyChat or Element X, enter `deinedomain.de` as the server |
 
 ### Anyone can invite — as much as you allow
 
 <p align="center">
-  <img src="dateien/bilder/02-nutzer.png" width="380" alt="User view">
-  <img src="dateien/bilder/03-erzeugt.png" width="380" alt="Created invitation">
+  <img src="dateien/bilder/en/02-nutzer.png" width="380" alt="User view">
+  <img src="dateien/bilder/en/03-erzeugt.png" width="380" alt="Created invitation">
 </p>
 
 One click, one link, done. The invitation is valid for 14 days and works exactly once.
@@ -232,7 +232,7 @@ The code deliberately avoids easily confused characters: `Y9RV-3GZW-JJ57`.
 ### Administration
 
 <p align="center">
-  <img src="dateien/bilder/05-verwaltung.png" width="420" alt="Administration">
+  <img src="dateien/bilder/en/05-verwaltung.png" width="420" alt="Administration">
 </p>
 
 Quota per person freely editable — **0** means "may not invite anyone", plus a checkbox
@@ -248,7 +248,7 @@ An admin is whoever is one on the Matrix server — no second permission system,
 ### Second factor
 
 <p align="center">
-  <img src="dateien/bilder/06-zweitfaktor.png" width="380" alt="Second factor">
+  <img src="dateien/bilder/en/06-zweitfaktor.png" width="380" alt="Second factor">
 </p>
 
 TOTP, two-step login, secret stored encrypted, throttling after five failed attempts.

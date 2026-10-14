@@ -74,8 +74,8 @@ T_de[hilfe]="Messenger-Installer
 
 Vorher einzurichten (der Installer prueft es und bricht sonst ab):
   A-Eintraege auf die IP dieses Servers fuer:  (mit --hinter-proxy: auf den Proxy)
-     <domain>  matrix.<domain>  chat.<domain>  einladung.<domain>
-     verwaltung.<domain>  turn.<domain>"
+     <domain>  matrix.<domain>  chat.<domain>  invite.<domain>
+     admin.<domain>  turn.<domain>"
 T_en[hilfe]="Messenger installer
 
   --domain  <name>     Required. The bare domain, e.g. example.com
@@ -101,8 +101,8 @@ T_en[hilfe]="Messenger installer
 
 To set up beforehand (the installer checks it and aborts otherwise):
   A records to the IP of this server for:  (with --behind-proxy: to the proxy)
-     <domain>  matrix.<domain>  chat.<domain>  einladung.<domain>
-     verwaltung.<domain>  turn.<domain>"
+     <domain>  matrix.<domain>  chat.<domain>  invite.<domain>
+     admin.<domain>  turn.<domain>"
 
 # --- Argumente
 T_de[unbekannte_angabe]="Unbekannte Angabe: %s  (--hilfe zeigt die Moeglichkeiten)"
@@ -538,8 +538,8 @@ printf '%s' "$VERWALTER" | LC_ALL=C grep -qE '^[a-z0-9._=/-]+$' \
 
 MATRIX_HOST="matrix.$DOMAIN"
 CHAT_HOST="chat.$DOMAIN"
-EINLADUNG_HOST="einladung.$DOMAIN"
-VERWALTUNG_HOST="verwaltung.$DOMAIN"
+EINLADUNG_HOST="invite.$DOMAIN"
+VERWALTUNG_HOST="admin.$DOMAIN"
 TURN_HOST="turn.$DOMAIN"
 HIER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -1570,10 +1570,13 @@ zugangsdatei_schreiben
 chmod 600 "$ZUGANG"
 melde "$(txt zugangsdaten_in "$ZUGANG")"
 
+# Bildschirmfotos in der Sprache der Anleitung: dateien/bilder (de) bzw. dateien/bilder/en.
+BILDER="$HIER/dateien/bilder"
+[ "$SPRACHE" = en ] && [ -d "$BILDER/en" ] && BILDER="$BILDER/en"
 if [ -f "$HIER/dateien/kundenanleitung.py" ]; then
   python3 "$HIER/dateien/kundenanleitung.py" \
     --domain "$DOMAIN" --verwalter "$VERWALTER" --passwort "$APW" \
-    --betreiber "${BETREIBER:-}" --bilder "$HIER/dateien/bilder" --language "$SPRACHE" \
+    --betreiber "${BETREIBER:-}" --bilder "$BILDER" --language "$SPRACHE" \
     --ausgabe "$ANLEITUNG" >/dev/null && chmod 600 "$ANLEITUNG"
   melde "$(txt kundenanleitung "$ANLEITUNG")"
 fi
