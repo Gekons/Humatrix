@@ -12,7 +12,7 @@ honest expectation is worth more than a big promise.
 
 **Please not as a public ticket.** Instead:
 
-- **E-mail:** `gumbert@gekons.de`
+- **E-mail:** `humatrix@gekons.de`
 - or via GitHub's private reporting ("Report a vulnerability" in the "Security"
   tab). The button is only there if the feature is enabled in the repository
   (Settings → Code security → "Private vulnerability reporting") — whoever runs the

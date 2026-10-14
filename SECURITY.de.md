@@ -12,7 +12,7 @@ Erwartung mehr wert als ein großes Versprechen.
 
 **Bitte nicht als öffentliches Ticket.** Stattdessen:
 
-- **E-Mail:** `gumbert@gekons.de`
+- **E-Mail:** `humatrix@gekons.de`
 - oder über die private Meldefunktion von GitHub („Report a vulnerability" im Reiter
   „Security"). Der Knopf ist nur da, wenn die Funktion im Repository eingeschaltet ist
   (Settings → Code security → „Private vulnerability reporting") — das muss, wer das
