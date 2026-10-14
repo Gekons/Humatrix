@@ -105,7 +105,7 @@ This project closes both gaps.
   admin account have no chain entry. And: **Abmelden** (log out) on the invitation page ends all
   sessions of that account there, on other devices too
 - **Revoking**: an open invitation can be revoked with the ✕ on its row — the code is
-  deleted at the server, the link reports "zurückgezogen" (revoked), the quota is free again. For the
+  deleted at the server, the link reports "revoked", the quota is free again. For the
   invitation sent twice, not for the redeemed one.
 - **Sensible defaults**: encryption on, registration by invitation only, no previews of
   external pages, cached media from other servers cleared after 90 days

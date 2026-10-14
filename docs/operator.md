@@ -98,8 +98,8 @@ cd /root/Humatrix
 - `--mail` is **your** address — that is where Let's Encrypt warns you if a certificate
   wasn't renewed. You want to know that, not the customer.
 - `--operator` is optional, but sensible when serving customers: name and contact
-  details then appear in the customer guide ("Betreut von …", "Melde dich bei …" —
-  "looked after by", "get in touch with") and in the notes of the invitation service.
+  details then appear in the customer guide ("Looked after by …", "Get in touch with …")
+  and in the notes of the invitation service.
   Without it, it just says "your contact person" / "the operator" (or the German
   equivalent).
 - `--language en|de` is the language of the installer's output, the web pages
@@ -223,7 +223,7 @@ others (`chown root:matrix-synapse`, `chmod 640`), then
 | Your own firewall rules (WireGuard, restricted SSH) | — | are kept on repeat runs: `ufw` is only reset while it is not yet active; after that the hardening only sets its own rules and takes the SSH port from the running `sshd` configuration |
 
 **Reset a password as root** — for any account, including the admin account. The
-better way is the admin page ("Passwort neu"): it sets the password, logs out the
+better way is the admin page ("New password"): it sets the password, logs out the
 Matrix devices **and** ends a running session of the account on
 `invite.`/`service.<domain>`. The call below (it is also in
 `/root/zugangsdaten-messenger.txt` under "PASSWORT NEU SETZEN") is the emergency exit
