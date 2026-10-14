@@ -298,6 +298,15 @@ It's gibberish.
 
 In detail: **[docs/operator.md](docs/operator.md)**
 
+### Embedding the chat in Nextcloud
+
+If your circle already uses a Nextcloud, the chat can appear there as an app: in Nextcloud install
+the app **External sites**, add a site with the URL `https://chat.<domain>/`, leave "Redirect" off
+(embedded) and upload a 32×32 PNG with transparency as the icon. Element Web then runs inside
+Nextcloud's page; the chat host sends no `X-Frame-Options` or `frame-ancestors` restriction, so
+embedding works out of the box. The invitation page (`invite.<domain>`) is not meant for embedding —
+people open it from the link they received.
+
 ## The guide your people get
 
 At the end the installer produces a ready-made guide — filled in with the real

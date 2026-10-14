@@ -304,6 +304,15 @@ Da steht Buchstabensalat.
 
 Ausführlich: **[docs/betreiber.md](docs/betreiber.md)**
 
+### Den Chat in Nextcloud einbetten
+
+Wenn dein Kreis schon eine Nextcloud nutzt, kann der Chat dort als App erscheinen: in Nextcloud die
+App **Externe Seiten** installieren, eine Seite mit der Adresse `https://chat.<domain>/` anlegen,
+„Weiterleitung“ aus lassen (eingebettet) und als Icon ein 32×32-PNG mit Transparenz hochladen.
+Element Web läuft dann innerhalb der Nextcloud-Seite; der Chat-Host setzt keine `X-Frame-Options`-
+oder `frame-ancestors`-Beschränkung, das Einbetten geht also ohne weiteres Zutun. Die Einladungsseite
+(`invite.<domain>`) ist nicht zum Einbetten gedacht — die öffnen die Leute über ihren Link.
+
 ## Die Anleitung, die deine Leute bekommen
 
 Der Installer erzeugt am Ende eine fertige Anleitung — befüllt mit der echten
