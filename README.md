@@ -203,7 +203,7 @@ anyway; TURN only relays packets.
 | `https://chat.example.com` | everyone: chat in the browser |
 | `https://invite.example.com` | everyone: send invitations |
 | `https://service.example.com` | admins only: accounts and quotas |
-| Phone app | FluffyChat or Element X, enter `example.com` as the server |
+| Phone app | FluffyChat or Element X, enter `example.com` as the server (log in only; accounts are created in the browser) |
 
 ### Inviting
 
@@ -213,6 +213,10 @@ anyway; TURN only relays packets.
 
 One click produces a link. It is valid for 14 days and works once. The code avoids
 easily confused characters: `Y9RV-3GZW-JJ57`.
+
+The invited person creates the account in the browser (Element Web, the link leads
+there); the phone apps can only log in, not register on this server. Then they install
+FluffyChat or Element X and log in with the new username and password.
 
 ### Administration
 
@@ -317,6 +321,15 @@ the seven the installation test itself turned up, and what the tests do not prov
 | 150 messages from 15 people at the same time | 7.8 s, median 108 ms |
 | Encrypted room with 50 members | keys to everyone in 0.51 s |
 | Memory under load (of 4 GB) | 366 MB |
+
+## How this was built
+
+The idea, the requirements, the decisions and the testing against a real family
+server are mine. Most of the code and the first drafts of the documentation were
+written together with Claude, Anthropic's AI assistant, in a pair-programming
+setup: I describe, review and run it on real machines, and send it back. Every change
+has been read and tested by a human before it went into a release. If you find a bug,
+a human answers (see SECURITY.md for security issues).
 
 ## Contributing
 

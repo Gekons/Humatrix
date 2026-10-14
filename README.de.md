@@ -211,7 +211,7 @@ verschlüsselt; TURN leitet nur Pakete weiter.
 | `https://chat.deinedomain.de` | alle: Chat im Browser |
 | `https://invite.deinedomain.de` | alle: Einladungen verschicken |
 | `https://service.deinedomain.de` | nur Verwalter: Konten und Kontingente |
-| Handy-App | FluffyChat oder Element X, als Server `deinedomain.de` eintragen |
+| Handy-App | FluffyChat oder Element X, als Server `deinedomain.de` eintragen (nur anmelden; Konten werden im Browser angelegt) |
 
 ### Einladen
 
@@ -221,6 +221,11 @@ verschlüsselt; TURN leitet nur Pakete weiter.
 
 Ein Klick erzeugt einen Link. Er gilt 14 Tage und funktioniert einmal. Der Code
 vermeidet verwechselbare Zeichen: `Y9RV-3GZW-JJ57`.
+
+Der Eingeladene legt sein Konto im Browser an (Element Web, der Link führt dorthin);
+die Handy-Apps können sich auf diesem Server nur anmelden, nicht registrieren. Danach
+installiert er FluffyChat oder Element X und meldet sich mit dem neuen Benutzernamen
+und Passwort an.
 
 ### Verwaltung
 
@@ -327,6 +332,15 @@ Tests nicht belegen.
 | 150 Nachrichten von 15 Leuten gleichzeitig | 7,8 s, Mitte 108 ms |
 | Verschlüsselter Raum mit 50 Mitgliedern | Schlüssel an alle in 0,51 s |
 | Arbeitsspeicher unter Last (von 4 GB) | 366 MB |
+
+## Wie das entstanden ist
+
+Idee, Anforderungen, Entscheidungen und das Testen gegen einen echten Familienserver
+sind meine. Der größte Teil des Codes und die ersten Fassungen der Dokumentation sind
+zusammen mit Claude, dem KI-Assistenten von Anthropic, entstanden, als Paararbeit: Ich
+beschreibe, prüfe, lasse es auf echten Maschinen laufen und gebe es zurück. Jede
+Änderung hat ein Mensch gelesen und getestet, bevor sie in ein Release kam. Wer einen
+Fehler findet, bekommt Antwort von einem Menschen (Sicherheitslücken: siehe SECURITY.de.md).
 
 ## Mitmachen
 
