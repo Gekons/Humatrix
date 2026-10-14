@@ -8,10 +8,10 @@ in place, and adds an invitation page so that normal users can bring people in
 without going through the admin.
 
 ```bash
-sudo ./install.sh --domain yourdomain.com --mail you@example.com --admin your-name
+sudo ./install.sh --domain example.com --mail you@example.com --admin your-name
 ```
 
-Afterwards your IDs look like `@anna:yourdomain.com`. Messages are end-to-end
+Afterwards your IDs look like `@anna:example.com`. Messages are end-to-end
 encrypted, so the server only ever holds ciphertext. What the operator can and cannot
 see is listed under [What the operator can see](#what-the-operator-can-see).
 
@@ -128,12 +128,12 @@ The domain cannot be changed later without recreating all accounts.
 ### DNS
 
 ```
-yourdomain.com              A   <IP>
-matrix.yourdomain.com       A   <IP>
-chat.yourdomain.com         A   <IP>
-invite.yourdomain.com       A   <IP>
-service.yourdomain.com      A   <IP>
-turn.yourdomain.com         A   <IP>
+example.com              A   <IP>
+matrix.example.com       A   <IP>
+chat.example.com         A   <IP>
+invite.example.com       A   <IP>
+service.example.com      A   <IP>
+turn.example.com         A   <IP>
 ```
 
 ## Installation
@@ -145,13 +145,13 @@ git clone https://github.com/Gekons/Humatrix.git     # on your machine
 scp -r Humatrix root@<IP>:/root/
 ssh root@<IP>                                         # from here on: on the server
 cd /root/Humatrix
-./install.sh --domain yourdomain.com --mail you@example.com --admin your-name
+./install.sh --domain example.com --mail you@example.com --admin your-name
 ```
 
 With backup to remote storage:
 
 ```bash
-sudo ./install.sh --domain yourdomain.com --mail you@example.com --admin your-name \
+sudo ./install.sh --domain example.com --mail you@example.com --admin your-name \
                   --backup user@storage.example.com:/messenger
 ```
 
@@ -182,7 +182,7 @@ If a Nginx Proxy Manager, Traefik or Caddy already owns ports 80 and 443 of your
 address:
 
 ```bash
-sudo ./install.sh --domain yourdomain.com --admin your-name --behind-proxy
+sudo ./install.sh --domain example.com --admin your-name --behind-proxy
 ```
 
 In this mode the installer fetches no certificate and serves everything as plain HTTP
@@ -198,10 +198,10 @@ anyway; TURN only relays packets.
 
 | Address | for whom |
 |---|---|
-| `https://chat.yourdomain.com` | everyone: chat in the browser |
-| `https://invite.yourdomain.com` | everyone: send invitations |
-| `https://service.yourdomain.com` | admins only: accounts and quotas |
-| Phone app | FluffyChat or Element X, enter `yourdomain.com` as the server |
+| `https://chat.example.com` | everyone: chat in the browser |
+| `https://invite.example.com` | everyone: send invitations |
+| `https://service.example.com` | admins only: accounts and quotas |
+| Phone app | FluffyChat or Element X, enter `example.com` as the server |
 
 ### Inviting
 
