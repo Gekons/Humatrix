@@ -428,8 +428,8 @@ TEXTE = {
     '02-nutzer.png': 'Jeder sieht hier, wie viele Einladungen er noch hat.',
     '03-erzeugt.png': 'Nach dem Knopfdruck: der fertige Link zum Verschicken.',
     '04-einladung.png': 'Was der Eingeladene sieht — drei Schritte, mehr nicht.',
-    '05-verwaltung.png': 'Die Verwaltung. Oben die Vorgabe, darunter alle Konten — '
-                         'die beiden unteren sind hier zur Veranschaulichung gesperrt.',
+    '05-verwaltung.png': 'Die Verwaltung: Aktualisierungen, Vorgabe für neue Konten, Sprache, '
+                         'Konten anlegen und verwalten, und wer wen geholt hat.',
     '06-zweitfaktor.png': 'Den QR-Code mit der Authenticator-App scannen.',
   },
   'en': {
@@ -440,8 +440,8 @@ TEXTE = {
     '02-nutzer.png': 'Everyone sees here how many invitations they have left.',
     '03-erzeugt.png': 'After the click: the finished link to send.',
     '04-einladung.png': 'What the invited person sees — three steps, nothing more.',
-    '05-verwaltung.png': 'The admin page. The default at the top, all accounts below — '
-                         'the two at the bottom are blocked here for illustration.',
+    '05-verwaltung.png': 'The admin page: updates, the default for new accounts, language, '
+                         'creating and managing accounts, and who brought in whom.',
     '06-zweitfaktor.png': 'Scan the QR code with the authenticator app.',
   },
 }
@@ -503,7 +503,7 @@ def main():
         passwort=e(w.passwort),
         chat=f'https://chat.{e(w.domain)}',
         einladung=f'https://invite.{e(w.domain)}',
-        verwaltung=f'https://admin.{e(w.domain)}',
+        verwaltung=f'https://service.{e(w.domain)}',
         datum=heutiges_datum(sprache),
         betreiber_zeile=texte['betreiber_zeile'].format(betreiber=e(betreiber)) if betreiber else '',
         betreiber_kurz=e(betreiber.split(',')[0]) if betreiber else texte['betreiber_vorgabe'],

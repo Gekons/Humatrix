@@ -75,7 +75,7 @@ T_de[hilfe]="Messenger-Installer
 Vorher einzurichten (der Installer prueft es und bricht sonst ab):
   A-Eintraege auf die IP dieses Servers fuer:  (mit --hinter-proxy: auf den Proxy)
      <domain>  matrix.<domain>  chat.<domain>  invite.<domain>
-     admin.<domain>  turn.<domain>"
+     service.<domain>  turn.<domain>"
 T_en[hilfe]="Messenger installer
 
   --domain  <name>     Required. The bare domain, e.g. example.com
@@ -102,7 +102,7 @@ T_en[hilfe]="Messenger installer
 To set up beforehand (the installer checks it and aborts otherwise):
   A records to the IP of this server for:  (with --behind-proxy: to the proxy)
      <domain>  matrix.<domain>  chat.<domain>  invite.<domain>
-     admin.<domain>  turn.<domain>"
+     service.<domain>  turn.<domain>"
 
 # --- Argumente
 T_de[unbekannte_angabe]="Unbekannte Angabe: %s  (--hilfe zeigt die Moeglichkeiten)"
@@ -539,7 +539,7 @@ printf '%s' "$VERWALTER" | LC_ALL=C grep -qE '^[a-z0-9._=/-]+$' \
 MATRIX_HOST="matrix.$DOMAIN"
 CHAT_HOST="chat.$DOMAIN"
 EINLADUNG_HOST="invite.$DOMAIN"
-VERWALTUNG_HOST="admin.$DOMAIN"
+VERWALTUNG_HOST="service.$DOMAIN"
 TURN_HOST="turn.$DOMAIN"
 HIER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

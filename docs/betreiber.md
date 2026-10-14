@@ -64,14 +64,14 @@ Sechs A-Einträge auf die IP des neuen Servers:
 matrix.<domain>       A   <IP>
 chat.<domain>         A   <IP>
 invite.<domain>       A   <IP>
-admin.<domain>        A   <IP>
+service.<domain>        A   <IP>
 turn.<domain>         A   <IP>
 ```
 
 Dann **warten, bis sie sichtbar sind** — meist ein bis zehn Minuten. Prüfen mit:
 
 ```bash
-for n in "" matrix. chat. invite. admin. turn.; do
+for n in "" matrix. chat. invite. service. turn.; do
   echo "$n<domain> -> $(dig +short @1.1.1.1 $n<domain> A)"
 done
 ```
@@ -224,7 +224,7 @@ anderen anlegen (`chown root:matrix-synapse`, `chmod 640`), danach
 **Passwort als root neu setzen** — für jedes Konto, auch das Verwalterkonto. Der bessere
 Weg ist die Verwaltungsseite („Passwort neu"): Sie setzt das Passwort, meldet die
 Matrix-Geräte ab **und** beendet eine laufende Sitzung des Kontos auf
-`invite.`/`admin.<domain>`. Der Aufruf unten (er steht auch in
+`invite.`/`service.<domain>`. Der Aufruf unten (er steht auch in
 `/root/zugangsdaten-messenger.txt` unter „PASSWORT NEU SETZEN") ist der Notausgang, wenn
 niemand mehr in die Verwaltung kommt. Er trifft **nur Matrix**: Eine Sitzung auf der
 Einladungs- oder Verwaltungsseite läuft danach bis zu zwölf Stunden weiter.

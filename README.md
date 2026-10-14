@@ -148,7 +148,7 @@ deinedomain.de              A   <IP>
 matrix.deinedomain.de       A   <IP>
 chat.deinedomain.de         A   <IP>
 invite.deinedomain.de       A   <IP>
-admin.deinedomain.de        A   <IP>
+service.deinedomain.de        A   <IP>
 turn.deinedomain.de         A   <IP>
 ```
 
@@ -188,7 +188,7 @@ equivalent). `--language en|de` sets the language of the installer's output, the
 pages and the customer guide; the default is English, and the admin page can switch the
 web pages later. A repeat run keeps the language of the existing installation;
 `--language` sets it anew. The switches, section names and host name prefixes (`matrix.`, `chat.`,
-`invite.`, `admin.`, `turn.`) are the same in both languages — they are part of
+`invite.`, `service.`, `turn.`) are the same in both languages — they are part of
 the DNS setup, not of the interface.
 
 ### Already have a reverse proxy in the house?
@@ -216,7 +216,7 @@ the call content is end-to-end encrypted anyway; TURN only relays.
 |---|---|
 | `https://chat.deinedomain.de` | everyone — chat in the browser |
 | `https://invite.deinedomain.de` | everyone — send invitations |
-| `https://admin.deinedomain.de` | admins only — accounts and quotas |
+| `https://service.deinedomain.de` | admins only — accounts and quotas |
 | Phone app | FluffyChat or Element X, enter `deinedomain.de` as the server |
 
 ### Anyone can invite — as much as you allow
