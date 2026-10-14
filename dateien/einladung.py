@@ -992,8 +992,8 @@ TEXTE = {
     'einl_kopf': '{wer} lädt dich ein',
     'einl_unter': 'In einen Chat, bei dem kein Konzern mitliest. Drei Schritte.',
     'einl_schritt1': 'App installieren',
-    'einl_schritt1_text': 'Suche im App Store oder bei Google Play nach <b>Element</b> — '
-                          'oder nutze unten einfach den Browser.',
+    'einl_schritt1_text': 'Suche im App Store oder bei Google Play nach <b>FluffyChat</b> — '
+                          'oder nutze unten einfach den Browser und melde dich danach in der App an.',
     'einl_schritt2': 'Server eintragen',
     'einl_schritt2_text': 'Die App fragt danach:',
     'einl_schritt3': 'Diesen Einladungscode eingeben',
@@ -1250,8 +1250,8 @@ TEXTE = {
     'einl_kopf': '{wer} invites you',
     'einl_unter': 'A chat where no big tech company is listening in. Three steps.',
     'einl_schritt1': 'Install the app',
-    'einl_schritt1_text': 'Search the App Store or Google Play for <b>Element</b> — '
-                          'or simply use the browser below.',
+    'einl_schritt1_text': 'Search the App Store or Google Play for <b>FluffyChat</b> — '
+                          'or simply use the browser below and log in to the app afterwards.',
     'einl_schritt2': 'Enter the server',
     'einl_schritt2_text': 'The app asks for it:',
     'einl_schritt3': 'Enter this invitation code',
