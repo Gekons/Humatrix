@@ -1,19 +1,19 @@
 [English](README.md) | **Deutsch**
 
-# Ein eigener, verschlüsselter Chat für den eigenen Kreis
+# Humatrix
 
-Ein Installer, der auf einem frischen Debian-Server in einem Durchgang einen vollständigen,
-Ende-zu-Ende-verschlüsselten Chat aufsetzt: Matrix-Server, Verschlüsselung, Anrufe,
-Weboberfläche, Verwaltung, Einladungen, Sicherung, Grundhärtung.
+Ein Matrix-Server für Familie, Verein oder Freundeskreis, in einem Durchgang auf einem
+frischen Debian-Rechner aufgesetzt. Der Installer richtet Synapse, Element Web, coturn,
+nginx und eine Sicherung ein und ergänzt eine Einladungsseite, über die normale Nutzer
+Leute hereinholen, ohne dass alles über den Verwalter läuft.
 
 ```bash
 sudo ./install.sh --domain deinedomain.de --mail du@example.de --verwalter dein-name
 ```
 
-Danach heißen eure Kennungen `@anna:deinedomain.de` und ihr schreibt verschlüsselt miteinander:
-Auf dem Server liegt nur Chiffrat, Nachrichteninhalte kann auch der Betreiber nicht lesen.
-Wo die Grenzen liegen — Metadaten, Passwörter, der Browser-Client — steht unten unter
-**[Was der Betreiber sehen kann](#was-der-betreiber-sehen-kann--und-was-nicht)**.
+Danach heißen eure Kennungen `@anna:deinedomain.de`. Nachrichten sind Ende zu Ende
+verschlüsselt, auf dem Server liegt nur Chiffrat. Was der Betreiber sehen kann und was
+nicht, steht unter [Was der Betreiber sehen kann](#was-der-betreiber-sehen-kann).
 
 <p align="center">
   <img src="dateien/bilder/04-einladung.png" width="420" alt="Einladungsseite">
@@ -23,45 +23,36 @@ Wo die Grenzen liegen — Metadaten, Passwörter, der Browser-Client — steht u
 
 ## Läuft das bei mir?
 
-Kurz vorweg, damit niemand erst nach dem Herunterladen merkt, dass es nicht passt.
-
 | | |
 |---|---|
-| **Betriebssystem** | Debian 13 (empfohlen) oder Debian 12. **Nichts anderes.** |
-| **Architektur** | `amd64` (gewöhnliche PC- und Server-Prozessoren). **Kein ARM.** |
+| **Betriebssystem** | Debian 13 (empfohlen) oder Debian 12. Nichts anderes. |
+| **Architektur** | `amd64`. Kein ARM. |
 | **Arbeitsspeicher** | 2 GB Minimum, 4 GB für 20–50 Leute, 8 GB mit Reserve |
-| **Plattenplatz** | 20 GB Minimum, 80 GB empfohlen — Fotos und Videos wachsen |
-| **Eigene Domain** | zwingend, und sie steckt dauerhaft in jeder Kennung |
-| **Öffentliche IPv4** | zwingend. Bei DS-Lite-Anschlüssen geht es nicht. |
+| **Plattenplatz** | 20 GB Minimum, 80 GB empfohlen; Fotos und Videos wachsen |
+| **Eigene Domain** | zwingend; sie wird Teil jeder Kennung und lässt sich später nicht ändern |
+| **Öffentliche IPv4** | zwingend; bei DS-Lite-Anschlüssen geht es nicht |
 | **Zugang** | root (oder `sudo`) auf einem Server, der nur dafür da ist |
 
-### Was ausdrücklich NICHT geht
+### Was nicht geht
 
-**Raspberry Pi und andere ARM-Rechner.** Das ist keine Faulheit: Die Paketquelle
-`packages.matrix.org` führt Synapse ausschließlich für `amd64` und `i386` — für
-`arm64` und `armhf` gibt es dort nicht einmal eine Paketliste. Wer Matrix auf einem
-Pi betreiben will, braucht Synapse im Container oder aus dem Quelltext; beides kann
-dieser Installer nicht, und er tut auch nicht so als ob. Er bricht gleich zu Beginn
-mit dieser Begründung ab.
+**Raspberry Pi und andere ARM-Rechner.** `packages.matrix.org` führt Synapse nur für
+`amd64` und `i386`. Matrix auf einem Pi heißt Synapse im Container oder aus dem
+Quelltext, und beides macht dieser Installer nicht. Er bricht zu Beginn mit dieser
+Begründung ab.
 
 **Windows.** Der Installer ist ein Bash-Skript und baut auf `systemd`, `apt` und
-Unix-Dateirechten auf. Auch unter WSL ist das keine sinnvolle Grundlage für einen
-Server, der Tag und Nacht erreichbar sein soll.
+Unix-Dateirechten auf. WSL ist keine sinnvolle Grundlage für einen Server, der den
+ganzen Tag laufen soll.
 
-**Ubuntu — vorerst.** matrix.org liefert durchaus Pakete für Ubuntu (focal, jammy,
-noble), und vermutlich liefe es. *Vermutlich* reicht hier aber nicht: Es ist nicht
-geprüft worden, also wird es nicht zugesagt. Der Installer weist Ubuntu mit genau
-dieser Begründung ab. Wer es ausprobiert hat, möge sich melden — dann steht es
-beim nächsten Mal hier als geprüft.
+**Ubuntu, vorerst.** matrix.org liefert Pakete für Ubuntu (focal, jammy, noble), und
+vermutlich liefe es, aber es ist nicht geprüft worden, deshalb weist der Installer
+Ubuntu ab. Wer es ausprobiert hat: ein Issue genügt, dann steht es hier als geprüft.
 
-**Ein Server, auf dem schon etwas anderes läuft.** Der Installer will Ports, einen
-`nginx` und eine PostgreSQL-Datenbank. Steht dort schon ein Webserver, bricht er ab.
-Ausnahme: Läuft bereits ein Reverse-Proxy im Haus, nimm `--hinter-proxy`
-(siehe Installation).
+**Ein Server, auf dem schon etwas anderes läuft.** Der Installer braucht die Web-Ports,
+einen `nginx` und eine PostgreSQL-Datenbank für sich. Steht dort schon ein Webserver,
+bricht er ab. Ist das ein Reverse-Proxy, nimm `--hinter-proxy` (siehe Installation).
 
 ### Erfülle ich das?
-
-Diese drei Zeilen auf dem Server beantworten alles:
 
 ```bash
 . /etc/os-release && echo "$PRETTY_NAME"      # Debian 12 oder 13?
@@ -69,81 +60,76 @@ dpkg --print-architecture                      # muss amd64 sagen
 free -g; df -h /                               # Speicher und Platz
 ```
 
-Und der Installer prüft es ohnehin **vor der ersten Änderung** noch einmal selbst —
-samt DNS und Ports. Was nicht stimmt, bricht ab, ohne dass etwas angefasst wurde
-(einzige Ausnahme: ein fehlendes `curl` wird vorher nachinstalliert, die Prüfung braucht es).
+Der Installer prüft das alles vor seiner ersten Änderung noch einmal, samt DNS und
+Ports, und bricht ab, ohne etwas angefasst zu haben, wenn etwas fehlt. Einzige
+Ausnahme: ein fehlendes `curl` wird vorher installiert, die Prüfung braucht es.
 
 ---
 
 ## Warum es das gibt
 
-Matrix ist ein ausgezeichnetes Protokoll. Aber einen Matrix-Server aufzusetzen heißt heute:
-rund vierzig Schritte aus den Anleitungen von fünf verschiedenen Projekten, und die
-Anruf-Konfiguration bekommt man trotzdem falsch hin.
+Einen Matrix-Server von Hand aufzusetzen heißt, die Anleitungen von fünf Projekten
+abzuarbeiten und die Anruf-Konfiguration mindestens einmal falsch zu machen.
 
-Und selbst wenn er läuft, fehlt das Entscheidende: **Matrix kann keine Einladungen durch
-normale Nutzer.** Registrierungs-Token darf nur der Serververwalter erzeugen. Die Mutter kann
-also den Vater nicht einladen — alles muss über den Techniker laufen. Genau daran scheitert
-ein Familien-Chat im Alltag.
-
-Dieses Projekt schließt beide Lücken.
+Wenn er läuft, fehlt immer noch etwas: Matrix kennt keine Einladungen durch normale
+Nutzer. Registrierungs-Token darf nur der Serververwalter erzeugen, also muss jedes
+neue Familienmitglied über die eine Person laufen, die den Server kennt. Humatrix
+ergänzt genau dieses Stück.
 
 ## Was es ist
 
-- **Ein Befehl** statt vierzig Schritten
+- **Ein Befehl** für die ganze Einrichtung, jederzeit wiederholbar
 - **Einladungen für alle**: Jeder Nutzer bekommt ein Kontingent und verschickt Links
-- **Einladungen bringen ihren Raum mit**: Beim Erzeugen wählst du, wohin die Person soll.
-  Sie landet direkt dort — statt in einer leeren App — und getrennte Kreise auf demselben
-  Server bleiben getrennt
-- **Nachvollziehbare Einladungskette**: Zu jedem per Einladung geholten Konto ist sichtbar,
-  wer es geholt hat. Ehrlich dazu: Matrix verrät nicht, wer einen Einladungslink benutzt
-  hat. Der Dienst ordnet über den Anmeldezeitpunkt zu — und nur, wenn genau ein Konto in
-  Frage kommt. Sonst gilt die Einladung als **eingelöst, Zuordnung unklar**: Das
-  Kontingent bleibt verbraucht, der Link ist verbrannt, die Verwaltung zeigt sie als
-  „unklar“, und der Neue bekommt keine automatische Raumeinladung — ihn lädt man im
-  Chat von Hand ein. Die Zuordnung wird bei jedem Durchlauf erneut versucht; sie gelingt
-  später, wenn die anderen Kandidaten inzwischen zugeordnet sind — kommen aber zwei
-  Neulinge in derselben Minute über zwei Einladungen herein, bleibt es dauerhaft bei
-  „unklar“. Das ist so gewollt: lieber eine ehrliche Lücke als ein falscher Eintrag. Von Hand angelegte Konten und das Verwalterkonto haben keinen
-  Ketteneintrag. Und: **Abmelden** auf der Einladungsseite beendet alle Sitzungen
-  dieses Kontos dort, auch auf anderen Geräten
-- **Zurückziehen**: Eine offene Einladung lässt sich mit dem ✕ an ihrer Zeile zurückziehen —
-  der Code wird beim Server gelöscht, der Link meldet „zurückgezogen“, das Kontingent ist
-  wieder frei. Für die doppelt verschickte Einladung, nicht für die eingelöste.
+- **Einladungen bringen einen Raum mit**: Beim Erzeugen wählst du den Raum, in dem die
+  Person landen soll. Getrennte Kreise auf demselben Server bleiben getrennt.
+- **Nachvollziehbare Einladungskette**: Zu jedem per Einladung geholten Konto zeigt die
+  Verwaltung, wer es geholt hat. Matrix selbst verrät nicht, wer einen Link benutzt
+  hat, deshalb ordnet der Dienst über den Anmeldezeitpunkt zu, und nur, wenn genau ein
+  Konto in Frage kommt. Sonst gilt die Einladung als **eingelöst, Zuordnung unklar**:
+  Das Kontingent bleibt verbraucht, der Link ist verbrannt, und der Neue bekommt keine
+  automatische Raumeinladung, ihn lädt man im Chat von Hand ein. Die Zuordnung wird bei
+  jedem Durchlauf erneut versucht und kann später gelingen, wenn die anderen Kandidaten
+  zugeordnet sind. Zwei Neulinge in derselben Minute über zwei Links bleiben dauerhaft
+  unklar; eine Lücke ist besser als ein falscher Eintrag. Von Hand angelegte Konten und
+  das Verwalterkonto haben keinen Ketteneintrag.
+- **Zurückziehen**: Eine offene Einladung lässt sich mit dem ✕ an ihrer Zeile
+  zurückziehen. Der Code wird beim Server gelöscht, der Link meldet „zurückgezogen“,
+  das Kontingent ist wieder frei.
+- **Abmelden** auf der Einladungsseite beendet alle Sitzungen dieses Kontos dort, auch
+  auf anderen Geräten.
 - **Vernünftige Voreinstellungen**: Verschlüsselung an, Registrierung nur per Einladung,
-  keine Vorschauen von fremden Seiten, zwischengespeicherte Medien fremder Server
-  werden nach 90 Tagen geräumt
-- **Zwei Sprachen, Deutsch und Englisch, gleichwertig.** Der Installer nimmt
-  `--language en|de` (Vorgabe `en`); die Verwaltung kann die Serversprache jederzeit
-  umschalten (Karte „Sprache / Language“, gilt sofort); jede Einladung trägt ihre eigene
-  Sprache, und ohne eine folgt die Einladungsseite dem Browser. Dokumentation und
+  keine Link-Vorschauen, zwischengespeicherte Medien fremder Server nach 90 Tagen geräumt
+- **Deutsch und Englisch**: `--language en|de` für den Installer (Vorgabe `en`), eine
+  Sprachkarte in der Verwaltung, und jede Einladung kann ihre eigene Sprache tragen;
+  ohne eine folgt die Einladungsseite dem Browser des Besuchers. Dokumentation und
   Kundenanleitung gibt es in beiden Sprachen.
-- **Eine fertige Kundenanleitung**, bei der Installation mit den echten Zugangsdaten befüllt
+- **Eine Kundenanleitung**, am Ende der Installation erzeugt, mit der echten Adresse,
+  dem Kontonamen und dem Startpasswort
 
 ## Was es nicht ist
 
-Damit niemand enttäuscht wird:
-
-- **Kein WhatsApp-Ersatz.** Eure Leute müssen aktiv wechseln. Das klappt nur im eigenen Kreis.
+- **Kein WhatsApp-Ersatz.** Eure Leute müssen bewusst wechseln. Das klappt im eigenen
+  Kreis, nicht für alle.
 - **Kein Mehrmandanten-Betrieb.** Ein Server, eine Gemeinschaft.
-- **Keine neue Verschlüsselung.** Das macht alles Matrix; hier wird nichts selbst gebastelt.
-- **Keine eigene App.** Ihr nutzt fertige aus den Stores — und das ist Absicht:
-  So hat nicht derselbe die App gebaut, der auch den Server betreibt.
+- **Keine neue Verschlüsselung.** Das macht alles Matrix. Hier wird nichts
+  Kryptografisches geschrieben.
+- **Keine eigene App.** Ihr nutzt die aus den Stores. So ist auch nicht dieselbe Person
+  für App und Server zuständig.
 - **Kein Produkt mit Rund-um-die-Uhr-Betreuung.** Ein gepflegtes Nebenprojekt.
 
 ## Voraussetzungen
 
-Die Eckdaten stehen oben unter **[Läuft das bei mir?](#läuft-das-bei-mir)**. Hier noch:
+Die Eckdaten stehen oben unter [Läuft das bei mir?](#läuft-das-bei-mir). Dazu:
 
 | | |
 |---|---|
 | Server | Debian 13 (oder 12), amd64, **4 Kerne, 8 GB RAM, 80 GB** für 20–50 Leute |
-| Domain | eine eigene — sie steckt dauerhaft in jeder Kennung |
+| Domain | eine eigene; sie wird Teil jeder Kennung |
 | DNS | sechs A-Einträge (siehe unten) |
-| Zuhause? | Geht — aber viele Anschlüsse haben keine eigene öffentliche IPv4 (DS-Lite). Dann klappt es nicht. Der Installer sagt es dir. |
-| Schon ein Proxy da? | Dann `--hinter-proxy` benutzen (siehe Installation). |
+| Zuhause? | Geht, aber viele Anschlüsse haben keine eigene öffentliche IPv4 (DS-Lite). Der Installer sagt es dir. |
+| Schon ein Proxy da? | `--hinter-proxy` benutzen (siehe Installation). |
 
-**Die Domain lässt sich später nicht ändern**, ohne alle Konten neu anzulegen. Vorher überlegen.
+Die Domain lässt sich später nicht ändern, ohne alle Konten neu anzulegen.
 
 ### DNS
 
@@ -152,14 +138,14 @@ deinedomain.de              A   <IP>
 matrix.deinedomain.de       A   <IP>
 chat.deinedomain.de         A   <IP>
 invite.deinedomain.de       A   <IP>
-service.deinedomain.de        A   <IP>
+service.deinedomain.de      A   <IP>
 turn.deinedomain.de         A   <IP>
 ```
 
 ## Installation
 
-Auf dem frischen Server fehlt `git`. Deshalb holst du das Repository auf deinem
-Rechner und kopierst es per `scp` hinüber:
+Auf einem frischen Server fehlt `git`, also auf dem eigenen Rechner klonen und den
+Ordner hinüberkopieren:
 
 ```bash
 git clone https://github.com/Gekons/Humatrix.git     # auf deinem Rechner
@@ -177,63 +163,63 @@ sudo ./install.sh --domain deinedomain.de --mail du@example.de --verwalter dein-
 ```
 
 Der Schlüssel der verschlüsselten Sicherung liegt danach in `/root/.sicherung_passwort`.
-**Ohne ihn ist keine Sicherung wiederherstellbar** — ins Passwortdepot damit.
+Ohne ihn ist keine Sicherung wiederherstellbar, also ins Passwortdepot damit.
 
-Der Installer prüft **vor der ersten Änderung** System, Arbeitsspeicher, Plattenplatz, alle
-sechs DNS-Namen und die Ports — und bricht ab, ohne etwas angefasst zu haben, wenn etwas
-fehlt (einzige Ausnahme: ein fehlendes `curl` wird vorher nachinstalliert, die Prüfung
-braucht es). Am Ende laufen zehn Nachkontrollen, mit `--sicherung` elf.
+Vor der ersten Änderung prüft der Installer System, Arbeitsspeicher, Plattenplatz, alle
+sechs DNS-Namen und die Ports und bricht ab, ohne etwas angefasst zu haben, wenn etwas
+fehlt. Am Ende laufen zehn Nachkontrollen, mit `--sicherung` elf.
 
-Einzelnen Abschnitt wiederholen: `--nur turn` (siehe `--hilfe`). Mit
-`--betreiber "Name, mail@example.de"` stehen Name und Erreichbarkeit des Betreuers in
-der Kundenanleitung und in den Hinweisen des Einladungsdienstes — sonst steht dort nur
-„dein Betreuer" bzw. „der Betreiber". `--language en|de` legt die Sprache der
-Installer-Ausgabe, der Webseiten und der Kundenanleitung fest; Vorgabe ist Englisch, also
-für einen deutschen Kunden `--language de` angeben. Die Verwaltung kann die Webseiten
-später umschalten. Ein Wiederholungslauf behält die Sprache der vorhandenen
-Installation; `--language` setzt sie neu. Die Schalter, Abschnittsnamen und Hostnamen-Präfixe (`matrix.`,
-`chat.`, `invite.`, `service.`, `turn.`) sind in beiden Sprachen gleich — sie
-gehören zur DNS-Einrichtung, nicht zur Oberfläche.
+Schalter:
+
+- `--nur <abschnitt>` wiederholt einen einzelnen Abschnitt, z. B. `--nur turn` (siehe `--hilfe`).
+- `--betreiber "Name, mail@example.de"` schreibt Name und Erreichbarkeit des Betreuers
+  in die Kundenanleitung und in die Hinweise des Einladungsdienstes. Ohne ihn steht dort
+  „dein Betreuer“ bzw. „der Betreiber“.
+- `--language en|de` legt die Sprache der Installer-Ausgabe, der Webseiten und der
+  Kundenanleitung fest. Vorgabe ist Englisch, für einen deutschen Server also
+  `--language de` angeben. Die Verwaltung kann die Webseiten später umschalten. Ein
+  Wiederholungslauf behält die Sprache der vorhandenen Installation, solange
+  `--language` nicht erneut angegeben wird.
+- Jeder Schalter hat auch eine englische Schreibweise (`--admin`, `--backup`,
+  `--operator`, `--only`, `--behind-proxy`). Abschnittsnamen und Hostnamen-Präfixe
+  (`matrix.`, `chat.`, `invite.`, `service.`, `turn.`) sind in beiden Sprachen gleich.
 
 ### Schon ein Reverse-Proxy im Haus?
 
-Wer zuhause bereits einen Nginx Proxy Manager, Traefik oder Caddy betreibt, dem
-gehören die Ports 80 und 443 der öffentlichen Adresse bereits. Dann:
+Wenn ein Nginx Proxy Manager, Traefik oder Caddy die Ports 80 und 443 der öffentlichen
+Adresse schon belegt:
 
 ```bash
 sudo ./install.sh --domain deinedomain.de --verwalter dein-name --hinter-proxy
 ```
 
-(`--behind-proxy` ist derselbe Schalter unter seinem englischen Namen; beide gehen.)
-In diesem Modus holt der Installer **kein** Zertifikat und liefert alles als
-Klartext auf Port 80 aus — um TLS kümmert sich der vorhandene Proxy. Am Ende
-sagt er dir, welche fünf Einträge du dort anlegen musst. Die DNS-Namen dürfen
-dann auf den Proxy zeigen statt auf diesen Server; der Installer akzeptiert das
-und meldet es nur.
+In diesem Modus holt der Installer kein Zertifikat und liefert alles als Klartext auf
+Port 80 aus; TLS macht der Proxy. Am Ende listet er die fünf Einträge auf, die dort
+anzulegen sind. Die DNS-Namen dürfen auf den Proxy zeigen statt auf diesen Server; der
+Installer akzeptiert das und meldet es nur.
 
-Einschränkung: Verschlüsseltes TURN (Port 5349) gibt es so nicht, weil kein
-Zertifikat auf dem Rechner liegt. TURN läuft unverschlüsselt auf 3478 — kein
-Schaden, denn die Gesprächsinhalte sind ohnehin Ende zu Ende verschlüsselt,
-TURN leitet nur weiter.
+Einschränkung: TURN über TLS (Port 5349) gibt es so nicht, weil kein Zertifikat auf
+dem Rechner liegt. TURN läuft auf 3478. Die Gesprächsinhalte sind ohnehin Ende zu Ende
+verschlüsselt; TURN leitet nur Pakete weiter.
 
 ## Was danach läuft
 
 | Adresse | für wen |
 |---|---|
-| `https://chat.deinedomain.de` | alle — Chat im Browser |
-| `https://invite.deinedomain.de` | alle — Einladungen verschicken |
-| `https://service.deinedomain.de` | nur Verwalter — Konten und Kontingente |
+| `https://chat.deinedomain.de` | alle: Chat im Browser |
+| `https://invite.deinedomain.de` | alle: Einladungen verschicken |
+| `https://service.deinedomain.de` | nur Verwalter: Konten und Kontingente |
 | Handy-App | FluffyChat oder Element X, als Server `deinedomain.de` eintragen |
 
-### Einladen kann jeder — so viel, wie du erlaubst
+### Einladen
 
 <p align="center">
   <img src="dateien/bilder/02-nutzer.png" width="380" alt="Nutzeransicht">
   <img src="dateien/bilder/03-erzeugt.png" width="380" alt="Erzeugte Einladung">
 </p>
 
-Ein Knopfdruck, ein Link, fertig. Die Einladung gilt 14 Tage und funktioniert genau einmal.
-Der Code ist bewusst ohne verwechselbare Zeichen: `Y9RV-3GZW-JJ57`.
+Ein Klick erzeugt einen Link. Er gilt 14 Tage und funktioniert einmal. Der Code
+vermeidet verwechselbare Zeichen: `Y9RV-3GZW-JJ57`.
 
 ### Verwaltung
 
@@ -241,15 +227,16 @@ Der Code ist bewusst ohne verwechselbare Zeichen: `Y9RV-3GZW-JJ57`.
   <img src="dateien/bilder/05-verwaltung.png" width="420" alt="Verwaltung">
 </p>
 
-Kontingent je Person frei eintragbar — **0** heißt „darf niemanden einladen", dazu ein Haken
-für unbegrenzt. Konten anlegen, sperren, Passwörter zurücksetzen, Verwalter ernennen.
-Und: **wer hat wen geholt** — soweit die Zuordnung eindeutig war (siehe oben).
+Kontingent je Person, **0** heißt „darf niemanden einladen“, dazu ein Haken für
+unbegrenzt. Konten anlegen, sperren, Passwörter zurücksetzen, Verwalter ernennen. Und
+„wer hat wen geholt“, soweit die Zuordnung eindeutig war (siehe oben).
 
-Oben auf der Seite steht, ob **Aktualisierungen** anstehen (Synapse, Element Web,
-Systempakete — täglich geprüft). Eingespielt wird nichts von allein: erst der Knopf, dann
-eine Rückfrage, die sagt, was passiert und dass der Chat dabei kurz pausiert.
+Oben auf der Seite steht, ob Aktualisierungen anstehen (Synapse, Element Web,
+Systempakete; täglich geprüft). Eingespielt wird nichts von allein: ein Knopf, dann
+eine Rückfrage, die sagt, was passiert und dass der Chat kurz pausiert.
 
-Verwalter ist, wer es am Matrix-Server ist — keine zweite Rechteverwaltung, kein zweites Passwort.
+Verwalter ist, wer es am Matrix-Server ist. Es gibt keine zweite Rechteverwaltung und
+kein zweites Passwort.
 
 ### Zweiter Faktor
 
@@ -257,82 +244,77 @@ Verwalter ist, wer es am Matrix-Server ist — keine zweite Rechteverwaltung, ke
   <img src="dateien/bilder/06-zweitfaktor.png" width="380" alt="Zweiter Faktor">
 </p>
 
-TOTP, zweistufige Anmeldung, Geheimnis verschlüsselt in der Ablage, Drossel nach fünf
-Fehlversuchen. Scharf wird es erst nach einem gültigen Code — aussperren kann man sich
-beim Einrichten nicht.
+TOTP, zweistufige Anmeldung, Geheimnis verschlüsselt abgelegt, Drossel nach fünf
+Fehlversuchen. Scharf wird es erst nach einem gültigen Code, aussperren kann man sich
+beim Einrichten also nicht.
 
-Telefon verloren? `python3 /opt/einladung/einladung.py --zweitfaktor-aus <name>` als root.
+Telefon verloren? Als root: `python3 /opt/einladung/einladung.py --zweitfaktor-aus <name>`
 
-## Die Entscheidungen, die der Installer für dich trifft
+## Die Voreinstellungen
 
 | | warum |
 |---|---|
-| Registrierung **nur per Einladung** | Jedes Konto braucht eine Einladung, und die Kette dahinter ist nachvollziehbar, soweit sich die Zuordnung eindeutig treffen ließ (siehe oben). Das ist die Missbrauchsbremse — nicht die Verschlüsselung. |
-| Suche nur **innerhalb geteilter Räume** | Mehrere Kreise auf einem Server (Familie, Verein, Freundeskreis) sehen einander nicht. Umstellbar, wenn es nur einen Kreis gibt — in `/etc/matrix-synapse/conf.d/50-eigene.yaml` (nicht in `20-betrieb.yaml`, die schreibt der Installer bei jedem Lauf neu): `user_directory: {enabled: true, search_all_users: true, prefer_local_users: true}`, dann `systemctl restart matrix-synapse`. Siehe [docs/betreiber.md](docs/betreiber.md). |
-| Föderation **offen** | Eure Leute erreichen das weltweite Matrix-Netz. Bringt **keine** fremden Konten auf euren Server. |
-| Verschlüsselung **überall** voreingestellt | Nicht als Sonderfall, sondern als Normalfall. |
-| Vorschaubilder **aus** | Sonst ruft euer Server fremde Seiten ab und verrät, was jemand verlinkt hat. |
-| Nur **Sicherheits**updates automatisch | Alles andere bewusst — täglich geprüft, eingespielt erst auf Klick in der Verwaltung. |
-| Fremde Medien nach **90 Tagen** geräumt | Betrifft nur den Zwischenspeicher für Medien anderer Server. Eure eigenen Fotos und Videos bleiben dauerhaft — bei Ende-zu-Ende-Verschlüsselung wäre Löschen Datenverlust. Deshalb 80 GB einplanen und `du -sh /var/lib/matrix-synapse/media` im Blick behalten (siehe [docs/betreiber.md](docs/betreiber.md)). |
+| Registrierung **nur per Einladung** | Jedes Konto braucht eine Einladung, und die Kette dahinter ist nachvollziehbar, soweit die Zuordnung eindeutig war. Das begrenzt Missbrauch, nicht die Verschlüsselung. |
+| Suche nur **innerhalb geteilter Räume** | Mehrere Kreise auf einem Server (Familie, Verein, Freundeskreis) sehen einander nicht. Bei nur einem Kreis umstellbar in `/etc/matrix-synapse/conf.d/50-eigene.yaml` (nicht in `20-betrieb.yaml`, die schreibt der Installer neu): `user_directory: {enabled: true, search_all_users: true, prefer_local_users: true}`, dann `systemctl restart matrix-synapse`. Siehe [docs/betreiber.md](docs/betreiber.md). |
+| Föderation **offen** | Eure Leute erreichen das ganze Matrix-Netz. Das bringt keine fremden Konten auf euren Server. |
+| Verschlüsselung **an** für neue Räume | Der Normalfall, kein Sonderfall. |
+| Link-Vorschauen **aus** | Sonst ruft der Server fremde Seiten ab und verrät, was jemand verlinkt hat. |
+| Nur **Sicherheits**updates automatisch | Alles andere wird täglich geprüft und auf Klick in der Verwaltung eingespielt. |
+| Fremde Medien nach **90 Tagen** geräumt | Nur der Zwischenspeicher für Medien anderer Server. Eure eigenen Fotos und Videos bleiben; bei Ende-zu-Ende-Verschlüsselung wäre Löschen Datenverlust. 80 GB einplanen und `du -sh /var/lib/matrix-synapse/media` im Blick behalten (siehe [docs/betreiber.md](docs/betreiber.md)). |
 
-## Was der Betreiber sehen kann — und was nicht
-
-Das gehört offen auf den Tisch, und es ist überprüfbar:
+## Was der Betreiber sehen kann
 
 | | |
 |---|---|
-| Nachrichten, Fotos, Dateien | **nein** — auf dem Server liegt nur Chiffrat |
+| Nachrichten, Fotos, Dateien | **nein**; auf dem Server liegt nur Chiffrat |
 | Wer wann mit wem | **ja** (Metadaten) |
-| Verlauf wiederherstellen | **nein** — die Schlüssel liegen auf den Geräten |
-| Passwörter neu setzen | **ja** — damit ließe sich ein Konto übernehmen und ab dann mitlesen; alte Nachrichten bleiben ihm verschlossen, und die Geräteprüfung in der App macht so einen Versuch sichtbar (siehe [SECURITY.de.md](SECURITY.de.md)) |
-| Weboberfläche im Browser | der Betreiber liefert den Client-Code selbst aus (`/var/www/element`) und könnte ihn verändern — die Verschlüsselung schützt im Browser also nicht gegen ihn. Wer das ausschließen will, nimmt die Handy-App aus dem Store |
+| Verlauf wiederherstellen | **nein**; die Schlüssel liegen auf den Geräten |
+| Passwörter neu setzen | **ja**. Damit ließe sich ein Konto übernehmen und ab dann mitlesen. Alte Nachrichten bleiben verschlossen, und die Geräteprüfung in der App macht so einen Versuch sichtbar (siehe [SECURITY.de.md](SECURITY.de.md)). |
+| Web-Client im Browser | Der Betreiber liefert den Client-Code aus (`/var/www/element`) und könnte ihn verändern; im Browser schützt die Verschlüsselung also nicht gegen den Betreiber. Wem das wichtig ist, der nimmt die Handy-App aus dem Store. |
 
 Nachprüfen: `su - postgres -c "psql synapse"` und in die Ereignistabelle schauen.
-Da steht Buchstabensalat.
 
 ## Betrieb
 
 | Was | Wie oft |
 |---|---|
 | Sicherheitsupdates | automatisch |
-| Alles andere (Systempakete, Synapse, Element Web) | Aktualisierungen werden täglich geprüft und in der Verwaltung angezeigt; eingespielt wird nur auf Klick, nach Rückfrage. Synapse startet dabei neu, der Chat ist kurz nicht erreichbar |
-| Synapse von Hand | `apt update && apt install matrix-synapse-py3` — oder als root `messenger-update-ausfuehren.sh`, das spielt alles ein, was die Prüfung gemeldet hat |
-| Element Web von Hand | `./install.sh --domain … --mail … --nur element` — holt nur, wenn eine neuere Fassung vorliegt. Der Browser-Client bekommt keine Debian-Sicherheitsupdates |
+| Alles andere (Systempakete, Synapse, Element Web) | täglich geprüft, in der Verwaltung angezeigt, auf Klick nach Rückfrage eingespielt. Synapse startet neu, der Chat ist kurz nicht erreichbar. |
+| Synapse von Hand | `apt update && apt install matrix-synapse-py3`, oder als root `messenger-update-ausfuehren.sh`, das alles einspielt, was die Prüfung gemeldet hat |
+| Element Web von Hand | `./install.sh --domain … --mail … --nur element`; holt nur, wenn eine neuere Fassung vorliegt. Der Browser-Client bekommt keine Debian-Sicherheitsupdates. |
 | Sicherung prüfen | monatlich |
-| **Wiederherstellung üben** | **jährlich** — eine Sicherung, die nie zurückgespielt wurde, ist keine |
+| Wiederherstellung üben | jährlich. Eine Sicherung, die nie zurückgespielt wurde, ist keine. |
 | Zertifikate | automatisch (certbot; coturn bekommt seine Kopien über einen Haken) |
 
-Ausführlich: **[docs/betreiber.md](docs/betreiber.md)**
+Ausführlich: [docs/betreiber.md](docs/betreiber.md)
 
 ### Den Chat in Nextcloud einbetten
 
-Wenn dein Kreis schon eine Nextcloud nutzt, kann der Chat dort als App erscheinen: in Nextcloud die
-App **Externe Seiten** installieren, eine Seite mit der Adresse `https://chat.<domain>/` anlegen,
-„Weiterleitung“ aus lassen (eingebettet) und als Icon ein 32×32-PNG mit Transparenz hochladen.
-Element Web läuft dann innerhalb der Nextcloud-Seite; der Chat-Host setzt keine `X-Frame-Options`-
-oder `frame-ancestors`-Beschränkung, das Einbetten geht also ohne weiteres Zutun. Die Einladungsseite
-(`invite.<domain>`) ist nicht zum Einbetten gedacht — die öffnen die Leute über ihren Link.
+Wenn dein Kreis schon eine Nextcloud nutzt, kann der Chat dort als App erscheinen: die
+App **Externe Seiten** installieren, eine Seite mit der Adresse `https://chat.<domain>/`
+anlegen, „Weiterleitung“ aus lassen (eingebettet) und als Icon ein 32×32-PNG mit
+Transparenz hochladen. Der Chat-Host setzt keine `X-Frame-Options`- oder
+`frame-ancestors`-Beschränkung, das geht also ohne weitere Änderung. Die
+Einladungsseite (`invite.<domain>`) ist nicht zum Einbetten gedacht; die öffnen die
+Leute über ihren Link.
 
 ## Die Anleitung, die deine Leute bekommen
 
-Der Installer erzeugt am Ende eine fertige Anleitung — befüllt mit der echten
-Adresse, dem echten Kontonamen und dem Startpasswort, mit Bildern, zum
-Ausdrucken oder als PDF weitergeben, in der mit `--language` gewählten Sprache. So
-sieht sie aus (mit Platzhaltern):
+Am Ende schreibt der Installer eine Anleitung mit der echten Adresse, dem Kontonamen
+und dem Startpasswort, mit Bildern, in der mit `--language` gewählten Sprache. Zum
+Ausdrucken oder als PDF weitergeben. Muster mit Platzhaltern:
 
 **[docs/muster-kundenanleitung.html](docs/muster-kundenanleitung.html)** (deutsch) ·
 **[docs/sample-customer-guide.html](docs/sample-customer-guide.html)** (englisch)
 
-Die Bildschirmfotos darin zeigen die deutsche Oberfläche; die englische Anleitung sagt das dazu.
-
 ## Getestet
 
 Funktionstest 18 von 18, Lasttest mit 50 Konten und 15 gleichzeitig Schreibenden,
-Installationstest auf frischem Debian 13. Mit vollständiger Fehlerliste — auch den
-sieben Fehlern, die der Installationstest selbst zutage gefördert hat, und den
-Grenzen dessen, was die Tests belegen.
+Installationstest auf frischem Debian 13. Der Bericht nennt jeden gefundenen Fehler,
+auch die sieben, die der Installationstest selbst zutage gefördert hat, und was die
+Tests nicht belegen.
 
-**[docs/testbericht.md](docs/testbericht.md)**
+[docs/testbericht.md](docs/testbericht.md)
 
 | | |
 |---|---|
@@ -342,53 +324,44 @@ Grenzen dessen, was die Tests belegen.
 
 ## Mitmachen
 
-Fehlerberichte und Verbesserungen sind willkommen — siehe [CONTRIBUTING.de.md](CONTRIBUTING.de.md).
-Sicherheitslücken **nicht** als öffentliches Ticket, sondern wie in [SECURITY.de.md](SECURITY.de.md)
-beschrieben.
+Fehlerberichte und Verbesserungen sind willkommen, siehe [CONTRIBUTING.de.md](CONTRIBUTING.de.md).
+Sicherheitslücken nicht als öffentliches Ticket; siehe [SECURITY.de.md](SECURITY.de.md).
 
-Wenn dir das Projekt etwas wert ist: Spenden halten es am Leben und die Entwicklung unabhängig.
+## Was hier drinsteckt, und von wem
 
-## Was hier drinsteckt — und von wem
-
-Der weitaus größte Teil dessen, was nach der Installation läuft, stammt **nicht aus diesem
-Projekt**. Das gehört gesagt:
+Das meiste von dem, was nach der Installation läuft, stammt nicht aus diesem Projekt:
 
 | Bestandteil | von | Lizenz |
 |---|---|---|
-| **Matrix** — das Protokoll | [The Matrix.org Foundation](https://matrix.org) | Apache-2.0 |
-| **Synapse** — der Server, inklusive der Verschlüsselung | [Element](https://github.com/element-hq/synapse) | AGPL-3.0 |
-| **Element Web** — der Browser-Client | [Element](https://github.com/element-hq/element-web) | AGPL-3.0 |
-| **coturn** — Sprach- und Videoanrufe | [coturn-Projekt](https://github.com/coturn/coturn) | BSD |
-| **FluffyChat, Element X** — die Handy-Apps | jeweilige Projekte | AGPL-3.0 |
-| **pyotp, qrcode, cryptography** — zweiter Faktor der Einladungsseite und Verschlüsselung der TOTP-Geheimnisse, als Debian-Pakete | [pyotp](https://github.com/pyotp/pyotp), [python-qrcode](https://github.com/lincolnloop/python-qrcode), [pyca/cryptography](https://cryptography.io) | MIT, BSD, Apache-2.0/BSD |
+| **Matrix**, das Protokoll | [The Matrix.org Foundation](https://matrix.org) | Apache-2.0 |
+| **Synapse**, der Server, inklusive der Verschlüsselung | [Element](https://github.com/element-hq/synapse) | AGPL-3.0 |
+| **Element Web**, der Browser-Client | [Element](https://github.com/element-hq/element-web) | AGPL-3.0 |
+| **coturn**, Sprach- und Videoanrufe | [coturn-Projekt](https://github.com/coturn/coturn) | BSD |
+| **FluffyChat, Element X**, die Handy-Apps | jeweilige Projekte | AGPL-3.0 |
+| **pyotp, qrcode, cryptography**, zweiter Faktor der Einladungsseite und Verschlüsselung der TOTP-Geheimnisse, als Debian-Pakete | [pyotp](https://github.com/pyotp/pyotp), [python-qrcode](https://github.com/lincolnloop/python-qrcode), [pyca/cryptography](https://cryptography.io) | MIT, BSD, Apache-2.0/BSD |
 | PostgreSQL, nginx, certbot, Debian | jeweilige Projekte | — |
 
-**Was dieses Projekt beisteuert:**
+Was dieses Projekt beisteuert:
 
-1. **Den Installer** — ein Befehl statt vierzig Schritten, mit Vorabprüfung und Nachkontrolle
-2. **Die Einladungsseite** — Kontingente je Nutzer, nachvollziehbare Kette, Raumzuordnung,
-   zweiter Faktor. Das ist die einzige wirklich neue Software hier; Matrix hat keinen
-   Mechanismus, mit dem ein **normaler Nutzer** jemanden einladen kann.
-3. **Die Voreinstellungen** — jede einzeln trivial, zusammen der Unterschied zwischen
-   „läuft für eine Familie" und „Bastelprojekt eines Administrators"
-4. **Oberfläche und Dokumentation in zwei Sprachen**, Deutsch und Englisch, keine davon nachrangig
+1. **Den Installer**, mit Vorabprüfung und Nachkontrolle
+2. **Die Einladungsseite**: Kontingente je Nutzer, nachvollziehbare Kette, Raumzuordnung,
+   zweiter Faktor. Das ist die einzige neue Software hier; Matrix hat keinen Weg, über
+   den ein normaler Nutzer jemanden einladen kann.
+3. **Die Voreinstellungen**, jede für sich klein
+4. **Oberfläche und Dokumentation auf Deutsch und Englisch**
 
-Synapse und die anderen Bestandteile werden hier **nicht mitgeliefert**, sondern bei der
+Synapse und die anderen Bestandteile werden hier nicht mitgeliefert, sondern bei der
 Installation aus ihren offiziellen Quellen geholt. Dieses Projekt ist nicht mit der
-Matrix.org-Stiftung oder Element verbunden und wird von ihnen nicht unterstützt.
-
-Wenn dir das Ergebnis gefällt: Der Dank gehört zuerst den Projekten in der Tabelle oben.
-Spenden an [matrix.org](https://matrix.org/donate/) kommen der Grundlage zugute, auf der
+Matrix.org-Stiftung oder Element verbunden und wird von ihnen nicht unterstützt. Wer
+spenden möchte: [matrix.org](https://matrix.org/donate/) ist die Grundlage, auf der
 hier alles steht.
 
 ## Kaffeekasse
 
-Humatrix ist ein Nebenprojekt ohne Firma dahinter. Wer es nützlich findet, kann unter
-[ko-fi.com/humatrix](https://ko-fi.com/humatrix) einen Kaffee ausgeben — Pflicht ist nichts,
-und es ändert nichts, wenn man es nicht tut.
+Humatrix ist ein Nebenprojekt ohne Firma dahinter. Wer es nützlich findet:
+[ko-fi.com/humatrix](https://ko-fi.com/humatrix). Pflicht ist nichts, und es ändert
+nichts, wenn man es nicht tut.
 
 ## Lizenz
 
-[AGPL-3.0](LICENSE). Wer diese Software betreibt und verändert, gibt die Änderungen weiter.
-Das ist der Punkt: Ein Werkzeug für Datenhoheit soll nicht in einem geschlossenen Dienst
-verschwinden.
+[AGPL-3.0](LICENSE). Wer eine veränderte Fassung betreibt, gibt die Änderungen weiter.
