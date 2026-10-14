@@ -16,8 +16,10 @@ encrypted, so the server only ever holds ciphertext. What the operator can and c
 see is listed under [What the operator can see](#what-the-operator-can-see).
 
 <p align="center">
-  <img src="dateien/bilder/en/04-einladung.png" width="420" alt="Invitation page">
+  <img src="dateien/bilder/en/ablauf-einladung.png" alt="Left: a user creates an invitation. Right: what the invited person sees.">
 </p>
+
+<p align="center"><sub>Left: a user creates an invitation. Right: what the invited person sees.</sub></p>
 
 ---
 
@@ -206,8 +208,7 @@ anyway; TURN only relays packets.
 ### Inviting
 
 <p align="center">
-  <img src="dateien/bilder/en/02-nutzer.png" width="380" alt="User view">
-  <img src="dateien/bilder/en/03-erzeugt.png" width="380" alt="Created invitation">
+  <img src="dateien/bilder/en/03-erzeugt.png" width="420" alt="Created invitation">
 </p>
 
 One click produces a link. It is valid for 14 days and works once. The code avoids
@@ -220,7 +221,8 @@ easily confused characters: `Y9RV-3GZW-JJ57`.
 </p>
 
 Quota per person, **0** meaning "may not invite anyone", plus a checkbox for unlimited.
-Create accounts, suspend them, reset passwords, appoint admins. And "who brought in
+Create accounts, block them, reset passwords, appoint admins. Blocking an account also
+revokes its open invitations, so links it handed out stop working. And "who brought in
 whom", as far as the assignment was unambiguous (see above).
 
 The top of the page shows whether updates are pending (Synapse, Element Web, system

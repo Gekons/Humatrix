@@ -538,6 +538,25 @@ def konto_sperren(kennung):
     sitzung_sperren(kennung)      # sonst liefe eine offene Einladungs-Sitzung 12 h weiter
 
 
+def einladungen_zurueckziehen(kennung):
+    """Alle offenen Einladungen eines Kontos ungueltig machen (beim Sperren): Die Links
+    haengen am Server, nicht am Konto - sonst kaeme ueber sie weiter jemand herein.
+    Erst die Token bei Synapse, dann die Ablage; liefert die Anzahl."""
+    with db() as v:
+        offen = v.execute('SELECT code, token FROM einladung WHERE einlader=? AND '
+                          'eingeloest_am IS NULL AND benutzt_am IS NULL AND '
+                          'zurueckgezogen_am IS NULL', (kennung,)).fetchall()
+    for e in offen:
+        token_loeschen(e['token'])
+    jetzt = int(time.time())
+    with db() as v:
+        for e in offen:
+            v.execute('UPDATE einladung SET zurueckgezogen_am=? WHERE code=? AND '
+                      'eingeloest_am IS NULL AND benutzt_am IS NULL AND zurueckgezogen_am IS NULL',
+                      (jetzt, e['code']))
+    return len(offen)
+
+
 def konto_entsperren(kennung):
     pw = neues_passwort()
     matrix_aufruf('/_synapse/admin/v2/users/' + urllib.parse.quote(kennung),
@@ -917,7 +936,9 @@ TEXTE = {
     'sperren_titel': 'Sperren',
     'sperren_frage': '{kurz} wirklich sperren?',
     'sperren_text': 'Das Konto kann sich danach nicht mehr anmelden und wird aus allen Räumen entfernt. '
+                    'Seine offenen Einladungen werden zurückgezogen. '
                     '<b>Der Chatverlauf der anderen bleibt erhalten.</b>',
+    'sperren_einladungen_weg': '{n} offene Einladung(en) zurückgezogen.',
     'sperren_leise': 'Rückgängig machbar: Beim Entsperren vergibt der Server ein neues Passwort. '
                      'Die alten Schlüssel sind dann aber weg — frühere verschlüsselte Nachrichten '
                      'kann das Konto nicht mehr lesen.',
@@ -1178,7 +1199,9 @@ TEXTE = {
     'sperren_titel': 'Block',
     'sperren_frage': 'Really block {kurz}?',
     'sperren_text': 'The account can no longer log in afterwards and is removed from all rooms. '
+                    'Its open invitations are revoked. '
                     "<b>The other people's chat history is kept.</b>",
+    'sperren_einladungen_weg': '{n} open invitation(s) revoked.',
     'sperren_leise': 'Reversible: on unblocking, the server issues a new password. The old keys '
                      'are gone by then, though — the account can no longer read earlier '
                      'encrypted messages.',
@@ -2546,9 +2569,15 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                 if ziel == nutzer:
                     return self.antwort(seite_verwaltung(
                         nutzer, sprache, t('selbst_sperren', sprache)), 400)
+                try:
+                    n = einladungen_zurueckziehen(ziel)
+                except Exception:
+                    return self.fehlerseite('server_antwortet_nicht', 502, sprache)
                 konto_sperren(ziel)
-                return self.antwort(seite_verwaltung(
-                    nutzer, sprache, t('ist_gesperrt', sprache, kurz=kurz)))
+                hinweis = t('ist_gesperrt', sprache, kurz=kurz)
+                if n:
+                    hinweis += ' ' + t('sperren_einladungen_weg', sprache, n=n)
+                return self.antwort(seite_verwaltung(nutzer, sprache, hinweis))
 
             if pfad == '/entsperren':
                 return self.antwort(seite_verwaltung(

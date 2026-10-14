@@ -16,8 +16,10 @@ verschlüsselt, auf dem Server liegt nur Chiffrat. Was der Betreiber sehen kann 
 nicht, steht unter [Was der Betreiber sehen kann](#was-der-betreiber-sehen-kann).
 
 <p align="center">
-  <img src="dateien/bilder/04-einladung.png" width="420" alt="Einladungsseite">
+  <img src="dateien/bilder/ablauf-einladung.png" alt="Links: ein Nutzer erzeugt eine Einladung. Rechts: was der Eingeladene sieht.">
 </p>
+
+<p align="center"><sub>Links: ein Nutzer erzeugt eine Einladung. Rechts: was der Eingeladene sieht.</sub></p>
 
 ---
 
@@ -214,8 +216,7 @@ verschlüsselt; TURN leitet nur Pakete weiter.
 ### Einladen
 
 <p align="center">
-  <img src="dateien/bilder/02-nutzer.png" width="380" alt="Nutzeransicht">
-  <img src="dateien/bilder/03-erzeugt.png" width="380" alt="Erzeugte Einladung">
+  <img src="dateien/bilder/03-erzeugt.png" width="420" alt="Erzeugte Einladung">
 </p>
 
 Ein Klick erzeugt einen Link. Er gilt 14 Tage und funktioniert einmal. Der Code
@@ -228,8 +229,9 @@ vermeidet verwechselbare Zeichen: `Y9RV-3GZW-JJ57`.
 </p>
 
 Kontingent je Person, **0** heißt „darf niemanden einladen“, dazu ein Haken für
-unbegrenzt. Konten anlegen, sperren, Passwörter zurücksetzen, Verwalter ernennen. Und
-„wer hat wen geholt“, soweit die Zuordnung eindeutig war (siehe oben).
+unbegrenzt. Konten anlegen, sperren, Passwörter zurücksetzen, Verwalter ernennen. Sperren zieht auch
+die offenen Einladungen des Kontos zurück, seine verschickten Links gehen dann nicht mehr.
+Und „wer hat wen geholt“, soweit die Zuordnung eindeutig war (siehe oben).
 
 Oben auf der Seite steht, ob Aktualisierungen anstehen (Synapse, Element Web,
 Systempakete; täglich geprüft). Eingespielt wird nichts von allein: ein Knopf, dann

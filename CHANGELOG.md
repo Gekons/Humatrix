@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Blocking an account revokes its open invitations.
+- The invitation page recommends FluffyChat; English screenshots use example.com.
+
 ## 1.0.0 — 2026-10-14
 
 First public release.
