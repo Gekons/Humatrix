@@ -80,7 +80,8 @@ ergänzt genau dieses Stück.
 
 ## Was es ist
 
-- **Ein Befehl** für die ganze Einrichtung, jederzeit wiederholbar
+- **Ein Befehl** für die ganze Einrichtung, jederzeit wiederholbar; oder ein Befehl und
+  eine Webseite, die den Rest fragt
 - **Einladungen für alle**: Jeder Nutzer bekommt ein Kontingent und verschickt Links
 - **Einladungen bringen einen Raum mit**: Beim Erzeugen wählst du den Raum, in dem die
   Person landen soll. Getrennte Kreise auf demselben Server bleiben getrennt.
@@ -145,6 +146,63 @@ turn.deinedomain.de         A   <IP>
 ```
 
 ## Installation
+
+Zwei Wege, dasselbe Ergebnis. Der Browser-Weg stellt seine Fragen auf einer Webseite,
+der Terminal-Weg nimmt sie als Schalter.
+
+### Im Browser
+
+Auf dem Server, als root:
+
+```bash
+curl -fsSLo setup.sh https://raw.githubusercontent.com/Gekons/Humatrix/main/setup.sh
+sudo bash setup.sh
+```
+
+Das Skript prüft, dass es Debian 12 oder 13 auf amd64 ist, installiert `python3` und
+`curl`, holt den Installer nach `/opt/humatrix` und gibt eine Adresse wie
+`http://203.0.113.5:8088/` samt Einmalcode aus. Adresse öffnen, Code eingeben, den Rest
+fragt die Seite in fünf Schritten: die Domain und wo der Server steht (gemieteter
+Server, zuhause hinter einem Router, hinter einem Reverse-Proxy; sie erkennt, was
+wahrscheinlich ist), dann eine Vorbereitungsseite, die für genau diese Situation
+auflistet, was außerhalb des Servers zu tun ist (feste Adresse und Portfreigaben im
+Router mit dem Klickweg der FRITZ!Box, DynDNS, die sechs DNS-Einträge, die fünf
+Proxy-Einträge, die Firewall des Anbieters), dann die Prüfung der sechs DNS-Namen, die
+erst weitergeht, wenn der Installer sie annehmen würde, dann das erste Verwalterkonto
+und wer den Server betreut, dann eine Zusammenfassung, in der sich jede Zeile ändern
+lässt. Dann lässt sie den Installer laufen, zeigt jeden Schritt und das Protokoll und
+endet mit den Adressen, dem Konto, dem Startpasswort, dem Hinweis auf den
+Sicherungsschlüssel, der Kundenanleitung und der Verwaltungsanleitung. „Einrichtung
+abschließen“ schaltet die Seite ab und schließt ihren Port.
+
+Was man über die Seite wissen sollte:
+
+- Sie läuft als root, weil sie Pakete installiert. Der Code schützt sie; nach zehn
+  falschen Codes sperrt sie sich und schreibt einen neuen Code nach
+  `/var/lib/humatrix-einrichtung/code`. Sitzungen enden nach sechs Stunden. Nach dem
+  Abschließen ist die Seite weg, von selbst einen Tag nach einem fertigen Lauf oder zwei
+  Tage nach einem Start ohne Lauf.
+- Sie ist Klartext-HTTP auf Port 8088. Auf einem gemieteten Server zeigt die Endseite das
+  Passwort deshalb nur auf einer verschlüsselten Kopie ihrer selbst: Sobald das
+  Zertifikat da ist, lauscht die Seite damit zusätzlich auf Port 8089 unter
+  `https://service.<domain>:8089/`, und die Klartextseite verweist dorthin. Zuhause und
+  hinter einem Proxy ist der Browser im selben Netz, dort zeigt die Klartextseite alles.
+- Sie schreibt eine Verwaltungsanleitung (`/root/verwaltungsanleitung-<domain>.html`,
+  ohne Passwörter) mit Adressen, Ports, Proxy-Einträgen, Sicherung, Aktualisieren und
+  den Befehlen für den Fall, dass etwas klemmt, für genau diesen Server. Der Terminal-Weg
+  schreibt sie ebenfalls; die Verwaltung bietet sie zum Herunterladen an.
+- Port 8088 muss vom Browser aus erreichbar sein. Auf einem gemieteten Server ist er das
+  meist. Im Heimnetz öffnet man die Seite aus demselben Netz. Die Härtung öffnet den Port
+  in der Firewall für die Dauer der Einrichtung, „Abschließen“ schließt ihn wieder.
+- Wurde der Server mitten im Lauf neu gestartet, sagt die Seite das und bietet an,
+  nochmal zu laufen; der Installer macht nur, was noch fehlt.
+- `cat /var/lib/humatrix-einrichtung/code` zeigt den Code nochmal,
+  `systemctl disable --now humatrix-einrichtung` schaltet die Seite von Hand ab. Das
+  Protokoll des Laufs ist `/var/log/messenger-installer.log`. Für eine bestehende
+  Installation ist die Seite nicht gedacht: Dort sagt sie das und verweist auf
+  `install.sh`.
+
+### Im Terminal
 
 Auf einem frischen Server fehlt `git`, also auf dem eigenen Rechner klonen und den
 Ordner hinüberkopieren:

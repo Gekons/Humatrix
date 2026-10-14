@@ -401,6 +401,8 @@ T_de[zugangsdaten_in]="Zugangsdaten in %s"
 T_en[zugangsdaten_in]="Credentials in %s"
 T_de[kundenanleitung]="Kundenanleitung: %s"
 T_en[kundenanleitung]="Customer guide: %s"
+T_de[verwaltungsanleitung]="Verwaltungsanleitung: %s (auch in der Verwaltung zum Herunterladen)."
+T_en[verwaltungsanleitung]="Operator guide: %s (also downloadable from the admin page)."
 T_de[zugang_steht]="   Zugang steht."
 T_en[zugang_steht]="   Access ready."
 
@@ -1419,6 +1421,14 @@ ufw allow 80,443/tcp >>"$LOG" 2>&1
 ufw allow 3478,5349/tcp >>"$LOG" 2>&1
 ufw allow 3478,5349/udp >>"$LOG" 2>&1
 ufw allow 49160:49200/udp >>"$LOG" 2>&1
+# Laeuft die Einrichtung im Browser (setup.sh), haelt deren Seite einen eigenen
+# Port. Der muss offen bleiben, sonst bricht genau hier die Verbindung ab, und
+# der Nutzer sieht das Ende der Einrichtung nie. "Abschliessen" auf der Seite
+# schliesst den Port wieder.
+if [ -n "${HUMATRIX_SETUP_PORT:-}" ]; then
+  ufw allow "$HUMATRIX_SETUP_PORT"/tcp >>"$LOG" 2>&1
+  ufw allow "$((HUMATRIX_SETUP_PORT + 1))"/tcp >>"$LOG" 2>&1   # verschluesselte Fassung der Seite nach "Fertig"
+fi
 ufw --force enable >>"$LOG" 2>&1
 melde "$(txt firewall "$SSH_PORTS")"
 
@@ -1585,6 +1595,25 @@ if [ -f "$HIER/dateien/kundenanleitung.py" ]; then
     --betreiber "${BETREIBER:-}" --bilder "$BILDER" --language "$SPRACHE" \
     --ausgabe "$ANLEITUNG" >/dev/null && chmod 600 "$ANLEITUNG"
   melde "$(txt kundenanleitung "$ANLEITUNG")"
+fi
+
+# Verwaltungsanleitung: alles ueber DIESEN Server fuer den Betreiber, ohne
+# Passwort. Liegt bei root und, lesbar fuer den Dienst, unter /var/lib/messenger,
+# wo die Verwaltung sie zum Herunterladen anbietet.
+if [ -f "$HIER/dateien/verwaltungsanleitung.py" ]; then
+  if [ "$HINTER_PROXY" = ja ]; then SITUATION=proxy
+  elif [ "$HINTER_ROUTER" = ja ]; then SITUATION=zuhause
+  else SITUATION=mietserver; fi
+  VANLEITUNG=/root/verwaltungsanleitung-$DOMAIN.html
+  python3 "$HIER/dateien/verwaltungsanleitung.py" \
+    --domain "$DOMAIN" --verwalter "$VERWALTER" --situation "$SITUATION" \
+    --lokale-ip "$LOKALE_IP" --oeffentliche-ip "$EIGENE_IP" --mail "${MAIL:-}" \
+    --betreiber "${BETREIBER:-}" --sicherung-ziel "${SICHERUNG_ZIEL:-}" --language "$SPRACHE" \
+    --ausgabe "$VANLEITUNG" >/dev/null && chmod 600 "$VANLEITUNG"
+  mkdir -p /var/lib/messenger; chmod 755 /var/lib/messenger
+  install -m 640 -o root -g einladung "$VANLEITUNG" /var/lib/messenger/verwaltungsanleitung.html 2>/dev/null \
+    || install -m 600 "$VANLEITUNG" /var/lib/messenger/verwaltungsanleitung.html
+  melde "$(txt verwaltungsanleitung "$VANLEITUNG")"
 fi
 gruen "$(txt zugang_steht)"
 

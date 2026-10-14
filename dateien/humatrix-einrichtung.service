@@ -1,0 +1,22 @@
+[Unit]
+Description=Humatrix setup page (first-time setup in the browser)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Runs as root on purpose: it drives install.sh, which installs packages and
+# writes system configuration. It only exists until the setup is finished;
+# "Finish" on the page disables this unit.
+ExecStart=/usr/bin/python3 /opt/humatrix/dateien/einrichtung.py
+WorkingDirectory=/opt/humatrix
+Environment=HUMATRIX_QUELLE=/opt/humatrix
+Environment=HUMATRIX_SETUP_PORT=8088
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=3
+# A restart must not kill a running install.sh underneath the page.
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

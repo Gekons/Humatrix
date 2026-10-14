@@ -77,7 +77,8 @@ to go through the one person who knows the server. Humatrix adds that missing pi
 
 ## What it is
 
-- **One command** for the whole setup, re-runnable at any time
+- **One command** for the whole setup, re-runnable at any time; or one command and a
+  web page that asks for the rest
 - **Invitations for everyone**: each user gets a quota and sends out links
 - **Invitations carry a room**: when you create one, you pick the room the person
   should land in. Separate circles on the same server stay separate.
@@ -139,6 +140,59 @@ turn.example.com         A   <IP>
 ```
 
 ## Installation
+
+Two ways, same result. The browser way asks its questions on a web page; the terminal
+way takes them as switches.
+
+### In the browser
+
+On the server, as root:
+
+```bash
+curl -fsSLo setup.sh https://raw.githubusercontent.com/Gekons/Humatrix/main/setup.sh
+sudo bash setup.sh
+```
+
+The script checks that this is Debian 12 or 13 on amd64, installs `python3` and `curl`,
+fetches the installer into `/opt/humatrix` and prints an address like
+`http://203.0.113.5:8088/` together with a one-time code. Open the address, enter the
+code, and the page asks for the rest in five steps: the domain and where the server
+stands (rented server, at home behind a router, behind a reverse proxy; it detects which
+is likely), then a preparation page that lists exactly what has to be done outside the
+server for that situation (fixed address and port forwards in the router with the
+FRITZ!Box click path, DynDNS, the six DNS records, the five proxy entries, the provider
+firewall), then a check of the six DNS names that only continues when the installer
+would accept them, then the first admin account and who looks after the server, then a
+summary where every line can be changed. Then it runs the installer, shows each step
+and the log, and ends with the addresses, the account, the initial password, the backup
+key reminder, the customer guide and the operator guide. "Finish setup" turns the page
+off and closes its port.
+
+What to know about the page:
+
+- It runs as root, because it installs packages. The code guards it; after ten wrong
+  codes it locks and writes a new code to `/var/lib/humatrix-einrichtung/code`.
+  Sessions end after six hours. The page disappears when you finish, and by itself a day
+  after a finished run or two days after a start without a run.
+- It is plain HTTP on port 8088. On a rented server the final page therefore shows the
+  password only on an encrypted copy of itself: once the certificate exists, the page
+  also listens on port 8089 with it, under `https://service.<domain>:8089/`, and the
+  plain page links there. At home and behind a proxy the browser is in the same network
+  and the plain page shows everything.
+- It writes an operator guide (`/root/verwaltungsanleitung-<domain>.html`, no passwords)
+  with the addresses, ports, proxy entries, backup, update and troubleshooting commands
+  for this server. The terminal way writes it too; the admin page offers it for download.
+- Port 8088 must be reachable from your browser. On a rented server it usually is. In
+  a home network open the page from the same network. The hardening step opens the port
+  in the firewall for the duration of the setup; "Finish setup" closes it again.
+- If the server was restarted during the run, the page says so and offers to run
+  again; the installer only does what is still missing.
+- `cat /var/lib/humatrix-einrichtung/code` shows the code again;
+  `systemctl disable --now humatrix-einrichtung` turns the page off by hand. The log of
+  the run is `/var/log/messenger-installer.log`. The page is not meant for an existing
+  installation: there it says so and points to `install.sh`.
+
+### In the terminal
 
 A fresh server has no `git`, so clone on your own machine and copy the folder over:
 
