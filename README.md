@@ -284,7 +284,7 @@ To verify: `su - postgres -c "psql synapse"` and look at the events table.
 | Practice a restore | yearly. A backup that has never been restored is not a backup. |
 | Certificates | automatic (certbot; coturn gets its copies via a hook) |
 
-Details: [docs/operator.md](docs/operator.md)
+Details: [docs/operator.md](docs/operator.md) · How the pieces fit together: [docs/architecture.md](docs/architecture.md)
 
 ### Embedding the chat in Nextcloud
 

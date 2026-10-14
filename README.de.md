@@ -293,7 +293,7 @@ Nachprüfen: `su - postgres -c "psql synapse"` und in die Ereignistabelle schaue
 | Wiederherstellung üben | jährlich. Eine Sicherung, die nie zurückgespielt wurde, ist keine. |
 | Zertifikate | automatisch (certbot; coturn bekommt seine Kopien über einen Haken) |
 
-Ausführlich: [docs/betreiber.md](docs/betreiber.md)
+Ausführlich: [docs/betreiber.md](docs/betreiber.md) · Wie die Teile zusammenhängen: [docs/architektur.md](docs/architektur.md)
 
 ### Den Chat in Nextcloud einbetten
 
