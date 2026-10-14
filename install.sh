@@ -72,6 +72,9 @@ T_de[hilfe]="Messenger-Installer
                        einladung sicherung updates haertung
   --hilfe / --help     Diese Hilfe.
 
+  Englische Schreibweisen --admin --backup --operator --only --behind-proxy
+  gehen genauso; Abschnittsnamen sind in beiden Sprachen gleich.
+
 Vorher einzurichten (der Installer prueft es und bricht sonst ab):
   A-Eintraege auf die IP dieses Servers fuer:  (mit --hinter-proxy: auf den Proxy)
      <domain>  matrix.<domain>  chat.<domain>  invite.<domain>
@@ -81,10 +84,10 @@ T_en[hilfe]="Messenger installer
   --domain  <name>     Required. The bare domain, e.g. example.com
                        User IDs are built from it: @name:example.com
   --mail    <address>  Required. For the certificates (Let's Encrypt notifies there).
-  --verwalter <name>   Name of the first account with admin rights. Default: verwalter
-  --sicherung <target> Optional. SSH target for the daily backup,
+  --admin   <name>     Name of the first account with admin rights. Default: verwalter
+  --backup  <target>   Optional. SSH target for the daily backup,
                        e.g. u123456@u123456.your-storagebox.de:/messenger
-  --betreiber <text>   Optional. Who looks after the server - appears in the customer guide.
+  --operator <text>    Optional. Who looks after the server - appears in the customer guide.
                        e.g. \"First Last, help@example.com\"
   --language en|de     Language of installer, admin pages and customer guide.
                        Default: en. The admin page can switch later.
@@ -94,10 +97,13 @@ T_en[hilfe]="Messenger installer
                        the proxy takes care of TLS. Needed as soon as ports 80 and
                        443 of the public address belong to someone else.
                        Both spellings are equivalent.
-  --nur <section>      Repeat one section only:
+  --only <section>     Repeat one section only:
                        pakete datenbank synapse web turn element
                        einladung sicherung updates haertung
   --help / --hilfe     This help.
+
+  The German spellings --verwalter --sicherung --betreiber --nur --hinter-proxy
+  work as well; section names are the same in both languages.
 
 To set up beforehand (the installer checks it and aborts otherwise):
   A records to the IP of this server for:  (with --behind-proxy: to the proxy)
@@ -120,7 +126,7 @@ T_en[als_root]="Please run as root (sudo)."
 T_de[abschnitt_unbekannt]="Unbekannter Abschnitt: %s  (moeglich: pakete datenbank synapse web turn element einladung sicherung updates haertung)"
 T_en[abschnitt_unbekannt]="Unknown section: %s  (possible: pakete datenbank synapse web turn element einladung sicherung updates haertung)"
 T_de[verwalter_zeichen]="--verwalter darf nur Kleinbuchstaben, Ziffern und . _ = - / enthalten (nicht leer): '%s'"
-T_en[verwalter_zeichen]="--verwalter may only contain lowercase letters, digits and . _ = - / (not empty): '%s'"
+T_en[verwalter_zeichen]="--admin may only contain lowercase letters, digits and . _ = - / (not empty): '%s'"
 
 # --- Pruefen
 T_de[s_pruefen]="Voraussetzungen pruefen"
@@ -505,12 +511,12 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --domain)    DOMAIN="${2:-}"; shift 2 ;;
     --mail)      MAIL="${2:-}"; shift 2 ;;
-    --verwalter) VERWALTER="${2:-}"; shift 2 ;;
-    --sicherung) SICHERUNG_ZIEL="${2:-}"; shift 2 ;;
-    --betreiber) BETREIBER="${2:-}"; shift 2 ;;
+    --verwalter|--admin)    VERWALTER="${2:-}"; shift 2 ;;
+    --sicherung|--backup)   SICHERUNG_ZIEL="${2:-}"; shift 2 ;;
+    --betreiber|--operator) BETREIBER="${2:-}"; shift 2 ;;
     --language)  shift 2 ;;                            # oben schon gelesen
     --hinter-proxy|--behind-proxy) HINTER_PROXY=ja; shift ;;
-    --nur)       NUR="${2:-}"; shift 2 ;;
+    --nur|--only)           NUR="${2:-}"; shift 2 ;;
     --hilfe|--help|-h) HILFE=ja; shift ;;
     *) ende "$(txt unbekannte_angabe "$1")" ;;
   esac

@@ -7,10 +7,10 @@ server in a single run: Matrix server, encryption, calls, web interface,
 administration, invitations, backup, basic hardening.
 
 ```bash
-sudo ./install.sh --domain deinedomain.de --mail du@example.de --verwalter dein-name
+sudo ./install.sh --domain yourdomain.com --mail you@example.com --admin your-name
 ```
 
-After that your IDs are `@anna:deinedomain.de` and you write to each other encrypted:
+After that your IDs are `@anna:yourdomain.com` and you write to each other encrypted:
 the server holds nothing but ciphertext; not even the operator can read message content.
 Where the limits are — metadata, passwords, the browser client — is covered below under
 **[What the operator can see — and what they can't](#what-the-operator-can-see--and-what-they-cant)**.
@@ -144,12 +144,12 @@ The key figures are above under **[Will it run for me?](#will-it-run-for-me)**. 
 ### DNS
 
 ```
-deinedomain.de              A   <IP>
-matrix.deinedomain.de       A   <IP>
-chat.deinedomain.de         A   <IP>
-invite.deinedomain.de       A   <IP>
-service.deinedomain.de        A   <IP>
-turn.deinedomain.de         A   <IP>
+yourdomain.com              A   <IP>
+matrix.yourdomain.com       A   <IP>
+chat.yourdomain.com         A   <IP>
+invite.yourdomain.com       A   <IP>
+service.yourdomain.com        A   <IP>
+turn.yourdomain.com         A   <IP>
 ```
 
 ## Installation
@@ -162,14 +162,14 @@ git clone https://github.com/Gekons/Humatrix.git     # on your machine
 scp -r Humatrix root@<IP>:/root/
 ssh root@<IP>                                         # from here on: on the server
 cd /root/Humatrix
-./install.sh --domain deinedomain.de --mail du@example.de --verwalter dein-name
+./install.sh --domain yourdomain.com --mail you@example.com --admin your-name
 ```
 
 With backup to remote storage:
 
 ```bash
-sudo ./install.sh --domain deinedomain.de --mail du@example.de --verwalter dein-name \
-                  --sicherung user@storage.example.de:/messenger
+sudo ./install.sh --domain yourdomain.com --mail you@example.com --admin your-name \
+                  --backup user@storage.example.com:/messenger
 ```
 
 Afterwards the key of the encrypted backup is in `/root/.sicherung_passwort`.
@@ -178,18 +178,19 @@ Afterwards the key of the encrypted backup is in `/root/.sicherung_passwort`.
 Before the first change the installer checks the system, memory, disk space, all six
 DNS names and the ports — and aborts without having touched anything if something is
 missing (single exception: a missing `curl` is installed beforehand, the check needs
-it). At the end ten final checks run, eleven with `--sicherung`.
+it). At the end ten final checks run, eleven with `--backup`.
 
-To repeat a single section: `--nur turn` (see `--help`). With
-`--betreiber "Name, mail@example.de"` the name and contact details of the person looking
+To repeat a single section: `--only turn` (see `--help`). With
+`--operator "Name, mail@example.com"` the name and contact details of the person looking
 after the server appear in the customer guide and in the notes of the invitation
 service — otherwise it just says "your contact person" / "the operator" (or the German
 equivalent). `--language en|de` sets the language of the installer's output, the web
 pages and the customer guide; the default is English, and the admin page can switch the
 web pages later. A repeat run keeps the language of the existing installation;
-`--language` sets it anew. The switches, section names and host name prefixes (`matrix.`, `chat.`,
-`invite.`, `service.`, `turn.`) are the same in both languages — they are part of
-the DNS setup, not of the interface.
+`--language` sets it anew. Every switch also has a German spelling (`--verwalter`,
+`--sicherung`, `--betreiber`, `--nur`, `--hinter-proxy`); section names and host name
+prefixes (`matrix.`, `chat.`, `invite.`, `service.`, `turn.`) are the same in both
+languages — they are part of the DNS setup, not of the interface.
 
 ### Already have a reverse proxy in the house?
 
@@ -197,10 +198,10 @@ If you already run a Nginx Proxy Manager, Traefik or Caddy at home, ports 80 and
 the public address already belong to it. Then:
 
 ```bash
-sudo ./install.sh --domain deinedomain.de --verwalter dein-name --behind-proxy
+sudo ./install.sh --domain yourdomain.com --admin your-name --behind-proxy
 ```
 
-(`--hinter-proxy` is the same switch under its German name; both work.) In this mode
+In this mode
 the installer fetches **no** certificate and serves everything as plain HTTP
 (unencrypted) on port 80 — the existing proxy takes care of TLS. At the end it tells you which
 five entries you need to create there. The DNS names may then point to the proxy
@@ -214,10 +215,10 @@ the call content is end-to-end encrypted anyway; TURN only relays.
 
 | Address | for whom |
 |---|---|
-| `https://chat.deinedomain.de` | everyone — chat in the browser |
-| `https://invite.deinedomain.de` | everyone — send invitations |
-| `https://service.deinedomain.de` | admins only — accounts and quotas |
-| Phone app | FluffyChat or Element X, enter `deinedomain.de` as the server |
+| `https://chat.yourdomain.com` | everyone — chat in the browser |
+| `https://invite.yourdomain.com` | everyone — send invitations |
+| `https://service.yourdomain.com` | admins only — accounts and quotas |
+| Phone app | FluffyChat or Element X, enter `yourdomain.com` as the server |
 
 ### Anyone can invite — as much as you allow
 
@@ -291,7 +292,7 @@ It's gibberish.
 | Security updates | automatic |
 | Everything else (system packages, Synapse, Element Web) | updates are checked daily and shown in the admin page; installed only on a click, after confirmation. Synapse restarts in the process, the chat is briefly unreachable |
 | Synapse by hand | `apt update && apt install matrix-synapse-py3` — or as root `messenger-update-ausfuehren.sh`, which installs everything the check reported |
-| Element Web by hand | `./install.sh --domain … --mail … --nur element` — only fetches if a newer version is available. The browser client gets no Debian security updates |
+| Element Web by hand | `./install.sh --domain … --mail … --only element` — only fetches if a newer version is available. The browser client gets no Debian security updates |
 | Check backup | monthly |
 | **Practice a restore** | **yearly** — a backup that has never been restored is not a backup |
 | Certificates | automatic (certbot; coturn gets its copies via a hook) |

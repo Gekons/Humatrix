@@ -89,15 +89,15 @@ git clone https://github.com/Gekons/Humatrix.git
 scp -r Humatrix root@<IP>:/root/
 ssh root@<IP>
 cd /root/Humatrix
-./install.sh --domain <domain> --mail <deine-mail> --verwalter <kundenname> \
-             --betreiber "<dein Name>, <deine-mail>" \
-             --sicherung u123456@u123456.your-storagebox.de:/messenger/<domain>
+./install.sh --domain <domain> --mail <your-mail> --admin <customer-name> \
+             --operator "<your name>, <your-mail>" \
+             --backup u123456@u123456.your-storagebox.de:/messenger/<domain>
 ```
 
-- `--verwalter` is the **customer's username**, lowercase and without spaces
+- `--admin` is the **customer's username**, lowercase and without spaces
 - `--mail` is **your** address — that is where Let's Encrypt warns you if a certificate
   wasn't renewed. You want to know that, not the customer.
-- `--betreiber` is optional, but sensible when serving customers: name and contact
+- `--operator` is optional, but sensible when serving customers: name and contact
   details then appear in the customer guide ("Betreut von …", "Melde dich bei …" —
   "looked after by", "get in touch with") and in the notes of the invitation service.
   Without it, it just says "your contact person" / "the operator" (or the German
@@ -110,9 +110,9 @@ cd /root/Humatrix
   chosen when it is created, and an invitation without one follows the browser of the
   person who opens it. The switches themselves, the section names for `--nur` and the
   host name prefixes stay the same in both languages.
-- `--behind-proxy` (same as `--hinter-proxy`) if a reverse proxy in front already owns
+- `--behind-proxy` if a reverse proxy in front already owns
   ports 80 and 443 — see the README for what changes then.
-- `--sicherung` is optional. Without it the server backs up locally to
+- `--backup` is optional. Without it the server backs up locally to
   `/var/backups/messenger` (14 days) — better than nothing, but not a real backup.
   With it, the **server's SSH key must be registered at the target**: the installer
   creates `/root/.ssh/id_ed25519` if needed, records the target's host key and
@@ -121,14 +121,14 @@ cd /root/Humatrix
   key, and you register it at the target — for the Hetzner Storage Box in the Hetzner
   console under the box; it listens on port 23, which then goes into
   `/root/.ssh/config`, the installer tells you. After that
-  `./install.sh … --nur sicherung`. For the first server on a new target this second
+  `./install.sh … --only sicherung`. For the first server on a new target this second
   attempt is the normal case, not an error.
 
 Before the first change the installer checks the system, memory, disk space, all six
 names and the ports. If something is wrong, it aborts without having touched anything
 (single exception: a missing `curl` is installed beforehand, the check needs it).
 
-At the end ten final checks run, eleven with `--sicherung` — the last one checks whether
+At the end ten final checks run, eleven with `--backup` — the last one checks whether
 the backup target is reachable. If all are green, the server is done.
 
 ## Step 5 — What comes out of it
@@ -192,7 +192,7 @@ not what. The guide says the same. This openness is part of the product.
 | Everything else: system packages, Synapse, Element Web | checked daily, installed only on a click | A timer (`messenger-update-pruefen.timer`, from 06:00) checks and stores the result in `/var/lib/messenger/updates.json`; the admin page shows it at the top in the "Aktualisierungen" (updates) card. If the customer clicks "Jetzt aktualisieren" (update now) there and confirms the prompt, the service places a job file under `/var/lib/messenger/auftraege/`; `messenger-update.path` sees it and starts the run as root (apt-get upgrade, Synapse restart only on a new package, Element Web). The result then appears in the admin page and in `/var/log/messenger-update.log`. |
 | The same by hand | as needed | as root `messenger-update-ausfuehren.sh` — same run, same log; `messenger-update-pruefen.sh` only refreshes the result |
 | Synapse alone | deliberately | `apt update && apt install matrix-synapse-py3`, then `systemctl status matrix-synapse` |
-| Element Web alone | deliberately, e.g. monthly | `./install.sh --domain … --mail … --nur element` (calls `messenger-element-erneuern.sh`); compared against `/var/www/element/.version`, updated only if a newer version exists. The browser client gets no Debian security updates. |
+| Element Web alone | deliberately, e.g. monthly | `./install.sh --domain … --mail … --only element` (calls `messenger-element-erneuern.sh`); compared against `/var/www/element/.version`, updated only if a newer version exists. The browser client gets no Debian security updates. |
 | Check backup | monthly | `systemctl list-timers messenger-sicherung*` and check whether files are arriving |
 | **Practice a restore** | **yearly** | A backup that has never been restored is not a backup. |
 | Certificates | automatic | certbot renews; coturn gets its copies via a hook |
@@ -212,12 +212,12 @@ others (`chown root:matrix-synapse`, `chmod 640`), then
 | Symptom | Cause | Remedy |
 |---|---|---|
 | Installer aborts at DNS | records not yet visible | wait, start again — it is repeatable |
-| Certificate fails | port 80 in use or DNS wrong | `ss -lnt`, check DNS, then `--nur web` |
+| Certificate fails | port 80 in use or DNS wrong | `ss -lnt`, check DNS, then `--only web` |
 | Calls don't connect | UDP blocked | check `ufw status`; at Hetzner also the cloud firewall |
 | "Too many attempts" when logging in | Synapse throttles after a few attempts | wait a minute. The password is usually right. |
 | Customer has lost their phone (2FA) | — | `python3 /opt/einladung/einladung.py --zweitfaktor-aus <name>` as root on the server; the username is enough, the full ID works too |
 | Customer has forgotten their password | — | reset via the admin page ("Passwort neu" — with confirmation; the new password appears **exactly once**, write it down immediately and pass it on). If it concerns the admin account itself, as root via the admin API, see below. `register_new_matrix_user` is **not** suitable for this — it only creates new accounts and aborts if the ID is taken |
-| Repeat a single section | — | `./install.sh --domain … --mail … --nur turn` |
+| Repeat a single section | — | `./install.sh --domain … --mail … --only turn` |
 | Admin page shows "Noch nicht geprüft" / "Not checked yet" | timer not running or the check fails | `systemctl status messenger-update-pruefen.timer`, then `messenger-update-pruefen.sh` by hand — the error appears on screen. Existing server without this card: run the installer again **in full** (it is repeatable) — that also brings the invitation service up to date |
 | "Jetzt aktualisieren" / "Update now" does nothing | path unit not active or the service may not write to the job folder | `systemctl status messenger-update.path`, `ls -ld /var/lib/messenger/auftraege` (owned by `einladung`, 750), `journalctl -u messenger-update -n 50` |
 | Your own firewall rules (WireGuard, restricted SSH) | — | are kept on repeat runs: `ufw` is only reset while it is not yet active; after that the hardening only sets its own rules and takes the SSH port from the running `sshd` configuration |
