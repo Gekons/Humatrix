@@ -289,6 +289,10 @@ chat host sends no `X-Frame-Options` or `frame-ancestors` restriction, so this w
 without further changes. The invitation page (`invite.<domain>`) is not meant for
 embedding; people open it from the link they received.
 
+Nextcloud Talk can also connect to Matrix, but that is a bridge: Talk decrypts the
+messages to pass them on, so end-to-end encryption ends there. The embedded Element
+keeps the keys in the browser.
+
 ## The guide your people get
 
 At the end the installer writes a guide with the real address, the account name and

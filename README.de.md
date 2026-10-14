@@ -298,6 +298,10 @@ Transparenz hochladen. Der Chat-Host setzt keine `X-Frame-Options`- oder
 Einladungsseite (`invite.<domain>`) ist nicht zum Einbetten gedacht; die öffnen die
 Leute über ihren Link.
 
+Nextcloud Talk kann sich ebenfalls mit Matrix verbinden, das ist aber eine Brücke: Talk
+entschlüsselt die Nachrichten zum Weiterreichen, die Ende-zu-Ende-Verschlüsselung endet
+dort. Das eingebettete Element behält die Schlüssel im Browser.
+
 ## Die Anleitung, die deine Leute bekommen
 
 Am Ende schreibt der Installer eine Anleitung mit der echten Adresse, dem Kontonamen
