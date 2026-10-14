@@ -1012,13 +1012,17 @@ TEXTE = {
     'einl_neue': 'Bitte frag {wer} nach einer neuen.',
     'einl_kopf': '{wer} lädt dich ein',
     'einl_unter': 'In einen Chat, bei dem kein Konzern mitliest. Drei Schritte.',
-    'einl_schritt1': 'App installieren',
-    'einl_schritt1_text': 'Suche im App Store oder bei Google Play nach <b>FluffyChat</b> — '
-                          'oder nutze unten einfach den Browser und melde dich danach in der App an.',
-    'einl_schritt2': 'Server eintragen',
-    'einl_schritt2_text': 'Die App fragt danach:',
-    'einl_schritt3': 'Diesen Einladungscode eingeben',
-    'einl_browser': 'Lieber im Browser öffnen',
+    'einl_schritt1': 'Konto anlegen',
+    'einl_schritt1_text': 'Im Browser, mit Benutzername und Passwort deiner Wahl. '
+                          'Wenn nach einem Einladungscode gefragt wird, ist es dieser:',
+    'einl_schritt2': 'App installieren',
+    'einl_schritt2_text': 'Suche im App Store oder bei Google Play nach <b>FluffyChat</b> '
+                          '(oder <b>Element X</b>). Konto anlegen geht nur im Browser, '
+                          'anmelden dann in der App.',
+    'einl_schritt3': 'In der App anmelden',
+    'einl_schritt3_text': 'Als Server eintragen:',
+    'einl_schritt3_text2': 'dann Benutzername und Passwort aus Schritt 1.',
+    'einl_browser': 'Konto jetzt anlegen',
     'einl_nicht_weiterleiten': 'Ohne diesen Code kommt niemand auf den Server — es gibt keine '
                                'offene Anmeldung. Deshalb bitte nicht weiterleiten.',
     'einl_gibt_es_nicht': 'Diese Einladung gibt es nicht',
@@ -1272,13 +1276,17 @@ TEXTE = {
     'einl_neue': 'Please ask {wer} for a new one.',
     'einl_kopf': '{wer} invites you',
     'einl_unter': 'A chat where no big tech company is listening in. Three steps.',
-    'einl_schritt1': 'Install the app',
-    'einl_schritt1_text': 'Search the App Store or Google Play for <b>FluffyChat</b> — '
-                          'or simply use the browser below and log in to the app afterwards.',
-    'einl_schritt2': 'Enter the server',
-    'einl_schritt2_text': 'The app asks for it:',
-    'einl_schritt3': 'Enter this invitation code',
-    'einl_browser': 'Open in the browser instead',
+    'einl_schritt1': 'Create your account',
+    'einl_schritt1_text': 'In the browser, with a username and password of your choice. '
+                          'If it asks for an invitation code, it is this one:',
+    'einl_schritt2': 'Install the app',
+    'einl_schritt2_text': 'Search the App Store or Google Play for <b>FluffyChat</b> '
+                          '(or <b>Element X</b>). Creating the account only works in the '
+                          'browser; logging in is done in the app.',
+    'einl_schritt3': 'Log in to the app',
+    'einl_schritt3_text': 'Enter as the server:',
+    'einl_schritt3_text2': 'then the username and password from step 1.',
+    'einl_browser': 'Create the account now',
     'einl_nicht_weiterleiten': 'Without this code nobody gets onto the server — there is no open '
                                'registration. So please do not forward it.',
     'einl_gibt_es_nicht': 'This invitation does not exist',
@@ -2176,14 +2184,16 @@ def seite_einladung(einlader, token, sprache, abgelaufen=False, schon_benutzt=Fa
       <div class="karte">
         <ol>
           <li><b>{t('einl_schritt1', sprache)}</b><br>
-              <span class="leise">{t('einl_schritt1_text', sprache)}</span></li>
+              <span class="leise">{t('einl_schritt1_text', sprache)}</span>
+              <div class="wert">{html.escape(token)}</div>
+              <a class="knopf" href="{ELEMENT}/#/register">{t('einl_browser', sprache)}</a></li>
           <li><b>{t('einl_schritt2', sprache)}</b><br>
-              <span class="leise">{t('einl_schritt2_text', sprache)}</span>
-              <div class="wert">{SERVERNAME}</div></li>
-          <li><b>{t('einl_schritt3', sprache)}</b>
-              <div class="wert">{html.escape(token)}</div></li>
+              <span class="leise">{t('einl_schritt2_text', sprache)}</span></li>
+          <li><b>{t('einl_schritt3', sprache)}</b><br>
+              <span class="leise">{t('einl_schritt3_text', sprache)}</span>
+              <div class="wert">{SERVERNAME}</div>
+              <span class="leise">{t('einl_schritt3_text2', sprache)}</span></li>
         </ol>
-        <a class="knopf" href="{ELEMENT}/#/register">{t('einl_browser', sprache)}</a>
       </div>
       <p class="leise">{t('einl_nicht_weiterleiten', sprache)}</p>""", sprache)
 

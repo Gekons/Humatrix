@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Blocking an account revokes its open invitations.
-- The invitation page recommends FluffyChat; English screenshots use example.com.
+- Invitation page: the account is created in the browser first, then the app (FluffyChat or Element X) is used to log in; FluffyChat and Element X cannot register on this server. English screenshots use example.com.
 
 ## 1.0.0 — 2026-10-14
 
