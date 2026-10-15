@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-10-15
+
+Tested end to end on a rented Debian 13 VPS (Ionos, 1 core, 1.8 GB): setup page, Let's Encrypt, federation tester, STUN.
 
 - Setup in the browser: `setup.sh` installs the bare minimum, starts a setup page on
   port 8088 and prints its address with a one-time code. The page asks for domain,
