@@ -1,7 +1,22 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-10-15
 
+Tested end to end on a rented Debian 13 VPS (Ionos, 1 core, 1.8 GB): setup page, Let's Encrypt, federation tester, STUN.
+
+- Setup in the browser: `setup.sh` installs the bare minimum, starts a setup page on
+  port 8088 and prints its address with a one-time code. The page asks for domain,
+  proxy mode, e-mail, first account and operator, checks the DNS names, runs
+  `install.sh` with the answers, shows progress and log, and ends with the credentials
+  and the customer guide. A preparation step lists, per situation (rented server, home
+  behind a router, behind a reverse proxy), what has to be done outside the server:
+  fixed address, port forwards, DynDNS, DNS records, proxy entries. With its own
+  certificate the password is shown only on an encrypted copy of the page (port 8089). "Finish setup" turns it off; it also turns itself off after a day. The
+  installer keeps the page's ports open in the firewall while it runs
+  (`HUMATRIX_SETUP_PORT`).
+- Operator guide: `install.sh` writes `/root/verwaltungsanleitung-<domain>.html` with
+  addresses, network requirements, backup, update and troubleshooting commands for this
+  server, without passwords. The admin page offers it under "Operator guide".
 - Blocking an account revokes its open invitations.
 - Invitation page: the account is created in the browser first, then the app (FluffyChat or Element X) is used to log in; FluffyChat and Element X cannot register on this server. English screenshots use example.com.
 

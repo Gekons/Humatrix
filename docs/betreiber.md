@@ -78,6 +78,22 @@ Der Installer prüft das ebenfalls und bricht ab, wenn etwas fehlt.
 
 ## Schritt 4: Installer hochladen und starten
 
+Zwei Wege. Der kurze ist die Einrichtungsseite: auf dem Server
+
+```bash
+curl -fsSLo setup.sh https://raw.githubusercontent.com/Gekons/Humatrix/main/setup.sh
+sudo bash setup.sh
+```
+
+ausführen und die ausgegebene Adresse mit dem Einmalcode im Browser öffnen. Die Seite
+fragt Domain, Proxy oder nicht, E-Mail, den Benutzernamen des Kunden und deinen Namen als
+Betreiber ab, prüft die DNS-Namen, lässt den Installer laufen und zeigt das Ergebnis. Ein
+Feld für `--sicherung` hat sie nicht; für eine entfernte Sicherung danach aus
+`/opt/humatrix` heraus `./install.sh … --nur sicherung` mit den Schaltern unten
+aufrufen. Die README beschreibt die Seite.
+
+Der lange Weg, mit allen Schaltern in einer Zeile:
+
 Auf einem frischen Server fehlt `git`, also auf deinem Rechner klonen und den Ordner
 hinüberkopieren:
 

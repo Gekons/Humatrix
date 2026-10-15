@@ -78,7 +78,20 @@ The installer checks this too and aborts if something is missing.
 
 ## Step 4: Upload and start the installer
 
-A fresh server has no `git`, so clone on your machine and copy the folder over:
+Two ways. The short one is the setup page: on the server run
+
+```bash
+curl -fsSLo setup.sh https://raw.githubusercontent.com/Gekons/Humatrix/main/setup.sh
+sudo bash setup.sh
+```
+
+and open the printed address with the one-time code in a browser. The page asks for
+domain, proxy or not, e-mail, the customer's username and your name as operator, checks
+the DNS names, runs the installer and shows the result. It has no field for `--backup`;
+for a remote backup run `./install.sh … --only sicherung` from `/opt/humatrix`
+afterwards, with the switches below. The README describes the page.
+
+The long way, with every switch in one line:
 
 ```bash
 git clone https://github.com/Gekons/Humatrix.git
