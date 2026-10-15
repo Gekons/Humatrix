@@ -71,8 +71,10 @@ def ports_tabelle(sprache, mit_web):
     if mit_web:
         zeilen += [('80', 'TCP', 'Zertifikat, Weiterleitung auf https' if sprache == 'de' else 'certificate, redirect to https'),
                    ('443', 'TCP', 'Chat, Einladungen, Verwaltung, Matrix' if sprache == 'de' else 'chat, invitations, admin page, Matrix')]
-    zeilen += [('3478', 'TCP + UDP', 'Anrufe (TURN)' if sprache == 'de' else 'calls (TURN)'),
-               ('49160–49200', 'UDP', 'Anrufe (Relais)' if sprache == 'de' else 'calls (relay)')]
+    zeilen += [('3478', 'TCP + UDP', 'Anrufe (TURN)' if sprache == 'de' else 'calls (TURN)')]
+    if mit_web:
+        zeilen += [('5349', 'TCP + UDP', 'Anrufe (TURN verschlüsselt)' if sprache == 'de' else 'calls (TURN over TLS)')]
+    zeilen += [('49160–49200', 'UDP', 'Anrufe (Relais)' if sprache == 'de' else 'calls (relay)')]
     kopf = ('Port', 'Protokoll', 'Wofür') if sprache == 'de' else ('Port', 'Protocol', 'Purpose')
     return ('<table><tr>' + ''.join(f'<th>{k}</th>' for k in kopf) + '</tr>'
             + ''.join(f'<tr><td class="wert" style="color:inherit">{p}</td><td>{pr}</td><td>{z}</td></tr>' for p, pr, z in zeilen)
@@ -130,7 +132,7 @@ def seite(a):
                        f'(nginx: <code>client_max_body_size 100M;</code>).',
             anbieter='Firewall des Anbieters',
             anbieter_text='Manche Anbieter (Hetzner Cloud, Ionos, Oracle) haben eine Firewall vor dem Server. Dort müssen offen sein: '
-                          'TCP 22, 80, 443, 3478 und UDP 3478, 49160–49200. Die Firewall auf dem Server selbst (ufw) hat '
+                          'TCP 22, 80, 443, 3478, 5349 und UDP 3478, 5349, 49160–49200. Die Firewall auf dem Server selbst (ufw) hat '
                           'der Installer eingerichtet.',
             sicherung='Sicherung',
             sicherung_text='Jede Nacht um 3:30 Uhr: Datenbank, Konfiguration und Medien, verschlüsselt mit dem Schlüssel in '
@@ -208,7 +210,7 @@ def seite(a):
                        f'(nginx: <code>client_max_body_size 100M;</code>).',
             anbieter='Provider firewall',
             anbieter_text='Some providers (Hetzner Cloud, Ionos, Oracle) have a firewall in front of the server. There, open '
-                          'TCP 22, 80, 443, 3478 and UDP 3478, 49160–49200. The firewall on the server itself (ufw) was set '
+                          'TCP 22, 80, 443, 3478, 5349 and UDP 3478, 5349, 49160–49200. The firewall on the server itself (ufw) was set '
                           'up by the installer.',
             sicherung='Backup',
             sicherung_text='Every night at 03:30: database, configuration and media, encrypted with the key in '

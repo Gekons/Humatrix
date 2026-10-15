@@ -469,7 +469,7 @@ TEXTE = {
                         'eine Freigabe; bei „TCP + UDP“ zwei. Port und „an Port“ sind gleich.',
     'vorb_port': 'Port', 'vorb_protokoll': 'Protokoll', 'vorb_wofuer': 'Wofür',
     'vorb_p80': 'Zertifikat, Weiterleitung auf https', 'vorb_p443': 'Chat, Einladungen, Verwaltung, Matrix',
-    'vorb_p3478': 'Anrufe (TURN)', 'vorb_p49160': 'Anrufe (Relais)',
+    'vorb_p3478': 'Anrufe (TURN)', 'vorb_p5349': 'Anrufe (TURN verschlüsselt)', 'vorb_p49160': 'Anrufe (Relais)',
     'vorb_dyn_kopf': 'Wechselt deine öffentliche Adresse?',
     'vorb_dyn_text': 'Bei den meisten Heimanschlüssen ja, spätestens nach einer Zwangstrennung. Dann müssen die sechs Namen '
                      'der neuen Adresse folgen, sonst ist der Server nach dem Wechsel von außen weg. Beim Anbieter deiner '
@@ -602,7 +602,7 @@ TEXTE = {
     'f_router': 'Hinter einem Router',
     'f_router_text': 'Die öffentliche Adresse ({aussen}) ist nicht die des Servers ({innen}). Im Router müssen '
                      'diese Ports an {innen} weitergeleitet sein, sonst bleiben Anrufe stumm:',
-    'f_router_ports': 'TCP 80 und 443 (ohne Proxy), TCP und UDP 3478, UDP 49160 bis 49200.',
+    'f_router_ports': 'TCP 80 und 443 (ohne Proxy), TCP und UDP 3478 und 5349, UDP 49160 bis 49200.',
     'f_anleitung': 'Kundenanleitung',
     'f_anleitung_text': 'Eine Seite für deine Leute mit Adresse, Kontonamen und den ersten Schritten. Im Browser '
                         'öffnen, drucken oder als PDF sichern.',
@@ -679,7 +679,7 @@ TEXTE = {
                         'row; two for "TCP + UDP". Port and "to port" are the same.',
     'vorb_port': 'Port', 'vorb_protokoll': 'Protocol', 'vorb_wofuer': 'Purpose',
     'vorb_p80': 'certificate, redirect to https', 'vorb_p443': 'chat, invitations, admin page, Matrix',
-    'vorb_p3478': 'calls (TURN)', 'vorb_p49160': 'calls (relay)',
+    'vorb_p3478': 'calls (TURN)', 'vorb_p5349': 'calls (TURN over TLS)', 'vorb_p49160': 'calls (relay)',
     'vorb_dyn_kopf': 'Does your public address change?',
     'vorb_dyn_text': 'On most home connections yes, at the latest after a forced reconnect. Then the six names must follow '
                      'the new address, otherwise the server is gone from outside after the change. Enable DynDNS at your '
@@ -803,7 +803,7 @@ TEXTE = {
     'f_router': 'Behind a router',
     'f_router_text': 'The public address ({aussen}) is not the server’s own ({innen}). The router must forward '
                      'these ports to {innen}, otherwise calls stay silent:',
-    'f_router_ports': 'TCP 80 and 443 (without proxy), TCP and UDP 3478, UDP 49160 to 49200.',
+    'f_router_ports': 'TCP 80 and 443 (without proxy), TCP and UDP 3478 and 5349, UDP 49160 to 49200.',
     'f_anleitung': 'Customer guide',
     'f_anleitung_text': 'A page for your people with the address, the account name and the first steps. Open it '
                         'in the browser, print it or save it as PDF.',
@@ -995,7 +995,10 @@ def ports_tabelle(sprache, mit_web):
     zeilen = []
     if mit_web:
         zeilen += [('80', 'TCP', 'vorb_p80'), ('443', 'TCP', 'vorb_p443')]
-    zeilen += [('3478', 'TCP + UDP', 'vorb_p3478'), ('49160–49200', 'UDP', 'vorb_p49160')]
+    zeilen += [('3478', 'TCP + UDP', 'vorb_p3478')]
+    if mit_web:
+        zeilen += [('5349', 'TCP + UDP', 'vorb_p5349')]     # TURN ueber TLS: nur mit eigenem Zertifikat
+    zeilen += [('49160–49200', 'UDP', 'vorb_p49160')]
     return (f'<table class="ports"><tr><td class="leise">{t("vorb_port", sprache)}</td><td>{t("vorb_protokoll", sprache)}</td>'
             f'<td>{t("vorb_wofuer", sprache)}</td></tr>'
             + ''.join(f'<tr><td>{p}</td><td>{pr}</td><td>{t(k, sprache)}</td></tr>' for p, pr, k in zeilen) + '</table>')
