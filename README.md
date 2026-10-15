@@ -174,11 +174,11 @@ What to know about the page:
   codes it locks and writes a new code to `/var/lib/humatrix-einrichtung/code`.
   Sessions end after six hours. The page disappears when you finish, and by itself a day
   after a finished run or two days after a start without a run.
-- It is plain HTTP on port 8088. On a rented server the final page therefore shows the
-  password only on an encrypted copy of itself: once the certificate exists, the page
-  also listens on port 8089 with it, under `https://service.<domain>:8089/`, and the
-  plain page links there. At home and behind a proxy the browser is in the same network
-  and the plain page shows everything.
+- It is plain HTTP on port 8088. With its own certificate (rented server or at home) the
+  final page therefore shows the password only on an encrypted copy of itself: once the
+  certificate exists, the page also listens on port 8089 with it, under
+  `https://service.<domain>:8089/`, and the plain page links there. Behind a proxy there
+  is no certificate on the machine and the plain page shows everything.
 - It writes an operator guide (`/root/verwaltungsanleitung-<domain>.html`, no passwords)
   with the addresses, ports, proxy entries, backup, update and troubleshooting commands
   for this server. The terminal way writes it too; the admin page offers it for download.

@@ -182,11 +182,12 @@ Was man über die Seite wissen sollte:
   `/var/lib/humatrix-einrichtung/code`. Sitzungen enden nach sechs Stunden. Nach dem
   Abschließen ist die Seite weg, von selbst einen Tag nach einem fertigen Lauf oder zwei
   Tage nach einem Start ohne Lauf.
-- Sie ist Klartext-HTTP auf Port 8088. Auf einem gemieteten Server zeigt die Endseite das
-  Passwort deshalb nur auf einer verschlüsselten Kopie ihrer selbst: Sobald das
-  Zertifikat da ist, lauscht die Seite damit zusätzlich auf Port 8089 unter
-  `https://service.<domain>:8089/`, und die Klartextseite verweist dorthin. Zuhause und
-  hinter einem Proxy ist der Browser im selben Netz, dort zeigt die Klartextseite alles.
+- Sie ist Klartext-HTTP auf Port 8088. Mit eigenem Zertifikat (gemieteter Server oder
+  zuhause) zeigt die Endseite das Passwort deshalb nur auf einer verschlüsselten Kopie
+  ihrer selbst: Sobald das Zertifikat da ist, lauscht die Seite damit zusätzlich auf Port
+  8089 unter `https://service.<domain>:8089/`, und die Klartextseite verweist dorthin.
+  Hinter einem Proxy liegt kein Zertifikat auf dem Rechner, dort zeigt die Klartextseite
+  alles.
 - Sie schreibt eine Verwaltungsanleitung (`/root/verwaltungsanleitung-<domain>.html`,
   ohne Passwörter) mit Adressen, Ports, Proxy-Einträgen, Sicherung, Aktualisieren und
   den Befehlen für den Fall, dass etwas klemmt, für genau diesen Server. Der Terminal-Weg

@@ -8,9 +8,8 @@
   `install.sh` with the answers, shows progress and log, and ends with the credentials
   and the customer guide. A preparation step lists, per situation (rented server, home
   behind a router, behind a reverse proxy), what has to be done outside the server:
-  fixed address, port forwards, DynDNS, DNS records, proxy entries. On a rented server
-  the password is shown only on an encrypted copy of the page (port 8089, with the new
-  certificate). "Finish setup" turns it off; it also turns itself off after a day. The
+  fixed address, port forwards, DynDNS, DNS records, proxy entries. With its own
+  certificate the password is shown only on an encrypted copy of the page (port 8089). "Finish setup" turns it off; it also turns itself off after a day. The
   installer keeps the page's ports open in the firewall while it runs
   (`HUMATRIX_SETUP_PORT`).
 - Operator guide: `install.sh` writes `/root/verwaltungsanleitung-<domain>.html` with

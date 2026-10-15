@@ -379,10 +379,11 @@ TLS = {'laeuft': False, 'host': ''}
 
 def tls_starten(a):
     """Nach 'Fertig' mit eigenem Zertifikat: dieselbe Seite zusaetzlich verschluesselt
-    auf TLS_PORT. Nur fuer einen gemieteten Server sinnvoll - dort geht die Seite
-    uebers Internet, und die Namen zeigen direkt hierher. Zuhause und hinter einem
-    Proxy bleibt der Browser im eigenen Netz, und die Namen fuehren ueber den Router."""
-    if TLS['laeuft'] or a.get('situation') != 'mietserver' or not a.get('domain'):
+    auf TLS_PORT. Ueberall dort, wo ein eigenes Zertifikat liegt (gemietet, zuhause).
+    Hinter einem Proxy gibt es hier keines - dort bleibt der Browser ohnehin im
+    eigenen Netz. Zuhause fuehrt der Name ueber den Router zurueck (Hairpin-NAT);
+    klappt das nicht, nennt die Klartextseite den Weg ueber das Terminal."""
+    if TLS['laeuft'] or a.get('situation') == 'proxy' or not a.get('domain'):
         return
     kette = f"/etc/letsencrypt/live/{a['domain']}/fullchain.pem"
     schluessel = f"/etc/letsencrypt/live/{a['domain']}/privkey.pem"
@@ -549,7 +550,7 @@ TEXTE = {
     'f_vanleitung_knopf': 'Verwaltungsanleitung öffnen',
     'f_erinnerung': 'Falls noch nicht erledigt',
     'f_tls_kopf': 'Noch ein Schritt: die sichere Seite',
-    'f_tls_text': 'Diese Seite kommt unverschlüsselt über das Internet. Das Passwort zeigt deshalb nur die '
+    'f_tls_text': 'Diese Seite kommt unverschlüsselt an. Das Passwort zeigt deshalb nur die '
                   'verschlüsselte Fassung, mit dem frischen Zertifikat deines Servers. Dort gilt derselbe Code.',
     'f_tls_knopf': 'Weiter zur sicheren Seite',
     'f_tls_fallback': 'Lädt die sichere Seite nicht (zum Beispiel, weil die DNS-Namen bei dir noch nicht angekommen '
@@ -756,7 +757,7 @@ TEXTE = {
     'f_vanleitung_knopf': 'Open operator guide',
     'f_erinnerung': 'If not done yet',
     'f_tls_kopf': 'One more step: the secure page',
-    'f_tls_text': 'This page arrives unencrypted over the internet. The password is therefore shown only on the '
+    'f_tls_text': 'This page arrives unencrypted. The password is therefore shown only on the '
                   'encrypted version, using your server’s fresh certificate. The same code applies there.',
     'f_tls_knopf': 'Continue to the secure page',
     'f_tls_fallback': 'If the secure page does not load (for example because the DNS names have not reached you '
