@@ -40,14 +40,14 @@ import pyotp
 import qrcode
 from cryptography.fernet import Fernet, InvalidToken
 
-# Vom Installer per Umgebung gesetzt; die Werte hier sind nur der Rueckfall.
-# Die Vorgaben sind reine Platzhalter. Der Installer traegt die echten Werte
+# Vom Installer per Umgebung gesetzt; die Werte hier sind nur der Rückfall.
+# Die Vorgaben sind reine Platzhalter. Der Installer trägt die echten Werte
 # als Umgebungsvariablen ein (siehe einladung.service.d/umgebung.conf).
 HEIMSERVER = os.environ.get('MESSENGER_HEIMSERVER', 'https://matrix.beispieldomain.de')
 SERVERNAME = os.environ.get('MESSENGER_SERVERNAME', 'beispieldomain.de')   # was in die App getippt wird
 ELEMENT    = os.environ.get('MESSENGER_ELEMENT',    'https://chat.beispieldomain.de')
 EIGENE_URL = os.environ.get('MESSENGER_EIGENE_URL', 'https://invite.beispieldomain.de')
-# Wie der Betreiber in Hinweisen fuer Endnutzer genannt wird ("sag ... Bescheid").
+# Wie der Betreiber in Hinweisen für Endnutzer genannt wird ("sag ... Bescheid").
 # Leer heisst: die Vorgabe der jeweiligen Sprache (siehe betreiber()).
 BETREIBER  = os.environ.get('MESSENGER_BETREIBER',  '').strip()
 # Sprache der Seiten, solange der Verwalter keine gewaehlt hat: en oder de,
@@ -55,9 +55,9 @@ BETREIBER  = os.environ.get('MESSENGER_BETREIBER',  '').strip()
 # Unter diesem Namen zeigt die Startseite direkt die Verwaltung statt der Nutzeransicht.
 VERWALTUNG_HOST = os.environ.get('MESSENGER_VERWALTUNG_HOST', '')
 PORT = 8082
-# Nur oertlich lauschen. Davor steht ein nginx, der genau hierher weiterleitet;
-# auf 0.0.0.0 waere der Dienst fuer jeden Rechner im selben Netzsegment direkt
-# erreichbar - unter Umgehung von allem, was im nginx davor haengt.
+# Nur örtlich lauschen. Davor steht ein nginx, der genau hierher weiterleitet;
+# auf 0.0.0.0 wäre der Dienst für jeden Rechner im selben Netzsegment direkt
+# erreichbar - unter Umgehung von allem, was im nginx davor hängt.
 # Wer ihn bewusst anders binden will, setzt MESSENGER_ADRESSE.
 ADRESSE = os.environ.get('MESSENGER_ADRESSE', '127.0.0.1')
 DB_DATEI = '/var/lib/einladung/einladung.db'
@@ -69,21 +69,21 @@ SITZUNG_STUNDEN = 12
 SCHLUESSEL_DATEI = '/etc/einladung/datenschluessel'   # verschluesselt die TOTP-Geheimnisse
 CODE_FRIST_MIN = 5          # so lange gilt die halbe Sitzung zwischen Passwort und Code
 VERSUCHE_MAX = 5            # falsche Codes, bevor gebremst wird
-VERSUCHE_FENSTER = 900      # Sekunden, ueber die gezaehlt wird
-# Befund der taeglichen Update-Pruefung (schreibt root, liest dieser Dienst) und
+VERSUCHE_FENSTER = 900      # Sekunden, über die gezählt wird
+# Befund der täglichen Update-Prüfung (schreibt root, liest dieser Dienst) und
 # der Auftragsordner, in dem "Jetzt aktualisieren" seine Datei ablegt.
 UPDATES_DATEI = '/var/lib/messenger/updates.json'
 VERWALTUNGSANLEITUNG_DATEI = '/var/lib/messenger/verwaltungsanleitung.html'   # schreibt der Installer
 AUFTRAG_DATEI = '/var/lib/messenger/auftraege/update'
-UPDATES_FRIST = 3 * 86400   # aelter gilt als "nicht geprueft" - der Timer laeuft dann nicht
-LAUF_FRIST = 2 * 3600       # laenger "laeuft" kein Einspielen - dann ist der Lauf abgebrochen
+UPDATES_FRIST = 3 * 86400   # älter gilt als "nicht geprüft" - der Timer laeuft dann nicht
+LAUF_FRIST = 2 * 3600       # länger "laeuft" kein Einspielen - dann ist der Lauf abgebrochen
 
-# ---------------------------------------------------------------- Ablage
+# Ablage
 
 def db():
     # timeout=30: jede Anfrage hat ihren eigenen Faden und ihre eigene Verbindung.
     # Mit dem Standard von 5 s brach ein paralleler Schreibzugriff mit
-    # 'database is locked' ab, sobald ein anderer kurz laenger schrieb.
+    # 'database is locked' ab, sobald ein anderer kurz länger schrieb.
     v = sqlite3.connect(DB_DATEI, timeout=30)
     v.row_factory = sqlite3.Row
     return v
@@ -130,7 +130,7 @@ def ablage_vorbereiten():
             kennung TEXT PRIMARY KEY       -- ueber die Verwaltung angelegt, gehoert zu keiner Einladung
         );
         """)
-        # Nachruesten: bestehende Ablagen kennen die Spalte noch nicht
+        # Nachrüsten: bestehende Ablagen kennen die Spalte noch nicht
         spalten = {z[1] for z in v.execute('PRAGMA table_info(einladung)')}
         if 'raum' not in spalten:
             v.execute('ALTER TABLE einladung ADD COLUMN raum TEXT')
@@ -143,7 +143,7 @@ def ablage_vorbereiten():
             # nur bei eindeutiger Zuordnung zu einem Konto gibt (kette_nachfuehren).
             v.execute('ALTER TABLE einladung ADD COLUMN benutzt_am INTEGER')
         if 'zurueckgezogen_am' not in spalten:
-            # Vom Einladenden zurueckgezogen: Token bei Synapse geloescht, Kontingent
+            # Vom Einladenden zurueckgezogen: Token bei Synapse gelöscht, Kontingent
             # wieder frei, der Link sagt es dem Eingeladenen.
             v.execute('ALTER TABLE einladung ADD COLUMN zurueckgezogen_am INTEGER')
         if 'sprache' not in spalten:
@@ -213,7 +213,7 @@ def verbraucht_von(nutzer):
             (nutzer, jetzt)).fetchone()[0]
 
 
-# ---------------------------------------------------------------- Protokoll
+# Protokoll
 
 def protokoll(was, nutzer='', zusatz=''):
     """Sicherheitsrelevante Vorgaenge ins Journal - nie Inhalte, nie Geheimnisse.
@@ -228,7 +228,7 @@ def protokoll(was, nutzer='', zusatz=''):
           flush=True)
 
 
-# ---------------------------------------------------------------- Zweiter Faktor
+# Zweiter Faktor
 
 def datenschluessel():
     try:
@@ -269,7 +269,7 @@ def zf_einschalten(nutzer):
     with db() as v:
         v.execute('UPDATE zweiter_faktor SET aktiv=1, seit=? WHERE nutzer=?',
                   (int(time.time()), nutzer))
-    # Wer den zweiten Faktor aendert, beendet damit alle anderen Sitzungen des Kontos.
+    # Wer den zweiten Faktor ändert, beendet damit alle anderen Sitzungen des Kontos.
     sitzung_sperren(nutzer)
     protokoll('2fa_eingeschaltet', nutzer)
 
@@ -329,7 +329,7 @@ def qr_svg(text, kante=5, beschriftung='QR code'):
             f'<g fill="#000">{felder}</g></svg>')
 
 
-# ---------------------------------------------------------------- Drossel
+# Drossel
 
 def gebremst(nutzer):
     grenze = int(time.time()) - VERSUCHE_FENSTER
@@ -350,11 +350,11 @@ def versuche_loeschen(nutzer):
         v.execute('DELETE FROM versuch WHERE nutzer=?', (nutzer,))
 
 
-# ---------------------------------------------------------------- Matrix
+# Matrix
 
 def matrix_aufruf(pfad, daten=None, token=None, methode=None):
     # 'daten is not None' statt 'if daten': ein LEERES Dictionary ist in Python falsch,
-    # und {} ist bei Matrix ein voellig normaler POST-Rumpf (Anmelden, Abmelden, Beitreten).
+    # und {} ist bei Matrix ein völlig normaler POST-Rumpf (Anmelden, Abmelden, Beitreten).
     # Mit 'if daten' gingen die als GET raus - der Server antwortet dann mit 405.
     anfrage = urllib.request.Request(
         HEIMSERVER + pfad, method=methode or ('POST' if daten is not None else 'GET'))
@@ -401,7 +401,7 @@ def anmeldung_pruefen(benutzer, passwort):
 
 
 # Zeichen, die sich nicht verwechseln lassen: kein O/0, kein I/l/1, keine Satzzeichen.
-# Synapse wuerfelt sonst Token wie "oGJ6vzzPIi5." - der Punkt am Ende sieht aus wie
+# Synapse würfelt sonst Token wie "oGJ6vzzPIi5." - der Punkt am Ende sieht aus wie
 # Zeichensetzung, und I/l/1 kostet am Telefon Nerven.
 TOKEN_ZEICHEN = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
@@ -500,9 +500,9 @@ class KontoVergeben(Exception):
 
 def nutzer_anlegen(name, anzeige=''):
     kennung = f'@{name}:{SERVERNAME}'
-    # Das PUT unten legt an ODER aendert. Ohne diese Pruefung bekaeme ein bestehendes
-    # Konto bei einem Tippfehler ein neues Passwort, verloere seine Verwalterrechte
-    # und wuerde entsperrt - bei einer Erfolgsmeldung "angelegt". 404 heisst: frei.
+    # Das PUT unten legt an ODER ändert. Ohne diese Prüfung bekäme ein bestehendes
+    # Konto bei einem Tippfehler ein neues Passwort, verlöre seine Verwalterrechte
+    # und würde entsperrt - bei einer Erfolgsmeldung "angelegt". 404 heisst: frei.
     try:
         matrix_aufruf('/_synapse/admin/v2/users/' + urllib.parse.quote(kennung),
                       token=admin_token())
@@ -517,8 +517,8 @@ def nutzer_anlegen(name, anzeige=''):
         daten['displayname'] = anzeige
     matrix_aufruf('/_synapse/admin/v2/users/' + urllib.parse.quote(kennung), daten,
                   token=admin_token(), methode='PUT')
-    # Merken, dass dieses Konto zu keiner Einladung gehoert - sonst hielte die
-    # Einladungskette es fuer den Neuling einer offenen Einladung.
+    # Merken, dass dieses Konto zu keiner Einladung gehört - sonst hielte die
+    # Einladungskette es für den Neuling einer offenen Einladung.
     with db() as v:
         v.execute('INSERT OR IGNORE INTO von_hand (kennung) VALUES (?)', (kennung,))
     return kennung, pw
@@ -681,7 +681,7 @@ def kette_nachfuehren():
 
     zustand = token_zustand()
     # Einmal als benutzt erkannt bleibt benutzt - auch wenn Synapse gerade nicht
-    # antwortet oder den Token nicht mehr fuehrt.
+    # antwortet oder den Token nicht mehr führt.
     eingeloest = [e for e in offen if e['benutzt_am'] or zustand.get(e['token'], 0) > 0]
     if not eingeloest:
         return
@@ -702,7 +702,7 @@ def kette_nachfuehren():
     for e, wer in paare:
         # Erst die Zeile beanspruchen (nur wenn noch offen), dann in den Raum bitten:
         # Hintergrundfaden und Seitenaufruf laufen parallel, und zwei Raumeinladungen
-        # fuer dieselbe Person waeren die Folge.
+        # für dieselbe Person wären die Folge.
         with db() as v:
             n = v.execute('UPDATE einladung SET eingeloest_am=?, eingeloest_von=? '
                           'WHERE code=? AND eingeloest_am IS NULL',
@@ -723,7 +723,7 @@ def kette_nachfuehren():
                 v.execute('UPDATE einladung SET raum_fehler=? WHERE code=?', (fehler, e['code']))
 
 
-# ---------------------------------------------------------------- Sitzung
+# Sitzung
 
 def sitzungsschluessel():
     with open(SITZUNGSSCHLUESSEL_DATEI, 'rb') as d:
@@ -790,12 +790,12 @@ def sitzung_pruefen(keks):
         return (None, None)
 
 
-# ---------------------------------------------------------------- Sprache
-# Alle Nutzertexte stehen hier, je Sprache ein Woerterbuch mit denselben
+# Sprache
+# Alle Nutzertexte stehen hier, je Sprache ein Wörterbuch mit denselben
 # Schluesseln. Das Journal (protokoll) bleibt deutsch - es liest nur der
 # Betreiber. Platzhalter sind str.format-Felder; wer einen Wert einsetzt, der
 # aus Formularen oder von Synapse kommt, maskiert ihn vorher mit html.escape,
-# denn die Texte landen ungeschuetzt im HTML (einige enthalten <b>).
+# denn die Texte landen ungeschützt im HTML (einige enthalten <b>).
 
 TEXTE = {
   'de': {
@@ -851,7 +851,7 @@ TEXTE = {
     'spaeter': 'Später',
     'zf_ist_aus': 'Zweiter Faktor ist aus.',
     'zf_ist_an': 'Zweiter Faktor ist an. Ab jetzt beim Anmelden nötig.',
-    # Uebersicht
+    # Übersicht
     'hallo': 'Hallo {name}',
     'restlauf_heute': 'läuft heute ab',
     'restlauf_ein_tag': 'noch 1 Tag',
@@ -927,7 +927,7 @@ TEXTE = {
     'anlegen': 'Anlegen',
     'alle_konten': 'Alle Konten',
     'meine_einladungen': 'Meine eigenen Einladungen',
-    # Rueckfragen
+    # Rückfragen
     'pw_titel': 'Passwort',
     'pw_wen_selbst': 'dein eigenes Passwort',
     'pw_wen_anderer': 'das Passwort von {kurz}',
@@ -1033,7 +1033,7 @@ TEXTE = {
                                'offene Anmeldung. Deshalb bitte nicht weiterleiten.',
     'einl_gibt_es_nicht': 'Diese Einladung gibt es nicht',
     'einl_abgeschnitten': 'Vielleicht ist der Link unterwegs abgeschnitten worden.',
-    # Meldungen aus den Vorgaengen
+    # Meldungen aus den Vorgängen
     'nicht_geklappt': 'Das hat nicht geklappt',
     'server_antwortet_nicht': 'Der Server antwortet gerade nicht. Bitte später nochmal — '
                               'oder sag {betreiber} Bescheid.',
@@ -1062,7 +1062,7 @@ TEXTE = {
     'kein_verwalter_mehr': '{kurz} ist kein Verwalter mehr.',
     'server_abgelehnt': 'Der Server hat abgelehnt (HTTP {code}).',
     'nochmal': 'Das hat nicht geklappt. Bitte nochmal.',
-    # Kommandozeile (Notausgang fuer den Betreiber)
+    # Kommandozeile (Notausgang für den Betreiber)
     'cli_kein_zf': '{nutzer}: kein zweiter Faktor hinterlegt.',
     'cli_zf_entfernt': '{nutzer}: zweiter Faktor entfernt. Beim nächsten Anmelden reicht das Passwort.',
     'cli_aufruf': 'Aufruf:\n'
@@ -1122,7 +1122,7 @@ TEXTE = {
     'spaeter': 'Later',
     'zf_ist_aus': 'Second factor is off.',
     'zf_ist_an': 'Second factor is on. Required at login from now on.',
-    # Uebersicht
+    # Übersicht
     'hallo': 'Hello {name}',
     'restlauf_heute': 'expires today',
     'restlauf_ein_tag': '1 day left',
@@ -1198,7 +1198,7 @@ TEXTE = {
     'anlegen': 'Create',
     'alle_konten': 'All accounts',
     'meine_einladungen': 'My own invitations',
-    # Rueckfragen
+    # Rückfragen
     'pw_titel': 'Password',
     'pw_wen_selbst': 'your own password',
     'pw_wen_anderer': "{kurz}'s password",
@@ -1302,7 +1302,7 @@ TEXTE = {
                                'registration. So please do not forward it.',
     'einl_gibt_es_nicht': 'This invitation does not exist',
     'einl_abgeschnitten': 'Maybe the link got cut off on the way.',
-    # Meldungen aus den Vorgaengen
+    # Meldungen aus den Vorgängen
     'nicht_geklappt': "That didn't work",
     'server_antwortet_nicht': 'The server is not responding right now. Please try again later — '
                               'or tell {betreiber}.',
@@ -1330,7 +1330,7 @@ TEXTE = {
     'kein_verwalter_mehr': '{kurz} is no longer an admin.',
     'server_abgelehnt': 'The server refused (HTTP {code}).',
     'nochmal': "That didn't work. Please try again.",
-    # Kommandozeile (Notausgang fuer den Betreiber)
+    # Kommandozeile (Notausgang für den Betreiber)
     'cli_kein_zf': '{nutzer}: no second factor stored.',
     'cli_zf_entfernt': '{nutzer}: second factor removed. The password alone is enough at the next login.',
     'cli_aufruf': 'Usage:\n'
@@ -1422,7 +1422,7 @@ def datum(zeitpunkt, sprache):
     return time.strftime('%d.%m.%Y' if sprache == 'de' else '%Y-%m-%d', time.localtime(zeitpunkt))
 
 
-# ---------------------------------------------------------------- Seiten
+# Seiten
 
 STIL = """
 :root{--grund:#f4f6f4;--flaeche:#fff;--schrift:#16201c;--leise:#5a6762;
@@ -1631,8 +1631,8 @@ def seite_uebersicht(nutzer, sprache, neuer_link='', hinweis=''):
         else:
             zustand = (f'{t("offen", sprache)}<br><span class="leise">'
                        f'{restlaufzeit(e["laeuft_ab"] - time.time(), sprache)}</span>')
-            # Offen: darf zurueckgezogen werden - fuer die doppelt verschickte Einladung.
-            # Ein eigenes x am rechten Rand, gross genug fuer den Daumen.
+            # Offen: darf zurueckgezogen werden - für die doppelt verschickte Einladung.
+            # Ein eigenes x am rechten Rand, gross genug für den Daumen.
             aufschrift = html.escape(t('einladung_zurueckziehen', sprache))
             weg = (f'<form method="post" action="/zurueckziehen" style="margin:0">'
                    f'<input type="hidden" name="code" value="{html.escape(e["code"])}">'
@@ -1675,7 +1675,7 @@ def seite_uebersicht(nutzer, sprache, neuer_link='', hinweis=''):
         else:
             auswahl = f'<p class="leise">{t("kein_raum", sprache)}</p>'
         # Die Sprache der Einladungsseite: Vorgabe "automatisch" (Browser des
-        # Eingeladenen, sonst Serversprache); wer es fest will, waehlt eine.
+        # Eingeladenen, sonst Serversprache); wer es fest will, wählt eine.
         auswahl += (f'<label for="sl" style="margin-top:12px">{t("sprache_der_einladung", sprache)}</label>'
                     + sprachwahl('sprache', None, 'sl', t('sprache_automatisch', sprache)))
         knopf = ('<form method="post" action="/erzeugen">' + auswahl +
@@ -1909,10 +1909,10 @@ def seite_sperren_sicher(kennung, sprache):
       </div>""", sprache)
 
 
-# ---------------------------------------------------------------- Aktualisierungen
-# Grundsatz: nichts wird blind aktualisiert. root prueft taeglich und legt den
+# Aktualisierungen
+# Grundsatz: nichts wird blind aktualisiert. root prüft täglich und legt den
 # Befund in UPDATES_DATEI ab; dieser Dienst zeigt ihn nur an. Klickt ein
-# Verwalter "Jetzt aktualisieren" und bestaetigt, legt der Dienst eine
+# Verwalter "Jetzt aktualisieren" und bestätigt, legt der Dienst eine
 # Auftragsdatei ab - mehr nicht. Einspielen, Neustart, Element: alles root,
 # angestossen durch eine Path-Unit. Hier gibt es kein apt und kein Netz.
 
@@ -1963,8 +1963,8 @@ def updates_ausstehend(daten):
         return True
     if synapse.get('neu') and synapse.get('neu') != synapse.get('ist'):
         return True
-    # 'unbekannt' schreibt die Pruefung, wenn GitHub nicht antwortete - das ist
-    # kein Update, sondern eine Luecke im Befund.
+    # 'unbekannt' schreibt die Prüfung, wenn GitHub nicht antwortete - das ist
+    # kein Update, sondern eine Lücke im Befund.
     if element.get('neu') not in (None, '', 'unbekannt') and element.get('neu') != element.get('ist'):
         return True
     return False
@@ -1990,7 +1990,7 @@ def vor_zeit(zeitpunkt, sprache):
 
 def auftrag_liegt_vor():
     # Nur eine Datei ist ein Auftrag. Ein Ordner gleichen Namens ist Unfug, den
-    # die Update-Unit beim naechsten Start wegraeumt - er darf nicht blockieren.
+    # die Update-Unit beim nächsten Start wegräumt - er darf nicht blockieren.
     try:
         return os.path.isfile(AUFTRAG_DATEI)
     except Exception:
@@ -2032,7 +2032,7 @@ def auftrag_schreiben():
     tmp = AUFTRAG_DATEI + '.neu'
     try:
         if os.path.isdir(AUFTRAG_DATEI):
-            # os.replace wuerde hier mit IsADirectoryError abbrechen; lieber
+            # os.replace würde hier mit IsADirectoryError abbrechen; lieber
             # klar benennen, was im Weg liegt.
             protokoll('update_auftrag_fehler', '', 'Am Auftragspfad liegt ein Ordner')
             return False
@@ -2075,7 +2075,7 @@ def karte_updates(sprache):
             proto = (f'<details style="margin-top:6px"><summary class="leise">{t("protokoll", sprache)}</summary>'
                      '<pre class="mono" style="white-space:pre-wrap;margin:6px 0 0">'
                      + html.escape('\n'.join(str(z) for z in zeilen[-40:])) + '</pre></details>')
-        # Ein abgebrochener Lauf hat kein Ende - dann zaehlt sein Beginn.
+        # Ein abgebrochener Lauf hat kein Ende - dann zählt sein Beginn.
         wann = vor_zeit(lauf.get('beendet') if lauf.get('beendet') is not None else lauf.get('begonnen'),
                         sprache)
         lauf_teil = (f'<p style="margin-top:12px">{t("upd_letzte", sprache, wann=wann)}'
@@ -2225,9 +2225,9 @@ def seite_kurz(titel, kopf, text, sprache, knopf_ziel='/', knopf_text=None, knop
     return seite(titel, f'<h1>{kopf}</h1>{absatz}{knopf}', sprache)
 
 
-# ---------------------------------------------------------------- Netz
+# Netz
 
-ERZEUGEN_SPERRE = threading.Lock()   # ein Prozess, ein Schloss: Kontingent pruefen + eintragen
+ERZEUGEN_SPERRE = threading.Lock()   # ein Prozess, ein Schloss: Kontingent prüfen + eintragen
 
 
 class Bedienung(http.server.BaseHTTPRequestHandler):
@@ -2237,7 +2237,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass                                  # keine Zugriffsprotokolle: Datensparsamkeit
 
-    # -------------------------------------------------- Hilfen
+    # Hilfen
     def antwort(self, koerper, code=200, kopf=None):
         self.send_response(code)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -2245,8 +2245,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Referrer-Policy', 'no-referrer')
         # no-store: Seiten mit Einmal-Passwort, TOTP-Schluessel oder frischem Link
-        # duerfen nicht aus dem Verlaufscache kommen, wenn nach dem Abmelden
-        # jemand anderes am selben Browser "Zurueck" drueckt.
+        # dürfen nicht aus dem Verlaufscache kommen, wenn nach dem Abmelden
+        # jemand anderes am selben Browser "Zurück" drückt.
         self.send_header('Cache-Control', 'no-store')
         for k, w in (kopf or {}).items():
             self.send_header(k, w)
@@ -2298,7 +2298,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             t('kein_zugriff_text', sprache) if mit_knopf else '',
             sprache, '/eigene', knopf, knopf_still=True), 403)
 
-    # -------------------------------------------------- Abrufe
+    # Abrufe
     def do_GET(self):
         pfad = urllib.parse.urlparse(self.path).path
         if pfad.startswith('/e/'):
@@ -2306,7 +2306,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         # Alle anderen Seiten sprechen die Sprache, die der Verwalter gewaehlt hat.
         sprache = server_sprache()
         if pfad == '/abmelden':
-            # Den Keks nicht nur im Browser loeschen, sondern serverseitig sperren:
+            # Den Keks nicht nur im Browser löschen, sondern serverseitig sperren:
             # eine Kopie des Kekses liefe sonst bis zu SITZUNG_STUNDEN weiter.
             nutzer, _stufe = self.sitzung()
             if nutzer:
@@ -2316,7 +2316,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             nutzer = self.wer()
             return self.antwort(seite_zweitfaktor(nutzer, sprache)) if nutzer else self.weiter('/')
         if pfad == '/verwaltungsanleitung':
-            # Nur fuer Verwalter; die Datei schreibt der Installer (root), ohne Passwoerter.
+            # Nur für Verwalter; die Datei schreibt der Installer (root), ohne Passwoerter.
             nutzer = self.wer()
             if not nutzer:
                 return self.weiter('/')
@@ -2336,7 +2336,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.antwort(seite_anmelden(sprache, verwaltung=self.unter_verwaltung()))
 
         # Unter dem Verwaltungsnamen zeigt die Startseite direkt die Verwaltung.
-        # Dieselbe Anwendung, zwei Gesichter - getrennt nach Zustaendigkeit,
+        # Dieselbe Anwendung, zwei Gesichter - getrennt nach Zuständigkeit,
         # nicht nach Technik.
         hier_verwaltung = (pfad == '/verwaltung') or (pfad == '/' and self.unter_verwaltung())
         if hier_verwaltung:
@@ -2375,8 +2375,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         self.antwort(seite_kurz(t('nicht_gefunden', sprache), t('nicht_gefunden', sprache),
                                 '', sprache), 404)
 
-    # -------------------------------------------------- Vorgaenge
-    # Welcher Text zu welchem Ergebnis von anmeldung_pruefen gehoert.
+    # Vorgänge
+    # Welcher Text zu welchem Ergebnis von anmeldung_pruefen gehört.
     ANMELDE_MELDUNG = {'falsch': 'anmeldung_falsch', 'gebremst': 'anmeldung_gebremst',
                        'weg': 'anmeldung_weg'}
 
@@ -2391,7 +2391,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                                             f.get('passwort', ''))
         if zustand != 'ok':
             if zustand == 'falsch':
-                time.sleep(1.5)               # bremst Durchprobieren zusaetzlich
+                time.sleep(1.5)               # bremst Durchprobieren zusätzlich
                 protokoll('anmeldung_falsch', f.get('benutzer', '')[:40])
             code = 429 if zustand == 'gebremst' else (502 if zustand == 'weg' else 401)
             return self.antwort(seite_anmelden(
@@ -2435,7 +2435,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.antwort(seite_zweitfaktor(
                 nutzer, sprache, fehler=t('code_falsch', sprache)), 401)
         versuche_loeschen(nutzer)
-        # Das Aendern sperrt alle bisherigen Sitzungen des Kontos - auch diese.
+        # Das Ändern sperrt alle bisherigen Sitzungen des Kontos - auch diese.
         # Deshalb gleich ein frischer Keks, damit nur die ANDEREN hinausfliegen.
         if tat == 'aus':
             zf_entfernen(nutzer)
@@ -2459,8 +2459,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         if e['eingeloest_am'] or e['benutzt_am'] or e['zurueckgezogen_am']:
             return self.antwort(seite_uebersicht(
                 nutzer, sprache, hinweis=t('einl_schon_benutzt', sprache)), 400)
-        # Erst der Token bei Synapse, dann die Ablage: schlaegt das Loeschen fehl, bleibt
-        # die Einladung sichtbar offen, statt hier "zurueckgezogen" und dort noch gueltig.
+        # Erst der Token bei Synapse, dann die Ablage: schlägt das Löschen fehl, bleibt
+        # die Einladung sichtbar offen, statt hier "zurueckgezogen" und dort noch gültig.
         try:
             token_loeschen(e['token'])
         except Exception:
@@ -2487,17 +2487,17 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.weiter('/')
         raum = raum_name = None
         if gewaehlt:
-            # nur Raeume zulassen, in denen der Einladende selbst ist. Laesst sich der
-            # gewaehlte gerade nicht bestaetigen (Synapse antwortet nicht), lieber
+            # nur Räume zulassen, in denen der Einladende selbst ist. Laesst sich der
+            # gewählte gerade nicht bestätigen (Synapse antwortet nicht), lieber
             # abbrechen als die Raumwahl still fallen zu lassen: der Neue landete
-            # sonst nie dort, und niemand erfuehre davon. Vor dem Token, damit kein
+            # sonst nie dort, und niemand erführe davon. Vor dem Token, damit kein
             # Registrierungs-Token bei Synapse verwaist.
             treffer = next((r for r in raeume_von(nutzer) if r['id'] == gewaehlt), None)
             if not treffer:
                 return self.fehlerseite('raum_nicht_bestaetigt', 502, sprache)
             raum, raum_name = treffer['id'], treffer['name']
-        # Pruefung, Token und Eintrag unter EINER Sperre: jede Anfrage laeuft in ihrem
-        # eigenen Faden, und zwischen Pruefung und Eintrag liegt ein Netzaufruf. Ohne
+        # Prüfung, Token und Eintrag unter EINER Sperre: jede Anfrage laeuft in ihrem
+        # eigenen Faden, und zwischen Prüfung und Eintrag liegt ein Netzaufruf. Ohne
         # Sperre kamen zehn gleichzeitige Klicks bei Kontingent 1 alle durch.
         with ERZEUGEN_SPERRE:
             if verbleibend(nutzer) == 0:
@@ -2587,12 +2587,12 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             kurz = ziel.split(':')[0].lstrip('@')
 
             if pfad == '/passwort':
-                # Erst fragen. Das Zuruecksetzen selbst macht /passwort-ja.
+                # Erst fragen. Das Zurücksetzen selbst macht /passwort-ja.
                 return self.antwort(seite_passwort_sicher(ziel, ziel == nutzer, sprache))
 
             if pfad == '/passwort-ja':
                 pw = passwort_neu(ziel)
-                # Eigenes Passwort: die Sperre traefe auch diese Sitzung - frischer Keks.
+                # Eigenes Passwort: die Sperre träfe auch diese Sitzung - frischer Keks.
                 frisch = self.keks_setzen(nutzer) if ziel == nutzer else None
                 return self.antwort(seite_verwaltung(
                     nutzer, sprache, t('pw_gesetzt', sprache, kurz=kurz), geheim=(kurz, pw)),
@@ -2710,7 +2710,7 @@ def kommandozeile(argumente):
         nutzer = argumente[1]
         if not nutzer.startswith('@'):
             # Den nackten Namen in der Ablage nachschlagen, nicht mit SERVERNAME
-            # ergaenzen: von der Shell aus ist MESSENGER_SERVERNAME nicht gesetzt,
+            # ergänzen: von der Shell aus ist MESSENGER_SERVERNAME nicht gesetzt,
             # und der Platzhalter traf nie - 'kein zweiter Faktor hinterlegt'.
             with db() as v:
                 alle = [z[0] for z in v.execute('SELECT nutzer FROM zweiter_faktor')]

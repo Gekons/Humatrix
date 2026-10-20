@@ -59,7 +59,7 @@ VERSUCHE = {'anzahl': 0, 'gesperrt': False}
 SCHLOSS = threading.Lock()
 
 
-# ---------------------------------------------------------------- Ablage
+# Ablage
 def lesen_json(pfad, vorgabe):
     try:
         with open(pfad, encoding='utf-8') as d:
@@ -118,7 +118,7 @@ def schon_eingerichtet():
     return os.path.exists(SYNAPSE_GEHEIMNISSE)
 
 
-# ---------------------------------------------------------------- Sitzung
+# Sitzung
 def sitzung_bauen():
     seit = int(time.time())
     inhalt = f'einrichtung|{seit}|{seit + SITZUNG_STUNDEN * 3600}'.encode()
@@ -139,7 +139,7 @@ def sitzung_gueltig(keks):
         return False
 
 
-# ---------------------------------------------------------------- Netz
+# Netz
 IP_MERKER = {'oeffentlich': None, 'wann': 0}
 
 
@@ -228,7 +228,7 @@ def dns_pruefen(domain, situation):
     return eintraege, bereit, eigene
 
 
-# ---------------------------------------------------------------- Lauf von install.sh
+# Lauf von install.sh
 ANSI = re.compile(r'\x1b\[[0-9;]*m')
 
 
@@ -405,7 +405,7 @@ def ist_tls(handler):
     return isinstance(handler.connection, ssl.SSLSocket)
 
 
-# ---------------------------------------------------------------- Texte
+# Texte
 TEXTE = {
   'de': {
     'titel': 'Humatrix einrichten',
@@ -838,7 +838,7 @@ def sprache_aus_header(kopf):
     return 'en'
 
 
-# ---------------------------------------------------------------- Seiten
+# Seiten
 STIL = """
 :root{--grund:#f4f6f4;--flaeche:#fff;--schrift:#16201c;--leise:#5a6762;
        --linie:#d6dcd6;--eigen:#0e7c63;--warn:#a8551c}
@@ -997,7 +997,7 @@ def ports_tabelle(sprache, mit_web):
         zeilen += [('80', 'TCP', 'vorb_p80'), ('443', 'TCP', 'vorb_p443')]
     zeilen += [('3478', 'TCP + UDP', 'vorb_p3478')]
     if mit_web:
-        zeilen += [('5349', 'TCP + UDP', 'vorb_p5349')]     # TURN ueber TLS: nur mit eigenem Zertifikat
+        zeilen += [('5349', 'TCP + UDP', 'vorb_p5349')]     # TURN über TLS: nur mit eigenem Zertifikat
     zeilen += [('49160–49200', 'UDP', 'vorb_p49160')]
     return (f'<table class="ports"><tr><td class="leise">{t("vorb_port", sprache)}</td><td>{t("vorb_protokoll", sprache)}</td>'
             f'<td>{t("vorb_wofuer", sprache)}</td></tr>'
@@ -1320,7 +1320,7 @@ def seite_kurz(sprache, kopf, text, knoepfe=''):
       <div class="karte"><p>{text}</p>{knoepfe}</div>""", sprache)
 
 
-# ---------------------------------------------------------------- Bedienung
+# Bedienung
 class Bedienung(http.server.BaseHTTPRequestHandler):
     server_version = 'Humatrix-Setup'
     sys_version = ''
@@ -1391,7 +1391,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return '/dns'
         return '/pruefen'
 
-    # -------------------------------------------------- GET
+    # GET
     def do_GET(self):
         url = urllib.parse.urlsplit(self.path)
         pfad, frage = url.path, urllib.parse.parse_qs(url.query)
@@ -1439,7 +1439,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         if pfad == '/anleitung':
             z = zugangsdaten()
             if TLS['laeuft'] and not ist_tls(self):
-                return self.weiter('/fertig')          # enthaelt das Passwort: nur verschluesselt
+                return self.weiter('/fertig')          # enthält das Passwort: nur verschluesselt
             if z['anleitung'] and os.path.exists(z['anleitung']):
                 with open(z['anleitung'], 'rb') as d:
                     return self.antwort(d.read())
@@ -1472,7 +1472,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.antwort(seite_pruefen(sprache, a))
         self.antwort(seite_kurz(sprache, '404', html.escape(pfad)), 404)
 
-    # -------------------------------------------------- POST
+    # POST
     def do_POST(self):
         pfad = urllib.parse.urlsplit(self.path).path
         sprache = self.sprache()
@@ -1548,8 +1548,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                 return self.weiter('/')
             if a.get('situation') != 'proxy' and not a.get('mail'):
                 return self.weiter('/server')
-            # Wer die Namenspruefung umgangen hat, landet wieder dort - install.sh
-            # braeche sonst nach den ersten Sekunden ab, mit weniger Erklaerung.
+            # Wer die Namensprüfung umgangen hat, landet wieder dort - install.sh
+            # bräche sonst nach den ersten Sekunden ab, mit weniger Erklärung.
             if not dns_pruefen(a['domain'], a.get('situation'))[1]:
                 return self.weiter('/dns')
             with SCHLOSS:

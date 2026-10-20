@@ -96,8 +96,8 @@ Environment=HUMATRIX_SETUP_PORT=$PORT
 Environment=HUMATRIX_QUELLE=$ZIEL
 EOU
 systemctl daemon-reload
-# Auf einem schon eingerichteten Server steht die Firewall: Port fuer die Seite
-# oeffnen, "Abschliessen" auf der Seite schliesst ihn wieder.
+# Auf einem schon eingerichteten Server steht die Firewall: Port für die Seite
+# öffnen, "Abschliessen" auf der Seite schliesst ihn wieder.
 if command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q '^Status: active'; then
   ufw allow "$PORT"/tcp >/dev/null 2>&1 || true
 fi

@@ -5,7 +5,7 @@
 # Wird vom Installer (Abschnitt 'element', auch mit --nur element) UND vom
 # Update-Lauf (messenger-update-ausfuehren.sh) benutzt - deshalb eine eigene
 # Datei statt Installer-Code: der Installer ist aus dem Update-Lauf heraus
-# nicht aufrufbar, er braucht --domain und --mail und prueft DNS.
+# nicht aufrufbar, er braucht --domain und --mail und prüft DNS.
 #
 # Aufruf:  messenger-element-erneuern.sh [domain]
 # Ohne Angabe kommt die Domain aus der Synapse-Konfiguration (server_name.yaml),
@@ -14,7 +14,7 @@
 set -euo pipefail
 umask 022
 
-# Beide Pfade ueberschreibbar nur fuer Tests ohne root.
+# Beide Pfade überschreibbar nur für Tests ohne root.
 VERZ="${MESSENGER_ELEMENT_VERZ:-/var/www/element}"
 SERVERNAME_DATEI="${MESSENGER_SERVERNAME_DATEI:-/etc/matrix-synapse/conf.d/server_name.yaml}"
 
@@ -48,7 +48,7 @@ else
   echo "Element Web ist schon auf $VER."
 fi
 
-# config.json nach JEDEM Durchlauf: das Entpacken oben raeumt den Ordner leer.
+# config.json nach JEDEM Durchlauf: das Entpacken oben räumt den Ordner leer.
 cat > "$VERZ/config.json" <<EOF
 {
   "default_server_config": {

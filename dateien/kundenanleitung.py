@@ -452,7 +452,7 @@ def heutiges_datum(sprache):
     jetzt = time.localtime()
     if sprache == 'de':
         return time.strftime('%d.%m.%Y', jetzt)
-    # %-d waere nur eine glibc-Erweiterung, deshalb der Tag von Hand.
+    # %-d wäre nur eine glibc-Erweiterung, deshalb der Tag von Hand.
     return f"{jetzt.tm_mday} {time.strftime('%B %Y', jetzt)}"
 
 

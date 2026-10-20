@@ -1,18 +1,18 @@
 #!/bin/bash
 #
-# Prueft, ob Aktualisierungen vorliegen - und tut sonst NICHTS.
+# Prüft, ob Aktualisierungen vorliegen - und tut sonst NICHTS.
 #
-# Grundsatz: nichts wird blind eingespielt. Dieses Skript laeuft taeglich
+# Grundsatz: nichts wird blind eingespielt. Dieses Skript läuft täglich
 # (messenger-update-pruefen.timer), schreibt sein Ergebnis nach updates.json,
 # und die Verwaltungsseite zeigt es an. Eingespielt wird erst, wenn ein
 # Verwalter dort klickt (messenger-update-ausfuehren.sh).
 #
-# Ergebnis (JSON, lesbar fuer den Einladungsdienst):
-#   geprueft      Unixzeit der Pruefung
+# Ergebnis (JSON, lesbar für den Einladungsdienst):
+#   geprueft      Unixzeit der Prüfung
 #   synapse       {ist, neu}    installierte Fassung und Kandidat aus apt
 #   element       {ist, neu}    /var/www/element/.version und neueste GitHub-Fassung
 #   pakete        {gesamt, sicherheit, liste[..30]}
-#   letzter_lauf  bleibt aus dem vorigen Stand erhalten (schreibt das Ausfuehrskript)
+#   letzter_lauf  bleibt aus dem vorigen Stand erhalten (schreibt das Ausführskript)
 #
 set -euo pipefail
 umask 022
@@ -22,13 +22,13 @@ ELEMENT_VERSION="${MESSENGER_ELEMENT_VERSION:-/var/www/element/.version}"
 SPERRE="${MESSENGER_UPDATE_SPERRE:-/run/lock/messenger-update.lock}"   # haelt das Ausfuehrskript, solange es arbeitet
 export DEBIAN_FRONTEND=noninteractive
 
-# Ohne Netz zaehlt der zuletzt bekannte Paketstand - lieber ein alter Befund
+# Ohne Netz zählt der zuletzt bekannte Paketstand - lieber ein alter Befund
 # als gar keiner. Der Fehler steht im Journal.
 apt-get update -qq 2>&1 | tail -3 >&2 || true
 
-# --- Systempakete -------------------------------------------------------
+# Systempakete
 # Zeilenform: nginx/stable-security 1.26.3-3+deb13u9 amd64 [upgradable from: ...]
-# Sicherheitsupdate heisst: die Quelle hinter dem Schraegstrich enthaelt '-security'.
+# Sicherheitsupdate heisst: die Quelle hinter dem Schrägstrich enthält '-security'.
 # 'Listing...' ist die Kopfzeile von apt, keine Paketzeile.
 pakete_roh=$(apt list --upgradable 2>/dev/null | grep -v '^Listing' | grep -v '^$' || true)
 pakete=$(printf '%s\n' "$pakete_roh" | jq -R -s -c '
@@ -44,12 +44,12 @@ pakete=$(printf '%s\n' "$pakete_roh" | jq -R -s -c '
       sicherheit: (map(select(.sicherheit)) | length),
       liste: .[:30] }')
 
-# --- Synapse ------------------------------------------------------------
+# Synapse
 synapse_ist=$(dpkg-query -W -f='${Version}' matrix-synapse-py3 2>/dev/null || true)
 synapse_neu=$(apt-cache policy matrix-synapse-py3 2>/dev/null | awk '/Candidate:/{print $2; exit}' || true)
 [ "$synapse_neu" != "(none)" ] || synapse_neu=""
 
-# --- Element Web --------------------------------------------------------
+# Element Web
 # Der Browser-Client kommt nicht aus Debian; seine Fassung steht nur auf GitHub.
 # Antwortet GitHub nicht, heisst es ehrlich "unbekannt" - kein Abbruch.
 element_ist=$(cat "$ELEMENT_VERSION" 2>/dev/null || true)
@@ -57,14 +57,14 @@ element_neu=$(curl -sf --max-time 15 https://api.github.com/repos/element-hq/ele
               | jq -r '.tag_name // empty' 2>/dev/null || true)
 [ -n "$element_neu" ] || element_neu="unbekannt"
 
-# --- Ergebnis atomar ablegen ---------------------------------------------
+# Ergebnis atomar ablegen
 # Den vorigen 'letzter_lauf' mitnehmen: die Verwaltung soll das Ergebnis des
-# letzten Einspielens auch nach der naechsten Pruefung noch zeigen.
+# letzten Einspielens auch nach der nächsten Prüfung noch zeigen.
 letzter_lauf=$(jq -c '.letzter_lauf // null' "$AUSGABE" 2>/dev/null || echo null)
 [ -n "$letzter_lauf" ] || letzter_lauf=null
-# Steht dort noch "laeuft", obwohl niemand die Sperre haelt, ist der Lauf tot
-# (Neustart, Stromausfall, SIGKILL mitten in apt). Sonst bliebe die Karte fuer
-# immer blockiert. Haelt jemand die Sperre, laeuft er wirklich - nichts anfassen.
+# Steht dort noch "läuft", obwohl niemand die Sperre hält, ist der Lauf tot
+# (Neustart, Stromausfall, SIGKILL mitten in apt). Sonst bliebe die Karte für
+# immer blockiert. Hält jemand die Sperre, läuft er wirklich - nichts anfassen.
 if [ "$(jq -r 'if type == "object" then .laeuft == true else false end' <<<"$letzter_lauf")" = true ] \
    && flock -n "$SPERRE" true 2>/dev/null; then
   letzter_lauf=$(jq -c '. + {laeuft: false, status: "abgebrochen", fehlgeschlagen: "abgebrochen", beendet: $e}' \
