@@ -987,6 +987,7 @@ TEXTE = {
     'das_bist_du': 'das bist du',
     'setzen': 'Setzen',
     'verschickt_offen': '{benutzt} Einladungen verschickt · {offen} offen',
+    'verschickt_offen_1': '1 Einladung verschickt · {offen} offen',
     'unklar': 'unklar',
     'geholt_von': 'geholt von {wer}',
     'wer_hat_wen': 'Wer hat wen geholt',
@@ -1292,6 +1293,7 @@ TEXTE = {
     'das_bist_du': "that's you",
     'setzen': 'Set',
     'verschickt_offen': '{benutzt} invitations sent · {offen} open',
+    'verschickt_offen_1': '1 invitation sent · {offen} open',
     'unklar': 'unclear',
     'geholt_von': 'brought in by {wer}',
     'wer_hat_wen': 'Who brought in whom',
@@ -2016,7 +2018,7 @@ def seite_verwaltung(nutzer, sprache, hinweis='', geheim=None):
         zeilen += f"""<tr><td colspan="2">
           <div><b>{html.escape(u['anzeige'])}</b>{marken}</div>
           <div class="leise mono">{html.escape(k)}</div>
-          <div class="leise">{t('verschickt_offen', sprache, benutzt=benutzt, offen=offen)}</div>
+          <div class="leise">{t('verschickt_offen_1' if benutzt == 1 else 'verschickt_offen', sprache, benutzt=benutzt, offen=offen)}</div>
           {kontingentteil}
           <div class="taten">{taten}</div>
         </td></tr>"""
