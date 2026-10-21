@@ -270,8 +270,12 @@ T_de[s_web]="Webserver, Zertifikate und Delegation"
 T_en[s_web]="Web server, certificates and delegation"
 T_de[nginx_fehlerhaft]="nginx-Konfiguration fehlerhaft."
 T_en[nginx_fehlerhaft]="nginx configuration is faulty."
-T_de[zertifikat_fehlgeschlagen]="Zertifikat konnte nicht ausgestellt werden. Siehe %s"
-T_en[zertifikat_fehlgeschlagen]="Certificate could not be issued. See %s"
+T_de[zertifikat_fehlgeschlagen]="Zertifikat konnte nicht ausgestellt werden: %s Ganzes Protokoll: %s"
+T_en[zertifikat_fehlgeschlagen]="Certificate could not be issued: %s Full log: %s"
+T_de[le_limit]="Let's Encrypt stellt für dieselben Namen höchstens 5 Zertifikate pro Woche aus (z. B. nach mehreren Neuinstallationen). Wieder möglich ab %s UTC."
+T_en[le_limit]="Let's Encrypt issues at most 5 certificates per week for the same names (e.g. after several reinstalls). Possible again from %s UTC."
+T_de[le_grund_unbekannt]="Grund nicht erkannt."
+T_en[le_grund_unbekannt]="Reason not recognised."
 T_de[zertifikat_ausgestellt]="Zertifikat für sechs Namen ausgestellt."
 T_en[zertifikat_ausgestellt]="Certificate issued for six names."
 T_de[zertifikat_existiert]="Zertifikat existiert bereits."
@@ -491,6 +495,21 @@ melde(){ printf '   %s\n' "$*"; echo "[$(date '+%F %T')]    $*" >>"$LOG"; }
 ende()  { rot "$(txt abbruch): $*"; echo "[$(date '+%F %T')] $(txt abbruch): $*" >>"$LOG"; exit 1; }
 
 hilfe() { sag hilfe; }
+
+# Grund einer gescheiterten Zertifikatsanfrage in einer Zeile. Das Wochenlimit
+# von Let's Encrypt bekommt einen eigenen Satz mit dem Zeitpunkt, ab dem es
+# wieder geht; sonst die Fehlerzeile von certbot.
+le_grund() {
+  local z ab
+  z=$(tail -n 60 "$LOG")
+  ab=$(printf '%s' "$z" | grep -oP 'retry after \K[0-9-]+ [0-9:]+' | tail -n 1)
+  if [ -n "$ab" ]; then
+    txt le_limit "$ab"
+  else
+    z=$(printf '%s\n' "$z" | grep -E '^(Detail|Error|An unexpected error)' -A1 | grep -v '^--' | tail -n 2 | tr '\n' ' ')
+    if [ -n "$z" ]; then printf '%s' "$z"; else txt le_grund_unbekannt; fi
+  fi
+}
 
 # Grund eines gescheiterten apt-Laufs in einer Zeile, damit er auf dem
 # Bildschirm und auf der Einrichtungsseite steht, nicht nur im Protokoll.
@@ -940,7 +959,7 @@ if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
     -m "$MAIL" --cert-name "$DOMAIN" \
     -d "$DOMAIN" -d "$MATRIX_HOST" -d "$CHAT_HOST" \
     -d "$EINLADUNG_HOST" -d "$VERWALTUNG_HOST" -d "$TURN_HOST" >>"$LOG" 2>&1 \
-    || ende "$(txt zertifikat_fehlgeschlagen "$LOG")"
+    || ende "$(txt zertifikat_fehlgeschlagen "$(le_grund)" "$LOG")"
   melde "$(txt zertifikat_ausgestellt)"
 else
   melde "$(txt zertifikat_existiert)"
