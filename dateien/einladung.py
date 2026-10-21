@@ -2590,7 +2590,7 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                 return self.weiter('/einrichten')
             return self.antwort(seite_zweitfaktor(nutzer, sprache)) if nutzer else self.weiter('/')
         if pfad in ('/verwaltungsanleitung', '/kundenanleitung'):
-            # Nur für Verwalter; die Dateien schreibt der Installer (root), ohne Passwoerter.
+            # Nur für Verwalter; die Dateien schreibt der Installer (root), ohne Passwörter.
             nutzer = self.wer()
             if not nutzer:
                 return self.weiter('/')

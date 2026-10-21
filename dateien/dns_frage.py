@@ -118,7 +118,6 @@ def a_eintrag(name, tiefe=0):
                 return a[0] if a else ''
     except Exception as f:
         print(f'dns_frage {name}: {f} - nehme den Resolver des Systems', file=sys.stderr)
-    # Rückfall: der Resolver des Systems
     try:
         aus = subprocess.run(['getent', 'ahostsv4', name], capture_output=True, text=True, timeout=10).stdout
         return aus.split()[0] if aus.split() else ''
