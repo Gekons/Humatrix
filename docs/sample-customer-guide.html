@@ -50,6 +50,7 @@
     a { color:inherit; text-decoration:none; }
     .nur-bildschirm { display:none; }
     h2, h3, h2 + p, h3 + p { break-after:avoid; }
+    .kapitelanfang, table.ganz { break-inside:avoid; }
     li, tr, .kasten, figure { break-inside:avoid; }
     p { orphans:3; widows:3; }
     figure img { width:auto; max-width:110mm; max-height:92mm; }
@@ -230,5 +231,24 @@
   This guide contains no passwords.
 </div>
 
-</div><script>if (/[?&]drucken=1/.test(location.search)) addEventListener('load', function () { setTimeout(print, 300); });</script>
+</div><script>
+// Kapitelanfang zusammenhalten: Überschrift mit den nächsten beiden Abschnitten.
+// Passt das nicht mehr auf die Seite, beginnt das Kapitel auf der nächsten.
+document.querySelectorAll('.blatt h2, .blatt h3').forEach(function (h) {
+  if (h.parentNode.classList.contains('kapitelanfang')) return;
+  var anfang = document.createElement('div'), n = h.tagName === 'H2' ? 2 : 1;
+  anfang.className = 'kapitelanfang';
+  h.parentNode.insertBefore(anfang, h);
+  anfang.appendChild(h);
+  // Folgt direkt eine Unterüberschrift, gehört sie samt ihrem ersten Abschnitt dazu.
+  if (n === 2 && anfang.nextElementSibling && anfang.nextElementSibling.tagName === 'H3') n = 3;
+  while (n-- > 0 && anfang.nextElementSibling && !/^H2$/.test(anfang.nextElementSibling.tagName))
+    anfang.appendChild(anfang.nextElementSibling);
+});
+// Kurze Tabellen nicht teilen.
+document.querySelectorAll('.blatt table').forEach(function (t) {
+  if (t.rows.length <= 8) t.classList.add('ganz');
+});
+</script>
+<script>if (/[?&]drucken=1/.test(location.search)) addEventListener('load', function () { setTimeout(print, 300); });</script>
 </body></html>
