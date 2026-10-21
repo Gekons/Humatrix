@@ -397,6 +397,8 @@ T_en[s_abschluss]="Admin account and credentials"
 T_de[verwalter_fehlgeschlagen]="Verwalterkonto @%s:%s konnte nicht angelegt werden. Grund steht in %s"
 T_en[verwalter_fehlgeschlagen]="Admin account @%s:%s could not be created. The reason is in %s"
 T_de[verwalter_angelegt]="Verwalterkonto @%s:%s angelegt."
+T_de[kundenanleitung_fehlt]="Kundenanleitung konnte nicht erzeugt werden. Grund steht in %s"
+T_en[kundenanleitung_fehlt]="Customer guide could not be created. The reason is in %s"
 T_en[verwalter_angelegt]="Admin account @%s:%s created."
 T_de[erstanmeldung_eingerichtet]="Konto im Chat gesperrt bis zur Erstanmeldung in der Verwaltung (eigenes Passwort, zweiter Faktor)."
 T_en[erstanmeldung_eingerichtet]="Account locked in the chat until the first sign-in on the admin page (own password, second factor)."
@@ -669,7 +671,7 @@ for n in "$DOMAIN" "$MATRIX_HOST" "$CHAT_HOST" "$EINLADUNG_HOST" "$VERWALTUNG_HO
   # Direkt beim zuständigen Nameserver: der Resolver des Anbieters merkt sich
   # ein frühes "gibt es nicht" bis zu einer Stunde (dateien/dns_frage.py).
   if command -v python3 >/dev/null && [ -f "$HIER/dateien/dns_frage.py" ]; then
-    ziel=$(python3 "$HIER/dateien/dns_frage.py" "$n" 2>/dev/null || true)
+    ziel=$(python3 "$HIER/dateien/dns_frage.py" "$n" 2>>"$LOG" || true)
   else
     ziel=$(getent ahostsv4 "$n" 2>/dev/null | awk '{print $1; exit}' || true)
   fi
@@ -1533,15 +1535,7 @@ if ! su - postgres -c "psql -tAc \"SELECT 1 FROM users WHERE name='@$VERWALTER:$
   register_new_matrix_user -u "$VERWALTER" -p "$APW" -a -k "$GEHEIM" http://127.0.0.1:8008 >>"$LOG" 2>&1 \
     || ende "$(txt verwalter_fehlgeschlagen "$VERWALTER" "$DOMAIN" "$LOG")"
   melde "$(txt verwalter_angelegt "$VERWALTER" "$DOMAIN")"
-  # Erstanmeldung: Das Startpasswort gilt nur in der Verwaltung, im Chat ist das
-  # Konto gesperrt, bis dort ein eigenes Passwort steht. Erst den Eintrag, dann
-  # die Sperre - umgekehrt bliebe bei einem Fehler ein Konto ohne Zugang.
-  printf '%s\n' "$APW" | python3 /opt/einladung/einladung.py --erstanmeldung "@$VERWALTER:$DOMAIN" >/dev/null 2>>"$LOG" \
-    && curl -fsS -o /dev/null -X PUT -H "Authorization: Bearer $(cat /etc/einladung/admin-token)" \
-         -H 'Content-Type: application/json' -d '{"locked":true}' \
-         "http://127.0.0.1:8008/_synapse/admin/v2/users/@$VERWALTER:$DOMAIN" >>"$LOG" 2>&1 \
-    || ende "$(txt erstanmeldung_fehlgeschlagen "$LOG")"
-  melde "$(txt erstanmeldung_eingerichtet)"
+  NEU_ANGELEGT=ja
 elif [ -n "$ALTES_PW" ] && [ "${ALTES_PW#(}" = "$ALTES_PW" ]; then
   APW="$ALTES_PW"
   melde "$(txt verwalter_pw_uebernommen)"
@@ -1646,6 +1640,21 @@ EOF
 fi
 }
 zugangsdatei_schreiben
+
+# Erstanmeldung: Das Startpasswort gilt nur in der Verwaltung, im Chat ist das
+# Konto gesperrt, bis dort ein eigenes Passwort steht. Erst jetzt, wo das Passwort
+# in der Zugangsdatei steht: scheitert die Sperre, ist es nicht verloren, und der
+# nächste Lauf holt sie nach (Eintrag offen, Passwort aus der Datei). Erst den
+# Eintrag, dann die Sperre - umgekehrt bliebe bei einem Fehler ein Konto ohne Zugang.
+if [ "${APW#(}" = "$APW" ] && { [ "${NEU_ANGELEGT:-nein}" = ja ] \
+     || python3 /opt/einladung/einladung.py --erstanmeldung-offen "@$VERWALTER:$DOMAIN" >/dev/null 2>&1; }; then
+  printf '%s\n' "$APW" | python3 /opt/einladung/einladung.py --erstanmeldung "@$VERWALTER:$DOMAIN" >/dev/null 2>>"$LOG" \
+    && curl -fsS --max-time 30 -o /dev/null -X PUT -H "Authorization: Bearer $(cat /etc/einladung/admin-token)" \
+         -H 'Content-Type: application/json' -d '{"locked":true}' \
+         "http://127.0.0.1:8008/_synapse/admin/v2/users/@$VERWALTER:$DOMAIN" >>"$LOG" 2>&1 \
+    || ende "$(txt erstanmeldung_fehlgeschlagen "$LOG")"
+  melde "$(txt erstanmeldung_eingerichtet)"
+fi
 chmod 600 "$ZUGANG"
 melde "$(txt zugangsdaten_in "$ZUGANG")"
 
@@ -1653,15 +1662,21 @@ melde "$(txt zugangsdaten_in "$ZUGANG")"
 BILDER="$HIER/dateien/bilder"
 [ "$SPRACHE" = en ] && [ -d "$BILDER/en" ] && BILDER="$BILDER/en"
 if [ -f "$HIER/dateien/kundenanleitung.py" ]; then
-  python3 "$HIER/dateien/kundenanleitung.py" \
-    --domain "$DOMAIN" --verwalter "$VERWALTER" \
-    --betreiber "${BETREIBER:-}" --bilder "$BILDER" --language "$SPRACHE" \
-    --ausgabe "$ANLEITUNG" >/dev/null && chmod 600 "$ANLEITUNG"
-  # Ohne Passwort, also darf die Verwaltung sie zum Herunterladen anbieten.
-  mkdir -p /var/lib/messenger; chmod 755 /var/lib/messenger
-  install -m 640 -o root -g einladung "$ANLEITUNG" /var/lib/messenger/kundenanleitung.html 2>/dev/null \
-    || install -m 600 "$ANLEITUNG" /var/lib/messenger/kundenanleitung.html
-  melde "$(txt kundenanleitung "$ANLEITUNG")"
+  # Als if, nicht mit &&: sonst lief das Skript bei einem Fehler hier wortlos aus
+  # (set -e greift im letzten Glied einer ||-Liste) und meldete vorher Erfolg.
+  if python3 "$HIER/dateien/kundenanleitung.py" \
+       --domain "$DOMAIN" --verwalter "$VERWALTER" \
+       --betreiber "${BETREIBER:-}" --bilder "$BILDER" --language "$SPRACHE" \
+       --ausgabe "$ANLEITUNG" >/dev/null 2>>"$LOG"; then
+    chmod 600 "$ANLEITUNG"
+    # Ohne Passwort, also darf die Verwaltung sie zum Herunterladen anbieten.
+    mkdir -p /var/lib/messenger; chmod 755 /var/lib/messenger
+    install -m 640 -o root -g einladung "$ANLEITUNG" /var/lib/messenger/kundenanleitung.html 2>>"$LOG" \
+      || melde "$(txt kundenanleitung_fehlt "$LOG")"
+    melde "$(txt kundenanleitung "$ANLEITUNG")"
+  else
+    melde "$(txt kundenanleitung_fehlt "$LOG")"
+  fi
 fi
 
 # Verwaltungsanleitung: alles über DIESEN Server für den Betreiber, ohne

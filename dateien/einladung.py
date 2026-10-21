@@ -556,7 +556,8 @@ def pw_passt(passwort, gespeichert):
         salz, h = gespeichert.split(':')
         soll = hashlib.scrypt(passwort.encode(), salt=bytes.fromhex(salz), n=2 ** 14, r=8, p=1)
         return hmac.compare_digest(soll.hex(), h)
-    except Exception:
+    except Exception as f:
+        protokoll('hash_unlesbar', '', str(f)[:120])
         return False
 
 
@@ -593,6 +594,9 @@ def erst_passwort_setzen(nutzer, passwort):
 
 def erst_abschliessen(nutzer):
     """Passwort und zweiter Faktor stehen: Sperre in Synapse aufheben, Eintrag weg."""
+    e = erst_eintrag(nutzer)
+    if not e or not e['pw_neu']:
+        raise RuntimeError('Startpasswort noch nicht ersetzt')
     matrix_aufruf('/_synapse/admin/v2/users/' + urllib.parse.quote(nutzer),
                   {'locked': False}, token=admin_token(), methode='PUT')
     with db() as v:
@@ -605,6 +609,7 @@ def pflicht_schritt(nutzer):
 
     'passwort'    - Erstanmeldung, das Startpasswort gilt noch
     'zweitfaktor' - Erstanmeldung, zweiter Faktor angeboten (einrichten oder ablehnen)
+    'entsperren'  - alles erledigt, aber Synapse hat das Konto noch nicht freigegeben
     None          - nichts offen
     """
     e = erst_eintrag(nutzer)
@@ -617,6 +622,7 @@ def pflicht_schritt(nutzer):
                 erst_abschliessen(nutzer)
             except Exception as f:
                 protokoll('erst_entsperren_fehlgeschlagen', nutzer, str(f)[:120])
+                return 'entsperren'
         return None
     return 'zweitfaktor' if e else None
 
@@ -2572,6 +2578,11 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                 return self.antwort(seite_erstpasswort(sprache))
             if schritt == 'zweitfaktor':
                 return self.antwort(seite_zweitfaktor(nutzer, sprache, pflicht=True))
+            if schritt == 'entsperren':
+                return self.antwort(seite_kurz(
+                    t('titel_verwaltung', sprache), t('nicht_geklappt', sprache),
+                    t('erst_entsperren_fehler', sprache), sprache, '/einrichten',
+                    t('nochmal_versuchen', sprache)), 502)
             return self.weiter('/')
         if pfad == '/zweitfaktor':
             nutzer = self.wer()
@@ -2674,6 +2685,9 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
                 return self.antwort(seite_anmelden(
                     sprache, t('anmeldung_falsch', sprache), self.unter_verwaltung()), 401)
             versuche_loeschen(erst)
+            if zf_stand(erst)[1]:
+                # Zweiter Faktor schon an (Entsperren war gescheitert): erst der Code.
+                return self.antwort(seite_code(sprache), 200, self.keks_setzen(erst, 'halb'))
             protokoll('angemeldet_erst', erst)
             return self.weiter('/einrichten', self.keks_setzen(erst))
         zustand, nutzer = anmeldung_pruefen(f.get('benutzer', '').strip(),
@@ -2713,6 +2727,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         nutzer = self.wer()
         if not nutzer:
             return self.weiter('/')
+        if pflicht_schritt(nutzer) == 'passwort':
+            return self.weiter('/einrichten')
         f = self.formular()
         tat = f.get('tat', '')
         if tat == 'ablehnen':
@@ -3059,9 +3075,17 @@ def kommandozeile(argumente):
         versuche_loeschen(nutzer)
         print(t('cli_zf_entfernt', sprache, nutzer=nutzer))
         return 0
+    if argumente[:1] == ['--erstanmeldung-offen'] and len(argumente) == 2:
+        # Für den Installer: Steht die Erstanmeldung noch aus (Startpasswort gilt)?
+        e = erst_eintrag(argumente[1])
+        return 0 if e and not e['pw_neu'] else 1
     if argumente[:1] == ['--erstanmeldung'] and len(argumente) == 2:
         # Nur die Ablage; das Sperren in Synapse macht der Installer selbst.
         nutzer = argumente[1]
+        e = erst_eintrag(nutzer)
+        if e and e['pw_neu']:
+            print(f'{nutzer}: eigenes Passwort steht schon, nichts geändert.', file=sys.stderr)
+            return 1
         passwort = sys.stdin.readline().rstrip('\n')
         if not nutzer.startswith('@') or ':' not in nutzer or not passwort:
             print(t('cli_aufruf', sprache)); return 2

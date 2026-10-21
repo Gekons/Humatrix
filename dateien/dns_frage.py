@@ -76,12 +76,14 @@ def frage(server, name, typ, rekursiv=True, zeit=3.0):
 
 
 def _oeffentlich(name, typ):
+    """Antwort des ersten öffentlichen Resolvers, der antwortet. Antwortet keiner,
+    ist DNS nach außen gesperrt: dann OSError, statt jede Ebene einzeln abzuwarten."""
     for server in OEFFENTLICH:
         try:
             return [w for t, w in frage(server, name, typ)[1] if t == typ]
         except OSError:
             continue
-    return []
+    raise OSError('kein öffentlicher DNS-Resolver erreichbar (UDP 53 nach außen gesperrt?)')
 
 
 def nameserver(name):
@@ -114,8 +116,8 @@ def a_eintrag(name, tiefe=0):
                 return a_eintrag(ziel[0], tiefe + 1)      # CNAME: dem Ziel folgen
             if rcode == 0:
                 return a[0] if a else ''
-    except Exception:
-        pass
+    except Exception as f:
+        print(f'dns_frage {name}: {f} - nehme den Resolver des Systems', file=sys.stderr)
     # Rückfall: der Resolver des Systems
     try:
         aus = subprocess.run(['getent', 'ahostsv4', name], capture_output=True, text=True, timeout=10).stdout
