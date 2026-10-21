@@ -638,7 +638,7 @@ TEXTE = {
     'f_tls_klemmt': 'Die sichere Seite lädt nicht?',
     'f_sicher_unter': 'Alle Prüfungen bestanden. Lege jetzt Startpasswort und Sicherungsschlüssel in deinem '
                       'Passwortdepot ab.',
-    'f_details': 'Weitere Angaben: Adressen, Anleitungen, Prüfungen',
+    'f_details': 'Weitere Angaben: Adressen und Prüfungen',
     'f_gespeichert': 'Ich habe Startpasswort und Sicherungsschlüssel gespeichert.',
     'kopieren': 'Kopieren',
     'kopiert': 'Kopiert',
@@ -840,7 +840,7 @@ TEXTE = {
     'f_pruefungen': 'Final checks',
     'f_tls_klemmt': 'The secure page does not load?',
     'f_sicher_unter': 'All checks passed. Put the initial password and the backup key into your password manager now.',
-    'f_details': 'More: addresses, guides, checks',
+    'f_details': 'More: addresses and checks',
     'f_gespeichert': 'I have saved the initial password and the backup key.',
     'kopieren': 'Copy',
     'kopiert': 'Copied',
@@ -1340,20 +1340,6 @@ def seite_fertig(sprache, stand, a, sicher=True):
         '<div class="wert"><span class="leise">/root/.sicherung_passwort</span></div>'
 
     details = f'<div class="karte">{block_adressen(sprache, a)}</div>'
-    if z['anleitung'] and os.path.exists(z['anleitung']):
-        details += f"""
-      <div class="karte">
-        <h2>{t('f_anleitung', sprache)}</h2>
-        <p class="leise">{t('f_anleitung_text', sprache)}</p>
-        <a class="knopf still" href="/anleitung" target="_blank">{t('f_anleitung_knopf', sprache)}</a>
-      </div>"""
-    if os.path.exists(f'/root/verwaltungsanleitung-{d}.html'):
-        details += f"""
-      <div class="karte">
-        <h2>{t('f_vanleitung', sprache)}</h2>
-        <p class="leise">{t('f_vanleitung_text', sprache)}</p>
-        <a class="knopf still" href="/verwaltungsanleitung" target="_blank">{t('f_vanleitung_knopf', sprache)}</a>
-      </div>"""
     pruefungen = ''.join(f'<li class="ok">{html.escape(s)}</li>' for s in gut)
     details += f"""
       <div class="karte">

@@ -9,7 +9,7 @@ Zwei Sprachen (--language en|de, Vorgabe en). Die Bildschirmfotos sind deutsch;
 die englische Fassung sagt das dazu.
 
 Aufruf (macht der Installer selbst):
-  kundenanleitung.py --domain beispieldomain.de --verwalter anna --passwort '...' \
+  kundenanleitung.py --domain beispieldomain.de --verwalter anna \
                      --betreiber 'Vorname Nachname, hilfe@example.de' --language de \
                      --ausgabe /root/anleitung.html
 """
@@ -86,10 +86,11 @@ VORLAGEN['de'] = """<!doctype html>
     <tr><td>Server für die App</td><td class="wert">{domain}</td></tr>
     <tr><td>Dein Benutzername</td><td class="wert">{verwalter}</td></tr>
     <tr><td>Deine Kennung</td><td class="wert">@{verwalter}:{domain}</td></tr>
-    <tr><td>Erstes Passwort</td><td class="wert">{passwort}</td></tr>
+    <tr><td>Erstes Passwort</td><td>bekommst du getrennt, nicht mit dieser Anleitung</td></tr>
   </table>
   <p class="klein leise" style="margin-top:10px;margin-bottom:0">
-     Dieses Passwort ist nur für den Anfang. Ändere es bei der ersten Anmeldung.</p>
+     Bei der ersten Anmeldung in der Verwaltung legst du ein eigenes Passwort fest.
+     Bis dahin ist dein Konto im Chat gesperrt.</p>
 </div>
 {bild_hinweis}
 <h2>1. Das Wichtigste in drei Sätzen</h2>
@@ -102,13 +103,16 @@ VORLAGEN['de'] = """<!doctype html>
 
 <h2>2. Erste Anmeldung</h2>
 <ol class="schritte">
-  <li><b>Öffne {chat} im Browser.</b><br>
-      <span class="leise">Benutzername und das Passwort aus dem Kasten oben. Der Browser
-      ist für die Ersteinrichtung gut; für den Alltag lieber die App (Abschnitt 4).</span></li>
-  <li><b>Ändere sofort dein Passwort.</b><br>
-      <span class="leise">In den Einstellungen unter „Konto". Nimm etwas Langes —
-      ein Satz ist besser als ein kurzes Kauderwelsch.</span></li>
-  <li><b>Richte den zweiten Faktor ein.</b> Siehe Abschnitt 3 — bitte nicht überspringen.</li>
+  <li><b>Öffne {verwaltung} im Browser</b> und melde dich mit deinem Benutzernamen und
+      dem ersten Passwort an.</li>
+  <li><b>Lege ein eigenes Passwort fest.</b><br>
+      <span class="leise">Die Seite verlangt es, bevor sie etwas anderes zeigt. Nimm etwas
+      Langes — ein Satz ist besser als ein kurzes Kauderwelsch.</span></li>
+  <li><b>Richte den zweiten Faktor ein.</b> Die Seite bietet ihn direkt danach an,
+      siehe Abschnitt 3 — bitte nicht überspringen.</li>
+  <li><b>Öffne {chat}</b> und melde dich mit deinem neuen Passwort an.<br>
+      <span class="leise">Der Browser ist für die Ersteinrichtung gut; für den Alltag
+      lieber die App (Abschnitt 4).</span></li>
 </ol>
 
 <h2>3. Zweiter Faktor für dein Verwalter-Konto</h2>
@@ -117,7 +121,8 @@ VORLAGEN['de'] = """<!doctype html>
 <ol class="schritte">
   <li>Installiere eine Authenticator-App. Empfehlung: <b>Aegis</b> (Android) oder
       <b>Ente Auth</b> (beide Systeme). Die Passwort-App deines Telefons kann es meist auch.</li>
-  <li>Öffne <span class="wert">{verwaltung}</span> und dort <b>„Zweiter Faktor"</b>.</li>
+  <li>Die Verwaltung bietet ihn bei der ersten Anmeldung an. Später findest du ihn unter
+      <span class="wert">{verwaltung}</span> → <b>„Zweiter Faktor"</b>.</li>
   <li>Scanne den angezeigten QR-Code mit der App.</li>
   <li>Tippe den sechsstelligen Code ein, den die App zeigt. Erst dann wird es scharf —
       du kannst dich beim Einrichten also nicht aussperren.</li>
@@ -235,7 +240,7 @@ VORLAGEN['de'] = """<!doctype html>
 
 <div class="fuss">
   Euer eigener Chat auf {domain} · Anleitung erzeugt am {datum}<br>
-  Bitte bewahrt diese Seiten auf — sie enthalten euer erstes Passwort.
+  Diese Anleitung enthält keine Passwörter.
 </div>
 
 </div></body></html>
@@ -263,10 +268,11 @@ VORLAGEN['en'] = """<!doctype html>
     <tr><td>Server for the app</td><td class="wert">{domain}</td></tr>
     <tr><td>Your username</td><td class="wert">{verwalter}</td></tr>
     <tr><td>Your user ID</td><td class="wert">@{verwalter}:{domain}</td></tr>
-    <tr><td>Initial password</td><td class="wert">{passwort}</td></tr>
+    <tr><td>Initial password</td><td>you get it separately, not with this guide</td></tr>
   </table>
   <p class="klein leise" style="margin-top:10px;margin-bottom:0">
-     This password is only for the start. Change it when you first log in.</p>
+     At the first sign-in on the admin page you choose your own password.
+     Until then your account is locked in the chat.</p>
 </div>
 {bild_hinweis}
 <h2>1. The essentials in three sentences</h2>
@@ -279,13 +285,16 @@ VORLAGEN['en'] = """<!doctype html>
 
 <h2>2. First login</h2>
 <ol class="schritte">
-  <li><b>Open {chat} in the browser.</b><br>
-      <span class="leise">Username and the password from the box above. The browser
-      is fine for the initial setup; for everyday use the app is better (section 4).</span></li>
-  <li><b>Change your password right away.</b><br>
-      <span class="leise">In the settings under "Account". Pick something long —
-      a sentence beats a short jumble.</span></li>
-  <li><b>Set up the second factor.</b> See section 3 — please don't skip it.</li>
+  <li><b>Open {verwaltung} in the browser</b> and sign in with your username and the
+      initial password.</li>
+  <li><b>Choose your own password.</b><br>
+      <span class="leise">The page asks for it before it shows anything else. Pick something
+      long — a sentence beats a short jumble.</span></li>
+  <li><b>Set up the second factor.</b> The page offers it right after,
+      see section 3 — please don't skip it.</li>
+  <li><b>Open {chat}</b> and sign in with your new password.<br>
+      <span class="leise">The browser is fine for the initial setup; for everyday use
+      the app is better (section 4).</span></li>
 </ol>
 
 <h2>3. Second factor for your admin account</h2>
@@ -294,7 +303,8 @@ VORLAGEN['en'] = """<!doctype html>
 <ol class="schritte">
   <li>Install an authenticator app. Recommended: <b>Aegis</b> (Android) or
       <b>Ente Auth</b> (both systems). Your phone's password app can usually do it too.</li>
-  <li>Open <span class="wert">{verwaltung}</span> and there <b>"Second factor"</b>.</li>
+  <li>The admin page offers it at the first sign-in. Later you find it under
+      <span class="wert">{verwaltung}</span> → <b>"Second factor"</b>.</li>
   <li>Scan the QR code shown with the app.</li>
   <li>Type in the six-digit code the app shows. Only then does it go live —
       so you cannot lock yourself out while setting it up.</li>
@@ -412,7 +422,7 @@ VORLAGEN['en'] = """<!doctype html>
 
 <div class="fuss">
   Your own chat at {domain} · guide created on {datum}<br>
-  Please keep these pages — they contain your initial password.
+  This guide contains no passwords.
 </div>
 
 </div></body></html>
@@ -460,7 +470,6 @@ def main():
     a = argparse.ArgumentParser(description='Kundenanleitung erzeugen / create customer guide')
     a.add_argument('--domain', required=True)
     a.add_argument('--verwalter', required=True)
-    a.add_argument('--passwort', required=True)
     a.add_argument('--betreiber', default='')
     a.add_argument('--bilder', default='', help='Verzeichnis mit den Bildschirmfotos')
     a.add_argument('--language', default='en', choices=('en', 'de'))
@@ -500,7 +509,6 @@ def main():
         stil=STIL,
         domain=e(w.domain),
         verwalter=e(w.verwalter),
-        passwort=e(w.passwort),
         chat=f'https://chat.{e(w.domain)}',
         einladung=f'https://invite.{e(w.domain)}',
         verwaltung=f'https://service.{e(w.domain)}',

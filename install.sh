@@ -1629,9 +1629,13 @@ BILDER="$HIER/dateien/bilder"
 [ "$SPRACHE" = en ] && [ -d "$BILDER/en" ] && BILDER="$BILDER/en"
 if [ -f "$HIER/dateien/kundenanleitung.py" ]; then
   python3 "$HIER/dateien/kundenanleitung.py" \
-    --domain "$DOMAIN" --verwalter "$VERWALTER" --passwort "$APW" \
+    --domain "$DOMAIN" --verwalter "$VERWALTER" \
     --betreiber "${BETREIBER:-}" --bilder "$BILDER" --language "$SPRACHE" \
     --ausgabe "$ANLEITUNG" >/dev/null && chmod 600 "$ANLEITUNG"
+  # Ohne Passwort, also darf die Verwaltung sie zum Herunterladen anbieten.
+  mkdir -p /var/lib/messenger; chmod 755 /var/lib/messenger
+  install -m 640 -o root -g einladung "$ANLEITUNG" /var/lib/messenger/kundenanleitung.html 2>/dev/null \
+    || install -m 600 "$ANLEITUNG" /var/lib/messenger/kundenanleitung.html
   melde "$(txt kundenanleitung "$ANLEITUNG")"
 fi
 
