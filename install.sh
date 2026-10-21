@@ -666,7 +666,13 @@ for n in "$DOMAIN" "$MATRIX_HOST" "$CHAT_HOST" "$EINLADUNG_HOST" "$VERWALTUNG_HO
   # '|| true': getent endet bei unbekanntem Namen mit Status 2, und unter
   # set -eo pipefail beendete das die Zuweisung wortlos - der Abbruch unten
   # mit seiner Meldung wurde nie erreicht.
-  ziel=$(getent ahostsv4 "$n" 2>/dev/null | awk '{print $1; exit}' || true)
+  # Direkt beim zuständigen Nameserver: der Resolver des Anbieters merkt sich
+  # ein frühes "gibt es nicht" bis zu einer Stunde (dateien/dns_frage.py).
+  if command -v python3 >/dev/null && [ -f "$HIER/dateien/dns_frage.py" ]; then
+    ziel=$(python3 "$HIER/dateien/dns_frage.py" "$n" 2>/dev/null || true)
+  else
+    ziel=$(getent ahostsv4 "$n" 2>/dev/null | awk '{print $1; exit}' || true)
+  fi
   if [ -z "$ziel" ]; then
     nicht_aufloesbar="$nicht_aufloesbar\n     $n  -> $(txt dns_loest_nicht)"
   elif [ "$ziel" != "$EIGENE_IP" ]; then
@@ -1694,7 +1700,9 @@ if [ "$HINTER_PROXY" = ja ]; then
   hole() { curl -sf --max-time 10 -H "Host: $1" "http://127.0.0.1$2"; }
   melde "$(txt geprueft_oertlich)"
 else
-  hole() { curl -sf --max-time 10 "https://$1$2"; }
+  # --resolve: sonst entscheidet der Resolver des Systems, und der kennt frisch
+  # angelegte Namen manchmal noch nicht. Die Vorprüfung hat sie schon geprüft.
+  hole() { curl -sf --max-time 10 --resolve "$1:443:$EIGENE_IP" "https://$1$2"; }
 fi
 
 # Die Anmeldeseite wird am Formularziel erkannt, nicht am Knopftext - der ist

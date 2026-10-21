@@ -34,6 +34,8 @@ import time
 import urllib.parse
 import urllib.request
 
+import dns_frage                      # liegt daneben in dateien/
+
 PORT = int(os.environ.get('HUMATRIX_SETUP_PORT', '8088'))
 QUELLE = os.environ.get('HUMATRIX_QUELLE', '/opt/humatrix')       # dort liegt install.sh
 ZUSTAND = os.environ.get('HUMATRIX_ZUSTAND', '/var/lib/humatrix-einrichtung')   # Tests legen ihn um
@@ -195,13 +197,10 @@ def modus_von(a):
 
 
 def aufloesen(name):
-    """Erste IPv4-Adresse, wie sie auch install.sh sieht (getent ahostsv4)."""
-    try:
-        aus = subprocess.run(['getent', 'ahostsv4', name], capture_output=True,
-                             text=True, timeout=10).stdout
-        return aus.split()[0] if aus.split() else ''
-    except Exception:
-        return ''
+    """Erste IPv4-Adresse laut zuständigem Nameserver, wie sie auch install.sh sieht.
+    Nicht über den Resolver des Systems: der merkt sich ein frühes "gibt es nicht"
+    bis zu einer Stunde (dns_frage.py)."""
+    return dns_frage.a_eintrag(name)
 
 
 def dns_pruefen(domain, situation):
