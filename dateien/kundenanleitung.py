@@ -19,6 +19,14 @@ import html
 import os
 import time
 
+# Tab-Symbol: weiße Sprechblase auf der Akzentfarbe, als data:-URI, damit die
+# Seite keine zweite Datei ausliefern muss.
+ICON = ("data:image/svg+xml,"
+        "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E"
+        "%3Crect width='32' height='32' rx='7' fill='%2345c3a3'/%3E"
+        "%3Cpath d='M9 9h14a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-8l-5 4v-4H9a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3z' fill='%23fff'/%3E"
+        "%3C/svg%3E")
+
 STIL = """
   @page { size: A4; margin: 18mm 16mm 16mm; }
   :root { --ink:#15201c; --leise:#5d6b65; --linie:#d8ded9; --eigen:#0e6f5a;
@@ -66,6 +74,7 @@ VORLAGEN = {}
 
 VORLAGEN['de'] = """<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
+<link rel="icon" href="{icon}">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Euer eigener Chat — {domain}</title>
 <style>{stil}</style></head>
@@ -248,6 +257,7 @@ VORLAGEN['de'] = """<!doctype html>
 
 VORLAGEN['en'] = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
+<link rel="icon" href="{icon}">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Your own chat — {domain}</title>
 <style>{stil}</style></head>
@@ -507,6 +517,7 @@ def main():
     }
     inhalt = VORLAGEN[sprache].format(
         stil=STIL,
+        icon=ICON,
         domain=e(w.domain),
         verwalter=e(w.verwalter),
         chat=f'https://chat.{e(w.domain)}',
