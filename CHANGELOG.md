@@ -16,6 +16,11 @@
   guess about automatic updates.
 - German texts of the installer use proper umlauts.
 - Tab icon on the setup, invitation and admin pages.
+- Element: after "device removed" (e.g. the server was set up again) the next login in
+  the same tab hung on "Signing in…" until a reload. Element now reloads itself after a
+  logout (`logout_redirect_url`), so the login works on the first try.
+- Customer guide without the initial password; both guides are downloadable from the
+  admin page.
 
 ## 1.1.0 — 2026-10-15
 

@@ -24,6 +24,7 @@ if [ -z "$DOMAIN" ]; then
 fi
 [ -n "$DOMAIN" ] || { echo "Domain unbekannt: weder als Angabe noch in $SERVERNAME_DATEI." >&2; exit 1; }
 MATRIX_HOST="matrix.$DOMAIN"
+CHAT_HOST="chat.$DOMAIN"
 
 VER=$(curl -sL --max-time 20 https://api.github.com/repos/element-hq/element-web/releases/latest \
       | jq -r .tag_name 2>/dev/null || true)
@@ -49,6 +50,10 @@ else
 fi
 
 # config.json nach JEDEM Durchlauf: das Entpacken oben räumt den Ordner leer.
+# logout_redirect_url: Nach "Gerät entfernt" (etwa wenn der Server neu
+# eingerichtet wurde) hing Element bei der nächsten Anmeldung im selben Tab
+# auf "Melde an ...", bis man die Seite neu lud. Mit der Umleitung lädt Element
+# nach dem Abmelden selbst neu und die Anmeldung geht beim ersten Versuch.
 cat > "$VERZ/config.json" <<EOF
 {
   "default_server_config": {
@@ -58,7 +63,8 @@ cat > "$VERZ/config.json" <<EOF
   "disable_guests": true,
   "default_country_code": "DE",
   "setting_defaults": { "language": "de" },
-  "room_directory": { "servers": ["$DOMAIN"] }
+  "room_directory": { "servers": ["$DOMAIN"] },
+  "logout_redirect_url": "https://$CHAT_HOST/#/login"
 }
 EOF
 chmod 644 "$VERZ/config.json"
