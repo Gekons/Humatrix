@@ -1479,10 +1479,19 @@ button.gefahrgross{background:var(--warn)}
 .ok{color:var(--eigen);font-weight:600}
 """
 
+# Tab-Symbol: weiße Sprechblase auf der Akzentfarbe, als data:-URI, damit die
+# Seite keine zweite Datei ausliefern muss.
+ICON = ("data:image/svg+xml,"
+        "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E"
+        "%3Crect width='32' height='32' rx='7' fill='%2345c3a3'/%3E"
+        "%3Cpath d='M9 9h14a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-8l-5 4v-4H9a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3z' fill='%23fff'/%3E"
+        "%3C/svg%3E")
+
 
 def seite(titel, inhalt, sprache):
     return f"""<!doctype html><html lang="{sprache}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="{ICON}">
 <title>{html.escape(titel)}</title><style>{STIL}</style></head>
 <body><div class="k">{inhalt}</div></body></html>""".encode()
 

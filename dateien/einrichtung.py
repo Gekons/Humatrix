@@ -898,14 +898,28 @@ table.ports td:first-child{width:28%;color:var(--schrift);font-family:ui-monospa
 """
 
 
+# Tab-Symbol: weiße Sprechblase auf der Akzentfarbe, als data:-URI, damit die
+# Seite keine zweite Datei ausliefern muss.
+ICON = ("data:image/svg+xml,"
+        "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E"
+        "%3Crect width='32' height='32' rx='7' fill='%2345c3a3'/%3E"
+        "%3Cpath d='M9 9h14a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-8l-5 4v-4H9a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3z' fill='%23fff'/%3E"
+        "%3C/svg%3E")
+
+
 def seite(titel, inhalt, sprache, kopf_extra=''):
     return f"""<!doctype html><html lang="{sprache}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="{ICON}">
 <title>{html.escape(titel)}</title><style>{STIL}</style>{kopf_extra}</head>
 <body><div class="k">{inhalt}</div></body></html>""".encode()
 
 
-def kopfzeile(sprache, pfad=''):
+def kopfzeile(sprache, pfad='', umschalten=True):
+    # Ab dem Start von install.sh kein Sprachschalter mehr: Schritte, Protokoll
+    # und Ergebnis kommen in der gewählten Sprache aus install.sh.
+    if not umschalten:
+        return '<div class="kopfzeile"><span class="leise">Humatrix</span></div>'
     andere = 'en' if sprache == 'de' else 'de'
     return (f'<div class="kopfzeile"><span class="leise">Humatrix</span>'
             f'<a href="/sprache?zu={andere}&amp;dann={urllib.parse.quote(pfad or "/")}">'
@@ -1165,7 +1179,7 @@ def seite_lauf(sprache, stand):
 })();
 </script>"""
     return seite(t('titel', sprache), f"""
-      {kopfzeile(sprache, '/lauf')}
+      {kopfzeile(sprache, '/lauf', umschalten=False)}
       <h1>{t('lauf_kopf', sprache)}</h1>
       <p class="leise">{t('lauf_unter', sprache)}</p>
       <div class="karte">
@@ -1194,7 +1208,7 @@ def seite_fehler(sprache, stand, a):
         zugang = ''
     protokoll = html.escape('\n'.join(zeilen[-60:]))
     return seite(t('titel', sprache), f"""
-      {kopfzeile(sprache, '/fehler')}
+      {kopfzeile(sprache, '/fehler', umschalten=False)}
       <h1>{kopf}</h1>
       <p class="leise">{unter}</p>
       {liste}
@@ -1307,7 +1321,7 @@ def seite_fertig(sprache, stand, a, sicher=True):
         <p class="hilfe" style="margin:8px 0 0">{t('f_abschliessen_hinweis', sprache)}</p>
       </form>""")
     return seite(t('titel', sprache), f"""
-      {kopfzeile(sprache, '/fertig')}
+      {kopfzeile(sprache, '/fertig', umschalten=False)}
       <h1>{t('fertig_kopf', sprache)}</h1>
       <p class="leise">{t('fertig_unter', sprache)}</p>
       {''.join(bloecke)}""", sprache)
