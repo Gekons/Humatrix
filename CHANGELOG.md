@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 — 2026-10-21
 
 - First sign-in: the installer creates the first admin account locked in Synapse. The
   initial password only works on the admin page, which asks for an own password and then
