@@ -42,8 +42,7 @@ ZUGANG=/root/zugangsdaten-messenger.txt
 
 # Sprachtabellen
 # Jeder Schluessel steht in beiden Tabellen; %s sind printf-Platzhalter, die
-# Reihenfolge der Werte ist in beiden Sprachen dieselbe. Deutsche Texte hier
-# ohne Umlaute (ae/oe/ue), wie bisher auf dem Terminal.
+# Reihenfolge der Werte ist in beiden Sprachen dieselbe.
 declare -A T_de T_en
 
 T_de[abbruch]="ABBRUCH"
@@ -53,19 +52,19 @@ T_de[hilfe]="Messenger-Installer
 
   --domain  <name>     Pflicht. Die nackte Domain, z.B. beispieldomain.de
                        Kennungen werden daraus: @name:beispieldomain.de
-  --mail    <adresse>  Pflicht. Fuer die Zertifikate (Let's Encrypt benachrichtigt dort).
+  --mail    <adresse>  Pflicht. Für die Zertifikate (Let's Encrypt benachrichtigt dort).
   --verwalter <name>   Name des ersten Kontos mit Verwaltungsrechten. Vorgabe: verwalter
-  --sicherung <ziel>   Optional. SSH-Ziel fuer die taegliche Sicherung,
+  --sicherung <ziel>   Optional. SSH-Ziel für die tägliche Sicherung,
                        z.B. u123456@u123456.your-storagebox.de:/messenger
   --betreiber <text>   Optional. Wer den Server betreut - steht in der Kundenanleitung.
                        z.B. \"Vorname Nachname, hilfe@example.de\"
   --language en|de     Sprache von Installer, Verwaltungsseiten und Kundenanleitung.
-                       Vorgabe: en. Die Verwaltung kann spaeter umschalten.
+                       Vorgabe: en. Die Verwaltung kann später umschalten.
   --hinter-proxy       Dieser Server steht hinter einem vorhandenen Reverse-Proxy
   --behind-proxy       (Nginx Proxy Manager, Traefik, Caddy ...). Dann holt der
                        Installer KEIN Zertifikat und liefert alles auf Port 80 aus -
-                       um TLS kuemmert sich der Proxy. Noetig, sobald die Ports 80
-                       und 443 der oeffentlichen Adresse jemand anderem gehoeren.
+                       um TLS kümmert sich der Proxy. Nötig, sobald die Ports 80
+                       und 443 der öffentlichen Adresse jemand anderem gehören.
                        Beide Schreibweisen sind gleichwertig.
   --nur <abschnitt>    Nur einen Abschnitt wiederholen:
                        pakete datenbank synapse web turn element
@@ -75,8 +74,8 @@ T_de[hilfe]="Messenger-Installer
   Englische Schreibweisen --admin --backup --operator --only --behind-proxy
   gehen genauso; Abschnittsnamen sind in beiden Sprachen gleich.
 
-Vorher einzurichten (der Installer prueft es und bricht sonst ab):
-  A-Eintraege auf die IP dieses Servers fuer:  (mit --hinter-proxy: auf den Proxy)
+Vorher einzurichten (der Installer prüft es und bricht sonst ab):
+  A-Einträge auf die IP dieses Servers für:  (mit --hinter-proxy: auf den Proxy)
      <domain>  matrix.<domain>  chat.<domain>  invite.<domain>
      service.<domain>  turn.<domain>"
 T_en[hilfe]="Messenger installer
@@ -111,114 +110,118 @@ To set up beforehand (the installer checks it and aborts otherwise):
      service.<domain>  turn.<domain>"
 
 # Argumente
-T_de[unbekannte_angabe]="Unbekannte Angabe: %s  (--hilfe zeigt die Moeglichkeiten)"
+T_de[unbekannte_angabe]="Unbekannte Angabe: %s  (--hilfe zeigt die Möglichkeiten)"
 T_en[unbekannte_angabe]="Unknown option: %s  (--help shows the options)"
 T_de[sprache_unbekannt]="--language: nur en oder de, nicht '%s'"
 T_en[sprache_unbekannt]="--language: only en or de, not '%s'"
-T_de[sprache_uebernommen]="Sprache %s aus der vorhandenen Installation uebernommen (umstellen: --language)."
+T_de[sprache_uebernommen]="Sprache %s aus der vorhandenen Installation übernommen (umstellen: --language)."
 T_en[sprache_uebernommen]="Language %s taken over from the existing installation (change it with --language)."
 T_de[domain_fehlt]="--domain fehlt"
 T_en[domain_fehlt]="--domain is missing"
 T_de[mail_fehlt]="--mail fehlt"
 T_en[mail_fehlt]="--mail is missing"
-T_de[als_root]="Bitte als root ausfuehren (sudo)."
+T_de[als_root]="Bitte als root ausführen (sudo)."
 T_en[als_root]="Please run as root (sudo)."
-T_de[abschnitt_unbekannt]="Unbekannter Abschnitt: %s  (moeglich: pakete datenbank synapse web turn element einladung sicherung updates haertung)"
+T_de[abschnitt_unbekannt]="Unbekannter Abschnitt: %s  (möglich: pakete datenbank synapse web turn element einladung sicherung updates haertung)"
 T_en[abschnitt_unbekannt]="Unknown section: %s  (possible: pakete datenbank synapse web turn element einladung sicherung updates haertung)"
 T_de[verwalter_zeichen]="--verwalter darf nur Kleinbuchstaben, Ziffern und . _ = - / enthalten (nicht leer): '%s'"
 T_en[verwalter_zeichen]="--admin may only contain lowercase letters, digits and . _ = - / (not empty): '%s'"
 
 # Prüfen
-T_de[s_pruefen]="Voraussetzungen pruefen"
+T_de[s_pruefen]="Voraussetzungen prüfen"
 T_en[s_pruefen]="Checking prerequisites"
 T_de[kein_os_release]="Kein /etc/os-release — unbekanntes System."
 T_en[kein_os_release]="No /etc/os-release — unknown system."
 T_de[arch]="Architektur: %s."
 T_en[arch]="Architecture: %s."
-T_de[arch_i386]="Architektur: %s — unterstuetzt, aber ungewoehnlich fuer einen Server."
+T_de[arch_i386]="Architektur: %s — unterstützt, aber ungewöhnlich für einen Server."
 T_en[arch_i386]="Architecture: %s — supported, but unusual for a server."
-T_de[arch_arm]="Architektur %s — dafuer gibt es kein Synapse-Paket von matrix.org."
+T_de[arch_arm]="Architektur %s — dafür gibt es kein Synapse-Paket von matrix.org."
 T_en[arch_arm]="Architecture %s — there is no Synapse package from matrix.org for it."
 T_de[arch_arm_hinweis]="   Betroffen sind Raspberry Pi und andere ARM-Rechner. Die Paketquelle
-   https://packages.matrix.org/debian/ fuehrt ausschliesslich amd64 und i386.
+   https://packages.matrix.org/debian/ führt ausschließlich amd64 und i386.
 
-   Moeglich bleibt Synapse im Container (Docker) oder aus dem Quelltext.
-   Dieser Installer kann das nicht und tut auch nicht so, als koennte er es."
+   Möglich bleibt Synapse im Container (Docker) oder aus dem Quelltext.
+   Dieser Installer kann das nicht und tut auch nicht so, als könnte er es."
 T_en[arch_arm_hinweis]="   This affects Raspberry Pi and other ARM machines. The package source
    https://packages.matrix.org/debian/ carries amd64 and i386 only.
 
    What remains is Synapse in a container (Docker) or built from source.
    This installer cannot do that and does not pretend it could."
-T_de[arch_nicht_unterstuetzt]="Nicht unterstuetzte Architektur: %s"
+T_de[arch_nicht_unterstuetzt]="Nicht unterstützte Architektur: %s"
 T_en[arch_nicht_unterstuetzt]="Unsupported architecture: %s"
-T_de[arch_unbekannt]="Unbekannte Architektur: %s. Noetig ist amd64."
+T_de[arch_unbekannt]="Unbekannte Architektur: %s. Nötig ist amd64."
 T_en[arch_unbekannt]="Unknown architecture: %s. amd64 is required."
 T_de[debian13]="Debian 13 erkannt."
 T_en[debian13]="Debian 13 detected."
-T_de[debian12]="Debian 12 erkannt — unterstuetzt, Debian 13 ist empfohlen."
+T_de[debian12]="Debian 12 erkannt — unterstützt, Debian 13 ist empfohlen."
 T_en[debian12]="Debian 12 detected — supported, Debian 13 is recommended."
 T_de[ubuntu]="Ubuntu erkannt (%s)."
 T_en[ubuntu]="Ubuntu detected (%s)."
-T_de[ubuntu_hinweis]="   matrix.org liefert zwar Pakete fuer Ubuntu, aber dieser Installer ist
-   darauf nicht geprueft worden. Ungepruefte Zusagen gibt es hier nicht.
+T_de[ubuntu_hinweis]="   matrix.org liefert zwar Pakete für Ubuntu, aber dieser Installer ist
+   darauf nicht geprüft worden. Ungeprüfte Zusagen gibt es hier nicht.
    Nimm Debian 13 — oder melde dich, wenn du es auf Ubuntu probiert hast."
 T_en[ubuntu_hinweis]="   matrix.org does ship packages for Ubuntu, but this installer has not
    been tested on it. There are no untested promises here.
    Use Debian 13 — or get in touch if you have tried it on Ubuntu."
-T_de[ubuntu_ungeprueft]="Ungeprueftes System: %s"
+T_de[ubuntu_ungeprueft]="Ungeprüftes System: %s"
 T_en[ubuntu_ungeprueft]="Untested system: %s"
-T_de[system_falsch]="Debian 12 oder 13 noetig, gefunden: %s"
+T_de[system_falsch]="Debian 12 oder 13 nötig, gefunden: %s"
 T_en[system_falsch]="Debian 12 or 13 required, found: %s"
 T_de[ram_zu_wenig]="Zu wenig Arbeitsspeicher: %s MB. Mindestens 2 GB, empfohlen 8 GB."
 T_en[ram_zu_wenig]="Not enough memory: %s MB. At least 2 GB, 8 GB recommended."
-T_de[ram_knapp]="WARNUNG: nur %s MB RAM — fuer wenige Nutzer ok, wird bei Wachstum eng."
+T_de[ram_knapp]="WARNUNG: nur %s MB RAM — für wenige Nutzer ok, wird bei Wachstum eng."
 T_en[ram_knapp]="WARNING: only %s MB RAM — fine for a few users, gets tight with growth."
 T_de[platz_zu_wenig]="Zu wenig Platz: %s GB frei. Mindestens 20 GB einplanen."
 T_en[platz_zu_wenig]="Not enough disk space: %s GB free. Plan for at least 20 GB."
-T_de[ip_unbekannt]="Die eigene oeffentliche Adresse ist nicht ermittelbar — keine Internetverbindung?"
+T_de[ip_unbekannt]="Die eigene öffentliche Adresse ist nicht ermittelbar — keine Internetverbindung?"
 T_en[ip_unbekannt]="The server's public address cannot be determined — no internet connection?"
-T_de[ip_oeffentlich]="Oeffentliche Adresse: %s"
+T_de[ip_oeffentlich]="Öffentliche Adresse: %s"
 T_en[ip_oeffentlich]="Public address: %s"
 T_de[ip_lokal]="Lokale Adresse: %s (der Server steht hinter einem Router)"
 T_en[ip_lokal]="Local address: %s (the server is behind a router)"
-T_de[direkt_am_netz]="Der Server haengt direkt am Internet."
+T_de[direkt_am_netz]="Der Server hängt direkt am Internet."
 T_en[direkt_am_netz]="The server is directly on the internet."
-T_de[dns_loest_nicht]="loest nicht auf"
+T_de[dns_loest_nicht]="löst nicht auf"
 T_en[dns_loest_nicht]="does not resolve"
 T_de[dns_erwartet]="erwartet %s"
 T_en[dns_erwartet]="expected %s"
 T_de[dns_woanders_proxy]="Hinweis: diese Namen zeigen woanders hin (hinter einem Proxy erwartet):"
 T_en[dns_woanders_proxy]="Note: these names point elsewhere (expected behind a proxy):"
-T_de[dns_nicht_aufloesbar]="Diese Namen loesen nicht auf:"
+T_de[dns_nicht_aufloesbar]="Diese Namen lösen nicht auf:"
 T_en[dns_nicht_aufloesbar]="These names do not resolve:"
 T_de[dns_zeigen_nicht_hierher]="Diese Namen zeigen nicht auf diesen Server:"
 T_en[dns_zeigen_nicht_hierher]="These names do not point to this server:"
-T_de[dns_hinweis]="   Lege die A-Eintraege an und warte, bis sie sichtbar sind (meist wenige Minuten).
-   Ohne sie koennen keine Zertifikate ausgestellt werden - auch hinter einem
-   Proxy muessen die Namen oeffentlich vorhanden sein."
+T_de[dns_hinweis]="   Lege die A-Einträge an und warte, bis sie sichtbar sind (meist wenige Minuten).
+   Ohne sie können keine Zertifikate ausgestellt werden - auch hinter einem
+   Proxy müssen die Namen öffentlich vorhanden sein."
 T_en[dns_hinweis]="   Create the A records and wait until they are visible (usually a few minutes).
    Without them no certificates can be issued - even behind a proxy the
    names must exist publicly."
 T_de[dns_nicht_so_weit]="DNS ist noch nicht so weit."
 T_en[dns_nicht_so_weit]="DNS is not ready yet."
-T_de[dns_ok_proxy]="Alle sechs Namen loesen auf. TLS uebernimmt der vorgelagerte Proxy."
+T_de[dns_ok_proxy]="Alle sechs Namen lösen auf. TLS übernimmt der vorgelagerte Proxy."
 T_en[dns_ok_proxy]="All six names resolve. TLS is handled by the upstream proxy."
 T_de[dns_ok]="Alle sechs Namen zeigen hierher."
 T_en[dns_ok]="All six names point here."
-T_de[port_belegt]="Port %s ist schon belegt. Laeuft hier bereits ein Webserver?"
+T_de[port_belegt]="Port %s ist schon belegt. Läuft hier bereits ein Webserver?"
 T_en[port_belegt]="Port %s is already in use. Is a web server already running here?"
-T_de[ports_eigener_nginx]="Port(e)%s haelt der nginx aus einem frueheren Lauf — in Ordnung."
+T_de[ports_eigener_nginx]="Port(e)%s hält der nginx aus einem früheren Lauf — in Ordnung."
 T_en[ports_eigener_nginx]="Port(s)%s are held by the nginx from an earlier run — fine."
 T_de[ports_frei]="Port(e) %s sind frei."
 T_en[ports_frei]="Port(s) %s are free."
-T_de[voraussetzungen_ok]="   Voraussetzungen erfuellt."
+T_de[voraussetzungen_ok]="   Voraussetzungen erfüllt."
 T_en[voraussetzungen_ok]="   Prerequisites met."
 
 # Pakete
 T_de[s_pakete]="Pakete installieren"
 T_en[s_pakete]="Installing packages"
-T_de[pakete_fehlgeschlagen]="Paketinstallation fehlgeschlagen. Grund steht in %s (haeufig: apt ist noch durch automatische Updates gesperrt - kurz warten, erneut starten)"
-T_en[pakete_fehlgeschlagen]="Package installation failed. The reason is in %s (often: apt is still locked by automatic updates - wait a moment, start again)"
+T_de[pakete_fehlgeschlagen]="Paketinstallation fehlgeschlagen: %s Ganzes Protokoll: %s"
+T_en[pakete_fehlgeschlagen]="Package installation failed: %s Full log: %s"
+T_de[apt_grund_unbekannt]="Grund nicht erkannt."
+T_en[apt_grund_unbekannt]="Reason not recognised."
+T_de[apt_gesperrt]="apt ist noch durch automatische Updates gesperrt - kurz warten, dann erneut starten."
+T_en[apt_gesperrt]="apt is still locked by automatic updates - wait a moment, then start again."
 T_de[grundpakete]="Grundpakete installiert."
 T_en[grundpakete]="Base packages installed."
 T_de[paketquelle]="Paketquelle matrix.org eingerichtet (%s)."
@@ -229,7 +232,7 @@ T_en[pakete_fertig]="   Packages done."
 # Datenbank
 T_de[s_datenbank]="Datenbank einrichten"
 T_en[s_datenbank]="Setting up the database"
-T_de[db_existiert]="Datenbank 'synapse' existiert bereits — unveraendert."
+T_de[db_existiert]="Datenbank 'synapse' existiert bereits — unverändert."
 T_en[db_existiert]="Database 'synapse' already exists — unchanged."
 T_de[db_angelegt]="Datenbank angelegt (UTF8, Sortierung C)."
 T_en[db_angelegt]="Database created (UTF8, collation C)."
@@ -241,23 +244,23 @@ T_en[db_bereit]="   Database ready."
 # Synapse
 T_de[s_synapse]="Synapse einrichten"
 T_en[s_synapse]="Setting up Synapse"
-T_de[synapse_pakete_fehlgeschlagen]="Paketinstallation von Synapse fehlgeschlagen. Grund steht in %s (haeufig: apt ist noch durch automatische Updates gesperrt - kurz warten, erneut starten)"
-T_en[synapse_pakete_fehlgeschlagen]="Package installation of Synapse failed. The reason is in %s (often: apt is still locked by automatic updates - wait a moment, start again)"
+T_de[synapse_pakete_fehlgeschlagen]="Paketinstallation von Synapse fehlgeschlagen: %s Ganzes Protokoll: %s"
+T_en[synapse_pakete_fehlgeschlagen]="Package installation of Synapse failed: %s Full log: %s"
 T_de[synapse_installiert]="Synapse installiert."
 T_en[synapse_installiert]="Synapse installed."
 T_de[synapse_schon_da]="Synapse ist schon da."
 T_en[synapse_schon_da]="Synapse is already installed."
 T_de[geheimnisse_erzeugt]="Geheimnisse erzeugt."
 T_en[geheimnisse_erzeugt]="Secrets generated."
-T_de[dbpw_nicht_in_yaml]="Datenbankpasswort nicht auffindbar: /root/.synapse_db_pw fehlt, %s enthaelt keins."
+T_de[dbpw_nicht_in_yaml]="Datenbankpasswort nicht auffindbar: /root/.synapse_db_pw fehlt, %s enthält keins."
 T_en[dbpw_nicht_in_yaml]="Database password not found: /root/.synapse_db_pw is missing, %s contains none."
-T_de[dbpw_uebernommen]="Datenbankpasswort aus %s uebernommen."
+T_de[dbpw_uebernommen]="Datenbankpasswort aus %s übernommen."
 T_en[dbpw_uebernommen]="Database password taken from %s."
 T_de[dbpw_fehlt]="Datenbankpasswort nicht auffindbar: /root/.synapse_db_pw fehlt, obwohl die Datenbank 'synapse' existiert. Neu setzen: su - postgres -c \"psql -qc \\\"ALTER USER synapse_user WITH PASSWORD '<neu>';\\\"\" und das Passwort in /root/.synapse_db_pw ablegen."
 T_en[dbpw_fehlt]="Database password not found: /root/.synapse_db_pw is missing although the database 'synapse' exists. Set a new one: su - postgres -c \"psql -qc \\\"ALTER USER synapse_user WITH PASSWORD '<new>';\\\"\" and store the password in /root/.synapse_db_pw."
 T_de[synapse_startet_nicht]="Synapse startet nicht. Siehe: journalctl -u matrix-synapse -n 50"
 T_en[synapse_startet_nicht]="Synapse does not start. See: journalctl -u matrix-synapse -n 50"
-T_de[synapse_laeuft]="Synapse laeuft (Servername %s)."
+T_de[synapse_laeuft]="Synapse läuft (Servername %s)."
 T_en[synapse_laeuft]="Synapse is running (server name %s)."
 T_de[synapse_bereit]="   Synapse bereit."
 T_en[synapse_bereit]="   Synapse ready."
@@ -269,7 +272,7 @@ T_de[nginx_fehlerhaft]="nginx-Konfiguration fehlerhaft."
 T_en[nginx_fehlerhaft]="nginx configuration is faulty."
 T_de[zertifikat_fehlgeschlagen]="Zertifikat konnte nicht ausgestellt werden. Siehe %s"
 T_en[zertifikat_fehlgeschlagen]="Certificate could not be issued. See %s"
-T_de[zertifikat_ausgestellt]="Zertifikat fuer sechs Namen ausgestellt."
+T_de[zertifikat_ausgestellt]="Zertifikat für sechs Namen ausgestellt."
 T_en[zertifikat_ausgestellt]="Certificate issued for six names."
 T_de[zertifikat_existiert]="Zertifikat existiert bereits."
 T_en[zertifikat_existiert]="Certificate already exists."
@@ -279,21 +282,21 @@ T_de[web_bereit]="   Web bereit."
 T_en[web_bereit]="   Web ready."
 
 # TURN
-T_de[s_turn]="coturn fuer Sprach- und Videoanrufe"
+T_de[s_turn]="coturn für Sprach- und Videoanrufe"
 T_en[s_turn]="coturn for voice and video calls"
-T_de[turn_unverschluesselt]="unverschluesselt auf 3478 (kein Zertifikat auf diesem Rechner)"
+T_de[turn_unverschluesselt]="unverschlüsselt auf 3478 (kein Zertifikat auf diesem Rechner)"
 T_en[turn_unverschluesselt]="unencrypted on 3478 (no certificate on this machine)"
 T_de[turn_ports]="Ports 3478 und 5349"
 T_en[turn_ports]="ports 3478 and 5349"
 T_de[coturn_startet_nicht]="coturn startet nicht. Siehe: journalctl -u coturn -n 30"
 T_en[coturn_startet_nicht]="coturn does not start. See: journalctl -u coturn -n 30"
-T_de[coturn_laeuft]="coturn laeuft (%s, Weiterleitung 49160-49200)."
+T_de[coturn_laeuft]="coturn läuft (%s, Weiterleitung 49160-49200)."
 T_en[coturn_laeuft]="coturn is running (%s, relay 49160-49200)."
 T_de[relais_adresse]="Relais-Adresse: %s"
 T_en[relais_adresse]="Relay address: %s"
 T_de[router_handarbeit]="   Noch eine Handarbeit am Router:"
 T_en[router_handarbeit]="   One more manual step on the router:"
-T_de[router_hinweis]="   Diese Ports muessen auf %s weitergeleitet werden,
+T_de[router_hinweis]="   Diese Ports müssen auf %s weitergeleitet werden,
    sonst kommen Anrufe zwischen verschiedenen Netzen nicht zustande:
      3478        TCP und UDP
      5349        TCP und UDP
@@ -319,7 +322,7 @@ T_en[element_bereit]="   Element ready."
 # Einladung
 T_de[s_einladung]="Einladungsseite"
 T_en[s_einladung]="Invitation page"
-T_de[synapse_nicht_eingerichtet]="Synapse ist noch nicht eingerichtet (/etc/matrix-synapse/conf.d/05-secrets.yaml fehlt oder enthaelt kein registration_shared_secret). Erst den vollstaendigen Installer ohne --nur laufen lassen."
+T_de[synapse_nicht_eingerichtet]="Synapse ist noch nicht eingerichtet (/etc/matrix-synapse/conf.d/05-secrets.yaml fehlt oder enthält kein registration_shared_secret). Erst den vollständigen Installer ohne --nur laufen lassen."
 T_en[synapse_nicht_eingerichtet]="Synapse is not set up yet (/etc/matrix-synapse/conf.d/05-secrets.yaml is missing or contains no registration_shared_secret). Run the full installer without --nur first."
 T_de[dienstkonto_fehlgeschlagen]="Dienstkonto @einladungsdienst konnte nicht angelegt werden. Grund steht in %s"
 T_en[dienstkonto_fehlgeschlagen]="Service account @einladungsdienst could not be created. The reason is in %s"
@@ -337,13 +340,13 @@ T_de[s_sicherung]="Sicherung"
 T_en[s_sicherung]="Backup"
 T_de[sicherung_erreichbar]="Sicherungsziel erreichbar, Verzeichnis angelegt."
 T_en[sicherung_erreichbar]="Backup target reachable, directory created."
-T_de[sicherung_taeglich_nach]="Taeglich 03:30 nach %s"
+T_de[sicherung_taeglich_nach]="Täglich 03:30 nach %s"
 T_en[sicherung_taeglich_nach]="Daily at 03:30 to %s"
 T_de[sicherung_eingerichtet]="   Sicherung eingerichtet."
 T_en[sicherung_eingerichtet]="   Backup set up."
 T_de[sicherung_nicht_erreichbar]="   Sicherungsziel %s ist nicht erreichbar - der Timer wird NICHT gestartet."
 T_en[sicherung_nicht_erreichbar]="   Backup target %s is not reachable - the timer is NOT started."
-T_de[sicherung_schluessel_hinweis]="   Diesen oeffentlichen Schluessel beim Ziel hinterlegen (authorized_keys):
+T_de[sicherung_schluessel_hinweis]="   Diesen öffentlichen Schlüssel beim Ziel hinterlegen (authorized_keys):
      %s
    Lauscht das Ziel nicht auf Port 22 (Hetzner Storage Box: 23), in /root/.ssh/config eintragen:
      Host %s
@@ -355,33 +358,33 @@ T_en[sicherung_schluessel_hinweis]="   Register this public key at the target (a
      Host %s
        Port 23
    Then again:  ./install.sh ... --nur sicherung      Details: %s"
-T_de[sicherung_oertlich]="Taeglich 03:30 nach /var/backups/messenger (14 Tage). Auswaerts: --sicherung angeben."
+T_de[sicherung_oertlich]="Täglich 03:30 nach /var/backups/messenger (14 Tage). Auswärts: --sicherung angeben."
 T_en[sicherung_oertlich]="Daily at 03:30 to /var/backups/messenger (14 days). Off-site: pass --sicherung."
 
 # Aktualisierungen
-T_de[s_updates]="Aktualisierungen: taeglich pruefen, einspielen nur auf Klick"
+T_de[s_updates]="Aktualisierungen: täglich prüfen, einspielen nur auf Klick"
 T_en[s_updates]="Updates: check daily, install only on a click"
 T_de[benutzer_einladung_fehlt]="Benutzer 'einladung' fehlt - erst den Abschnitt einladung laufen lassen."
 T_en[benutzer_einladung_fehlt]="User 'einladung' is missing - run the einladung section first."
 T_de[service_nachgezogen]="einladung.service nachgezogen (Schreibrecht auf den Auftragsordner)."
 T_en[service_nachgezogen]="einladung.service updated (write access to the job folder)."
-T_de[updates_timer]="Taegliche Pruefung ab 06:00, Einspielen nur auf Klick in der Verwaltung."
+T_de[updates_timer]="Tägliche Prüfung ab 06:00, Einspielen nur auf Klick in der Verwaltung."
 T_en[updates_timer]="Daily check from 06:00, installing only on a click in the admin page."
-T_de[erste_pruefung_fehlgeschlagen]="WARNUNG: erste Pruefung fehlgeschlagen - der Timer versucht es taeglich erneut. Siehe %s"
+T_de[erste_pruefung_fehlgeschlagen]="WARNUNG: erste Prüfung fehlgeschlagen - der Timer versucht es täglich erneut. Siehe %s"
 T_en[erste_pruefung_fehlgeschlagen]="WARNING: first check failed - the timer retries daily. See %s"
 T_de[updates_eingerichtet]="   Aktualisierungen eingerichtet."
 T_en[updates_eingerichtet]="   Updates set up."
 
 # Härtung
-T_de[s_haertung]="Haertung"
+T_de[s_haertung]="Härtung"
 T_en[s_haertung]="Hardening"
 T_de[firewall]="Firewall: offen sind SSH (Port %s), Web und Anrufe."
 T_en[firewall]="Firewall: SSH (port %s), web and calls are open."
-T_de[fail2ban]="fail2ban aktiv fuer SSH (Port %s)."
+T_de[fail2ban]="fail2ban aktiv für SSH (Port %s)."
 T_en[fail2ban]="fail2ban active for SSH (port %s)."
 T_de[sicherheitsupdates]="Sicherheitsaktualisierungen automatisch, der Rest bewusst."
 T_en[sicherheitsupdates]="Security updates install automatically; everything else only when you choose."
-T_de[haertung_fertig]="   Haertung fertig."
+T_de[haertung_fertig]="   Härtung fertig."
 T_en[haertung_fertig]="   Hardening done."
 
 # Abschluss
@@ -391,7 +394,11 @@ T_de[verwalter_fehlgeschlagen]="Verwalterkonto @%s:%s konnte nicht angelegt werd
 T_en[verwalter_fehlgeschlagen]="Admin account @%s:%s could not be created. The reason is in %s"
 T_de[verwalter_angelegt]="Verwalterkonto @%s:%s angelegt."
 T_en[verwalter_angelegt]="Admin account @%s:%s created."
-T_de[verwalter_pw_uebernommen]="Verwalterkonto gab es schon — Passwort aus der vorigen Datei uebernommen."
+T_de[erstanmeldung_eingerichtet]="Konto im Chat gesperrt bis zur Erstanmeldung in der Verwaltung (eigenes Passwort, zweiter Faktor)."
+T_en[erstanmeldung_eingerichtet]="Account locked in the chat until the first sign-in on the admin page (own password, second factor)."
+T_de[erstanmeldung_fehlgeschlagen]="Erstanmeldung konnte nicht eingerichtet werden. Grund steht in %s"
+T_en[erstanmeldung_fehlgeschlagen]="Could not set up the first sign-in. The reason is in %s"
+T_de[verwalter_pw_uebernommen]="Verwalterkonto gab es schon — Passwort aus der vorigen Datei übernommen."
 T_en[verwalter_pw_uebernommen]="Admin account already existed — password taken from the previous file."
 T_de[pw_unbekannt]="(unbekannt — neu setzen, siehe PASSWORT NEU SETZEN unten)"
 T_en[pw_unbekannt]="(unknown — set a new one, see RESET PASSWORD below)"
@@ -413,7 +420,7 @@ T_de[ok]="OK"
 T_en[ok]="OK"
 T_de[fehlt]="FEHLT"
 T_en[fehlt]="FAIL"
-T_de[geprueft_oertlich]="Geprueft wird oertlich — der Weg von aussen haengt am Proxy."
+T_de[geprueft_oertlich]="Geprüft wird örtlich — der Weg von außen hängt am Proxy."
 T_en[geprueft_oertlich]="Checked locally — the path from outside depends on the proxy."
 T_de[nk_synapse]="Synapse antwortet"
 T_en[nk_synapse]="Synapse responds"
@@ -429,19 +436,19 @@ T_de[nk_einladung]="Einladungsseite"
 T_en[nk_einladung]="Invitation page"
 T_de[nk_verwaltung]="Verwaltung antwortet"
 T_en[nk_verwaltung]="Admin page responds"
-T_de[nk_coturn]="coturn laeuft"
+T_de[nk_coturn]="coturn läuft"
 T_en[nk_coturn]="coturn running"
-T_de[nk_dienst]="Einladungsdienst laeuft"
+T_de[nk_dienst]="Einladungsdienst läuft"
 T_en[nk_dienst]="Invitation service running"
 T_de[nk_firewall]="Firewall aktiv"
 T_en[nk_firewall]="Firewall active"
 T_de[nk_sicherung]="Sicherungsziel erreichbar"
 T_en[nk_sicherung]="Backup target reachable"
-T_de[pruefungen_fehlgeschlagen]="%s Pruefung(en) fehlgeschlagen. Der Server steht trotzdem,"
+T_de[pruefungen_fehlgeschlagen]="%s Prüfung(en) fehlgeschlagen. Der Server steht trotzdem,"
 T_en[pruefungen_fehlgeschlagen]="%s check(s) failed. The server is up anyway,"
 T_de[zugangsdaten_liegen]="die Zugangsdaten liegen in %s. Protokoll: %s"
 T_en[zugangsdaten_liegen]="the credentials are in %s. Log: %s"
-T_de[fertig]="Fertig. Alle Pruefungen bestanden."
+T_de[fertig]="Fertig. Alle Prüfungen bestanden."
 T_en[fertig]="Done. All checks passed."
 T_de[schluss_adressen]="   Chat:        https://%s
    Einladungen: https://%s
@@ -450,14 +457,14 @@ T_en[schluss_adressen]="   Chat:        https://%s
    Invitations: https://%s
    User IDs:    @name:%s"
 T_de[proxy_hinweis]="   Dieser Server liefert Klartext auf Port 80. Im vorgelagerten Proxy
-   fuer diese fuenf Namen je einen Eintrag auf  http://%s:80  anlegen:
+   für diese fünf Namen je einen Eintrag auf  http://%s:80  anlegen:
      %s  %s  %s  %s  %s
-   Das Zertifikat gehoert dorthin, nicht hierher."
+   Das Zertifikat gehört dorthin, nicht hierher."
 T_en[proxy_hinweis]="   This server serves plain HTTP (unencrypted) on port 80. In the upstream proxy,
    create one entry per name for these five names, pointing to  http://%s:80
      %s  %s  %s  %s  %s
    The certificate belongs there, not here."
-T_de[schluss_zugang]="   Zugangsdaten stehen in %s — lies sie, aendere das Passwort, loesche die Datei."
+T_de[schluss_zugang]="   Zugangsdaten stehen in %s — lies sie, ändere das Passwort, lösche die Datei."
 T_en[schluss_zugang]="   Credentials are in %s — read them, change the password, delete the file."
 
 # txt <schluessel> [werte...]: Text in der gewählten Sprache, Platzhalter per printf.
@@ -484,6 +491,24 @@ melde(){ printf '   %s\n' "$*"; echo "[$(date '+%F %T')]    $*" >>"$LOG"; }
 ende()  { rot "$(txt abbruch): $*"; echo "[$(date '+%F %T')] $(txt abbruch): $*" >>"$LOG"; exit 1; }
 
 hilfe() { sag hilfe; }
+
+# Grund eines gescheiterten apt-Laufs in einer Zeile, damit er auf dem
+# Bildschirm und auf der Einrichtungsseite steht, nicht nur im Protokoll.
+# Nur das Ende des Protokolls: weiter oben stehen Fehler früherer Läufe.
+apt_grund() {
+  local z
+  # dpkg schreibt den eigentlichen Grund eingerückt in die Zeile danach;
+  # "E: Sub-process ... returned an error code" sagt nichts Neues.
+  z=$(tail -n 80 "$LOG" | grep -E -A1 '^(E: |dpkg: )' | grep -vE '^(--|E: Sub-process)' \
+      | tail -n 3 | sed 's/^ *//' | tr '\n' ' ')
+  if printf '%s' "$z" | grep -qiE 'could not get lock|lock-frontend|Sperre'; then
+    txt apt_gesperrt
+  elif [ -n "$z" ]; then
+    printf '%s' "$z"
+  else
+    txt apt_grund_unbekannt
+  fi
+}
 
 # Die Sprache zuerst, damit schon die Hilfe und ein Abbruch beim Lesen der
 # übrigen Angaben in der gewünschten Sprache erscheinen.
@@ -709,7 +734,7 @@ apt-get install -y -qq \
   python3 python3-venv python3-pyotp python3-qrcode python3-cryptography \
   ufw fail2ban unattended-upgrades \
   rsync jq >>"$LOG" 2>&1 \
-  || ende "$(txt pakete_fehlgeschlagen "$LOG")"
+  || ende "$(txt pakete_fehlgeschlagen "$(apt_grund)" "$LOG")"
 melde "$(txt grundpakete)"
 
 if [ ! -f /usr/share/keyrings/matrix-org-archive-keyring.gpg ]; then
@@ -758,7 +783,7 @@ if ! dpkg -l matrix-synapse-py3 2>/dev/null | grep -q '^ii'; then
   echo "matrix-synapse-py3 matrix-synapse/server-name string $DOMAIN" | debconf-set-selections
   echo "matrix-synapse-py3 matrix-synapse/report-stats boolean false" | debconf-set-selections
   apt-get install -y -qq matrix-synapse-py3 >>"$LOG" 2>&1 \
-    || ende "$(txt synapse_pakete_fehlgeschlagen "$LOG")"
+    || ende "$(txt synapse_pakete_fehlgeschlagen "$(apt_grund)" "$LOG")"
   melde "$(txt synapse_installiert)"
 else
   melde "$(txt synapse_schon_da)"
@@ -1259,7 +1284,7 @@ if [ -z "\$ZIEL" ] || [ "\$AUSWAERTS" = nein ]; then
   find /var/backups/messenger -maxdepth 1 -type d -mtime +14 -exec rm -rf {} + 2>/dev/null || true
 fi
 if [ "\$AUSWAERTS" = nein ]; then
-  echo "Sicherungsziel \$ZIEL nicht erreichbar - Stand liegt oertlich in /var/backups/messenger/\$STAND" >&2
+  echo "Sicherungsziel \$ZIEL nicht erreichbar - Stand liegt örtlich in /var/backups/messenger/\$STAND" >&2
   exit 1
 fi
 EOF
@@ -1274,7 +1299,7 @@ ExecStart=/usr/local/sbin/messenger-sicherung.sh ${SICHERUNG_ZIEL:-}
 EOF
 cat > /etc/systemd/system/messenger-sicherung.timer <<'EOF'
 [Unit]
-Description=Taegliche Sicherung des Messengers
+Description=Tägliche Sicherung des Messengers
 [Timer]
 OnCalendar=*-*-* 03:30:00
 RandomizedDelaySec=900
@@ -1346,14 +1371,14 @@ fi
 
 cat > /etc/systemd/system/messenger-update-pruefen.service <<'EOF'
 [Unit]
-Description=Pruefen, ob Aktualisierungen fuer den Messenger vorliegen
+Description=Prüfen, ob Aktualisierungen für den Messenger vorliegen
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/messenger-update-pruefen.sh
 EOF
 cat > /etc/systemd/system/messenger-update-pruefen.timer <<'EOF'
 [Unit]
-Description=Taegliche Pruefung auf Aktualisierungen (nur pruefen, nie einspielen)
+Description=Tägliche Prüfung auf Aktualisierungen (nur prüfen, nie einspielen)
 [Timer]
 OnCalendar=*-*-* 06:00:00
 RandomizedDelaySec=3600
@@ -1483,6 +1508,15 @@ if ! su - postgres -c "psql -tAc \"SELECT 1 FROM users WHERE name='@$VERWALTER:$
   register_new_matrix_user -u "$VERWALTER" -p "$APW" -a -k "$GEHEIM" http://127.0.0.1:8008 >>"$LOG" 2>&1 \
     || ende "$(txt verwalter_fehlgeschlagen "$VERWALTER" "$DOMAIN" "$LOG")"
   melde "$(txt verwalter_angelegt "$VERWALTER" "$DOMAIN")"
+  # Erstanmeldung: Das Startpasswort gilt nur in der Verwaltung, im Chat ist das
+  # Konto gesperrt, bis dort ein eigenes Passwort steht. Erst den Eintrag, dann
+  # die Sperre - umgekehrt bliebe bei einem Fehler ein Konto ohne Zugang.
+  printf '%s\n' "$APW" | python3 /opt/einladung/einladung.py --erstanmeldung "@$VERWALTER:$DOMAIN" >/dev/null 2>>"$LOG" \
+    && curl -fsS -o /dev/null -X PUT -H "Authorization: Bearer $(cat /etc/einladung/admin-token)" \
+         -H 'Content-Type: application/json' -d '{"locked":true}' \
+         "http://127.0.0.1:8008/_synapse/admin/v2/users/@$VERWALTER:$DOMAIN" >>"$LOG" 2>&1 \
+    || ende "$(txt erstanmeldung_fehlgeschlagen "$LOG")"
+  melde "$(txt erstanmeldung_eingerichtet)"
 elif [ -n "$ALTES_PW" ] && [ "${ALTES_PW#(}" = "$ALTES_PW" ]; then
   APW="$ALTES_PW"
   melde "$(txt verwalter_pw_uebernommen)"
@@ -1508,8 +1542,8 @@ Eingerichtet $(date '+%d.%m.%Y %H:%M')
 ADRESSEN
   Chat im Browser   https://$CHAT_HOST
   Einladungen       https://$EINLADUNG_HOST
-  Verwaltung        https://$VERWALTUNG_HOST   (gleiche Anmeldung, nur fuer Verwalter)
-  Fuer die App      Server: $DOMAIN
+  Verwaltung        https://$VERWALTUNG_HOST   (gleiche Anmeldung, nur für Verwalter)
+  Für die App       Server: $DOMAIN
 
 DEIN KONTO
   Benutzer   $VERWALTER
@@ -1517,24 +1551,26 @@ DEIN KONTO
   Passwort   $APW
 
 SICHERUNG
-  Schluessel liegt in /root/.sicherung_passwort
+  Schlüssel liegt in /root/.sicherung_passwort
   OHNE IHN IST KEINE SICHERUNG WIEDERHERSTELLBAR. Weg damit ins Passwortdepot.
 
 ERSTE SCHRITTE
-  1. Dieses Passwort aendern und diese Datei loeschen.
+  1. Erstanmeldung auf https://$VERWALTUNG_HOST mit diesem Passwort: eigenes
+     Passwort festlegen, zweiten Faktor einrichten. Bis dahin ist das Konto im
+     Chat gesperrt. Danach gilt dieses Passwort nicht mehr - Datei löschen.
   2. Auf https://$EINLADUNG_HOST anmelden und Einladungen verschicken.
   3. App: FluffyChat oder Element X, Server "$DOMAIN" eintragen.
-  3b. Kundenanleitung liegt in $ANLEITUNG - im Browser oeffnen, Strg+P, als PDF sichern.
+  3b. Kundenanleitung liegt in $ANLEITUNG - im Browser öffnen, Strg+P, als PDF sichern.
   4. ZWEITEN FAKTOR EINRICHTEN: https://$VERWALTUNG_HOST -> "Zweiter Faktor".
-     Diese Seite kann Konten loeschen - mit nur einem Passwort davor ist das duenn.
+     Diese Seite kann Konten löschen - mit nur einem Passwort davor ist das dünn.
      Notausgang, falls das Telefon weg ist (als root auf diesem Server):
        python3 /opt/einladung/einladung.py --zweitfaktor-aus $VERWALTER
   5. Sprache der Seiten: $SPRACHE - in der Verwaltung umschaltbar (Karte "Sprache / Language").
 
-PASSWORT NEU SETZEN (als root auf diesem Server; geht so fuer jedes Konto)
-  register_new_matrix_user taugt dafuer NICHT - es legt nur neue Konten an.
-  Dieser Aufruf meldet nur die Matrix-Geraete ab. Eine laufende Sitzung auf der
-  Einladungs-/Verwaltungsseite endet damit NICHT - dafuer dort "Passwort neu" benutzen.
+PASSWORT NEU SETZEN (als root auf diesem Server; geht so für jedes Konto)
+  register_new_matrix_user taugt dafür NICHT - es legt nur neue Konten an.
+  Dieser Aufruf meldet nur die Matrix-Geräte ab. Eine laufende Sitzung auf der
+  Einladungs-/Verwaltungsseite endet damit NICHT - dafür dort "Passwort neu" benutzen.
   curl -s -X POST -H "Authorization: Bearer \$(cat /etc/einladung/admin-token)" \\
        -H 'Content-Type: application/json' \\
        -d '{"new_password":"NEUES-PASSWORT","logout_devices":true}' \\
@@ -1561,7 +1597,9 @@ BACKUP
   WITHOUT IT NO BACKUP CAN BE RESTORED. Put it into your password manager now.
 
 FIRST STEPS
-  1. Change this password and delete this file.
+  1. First sign-in at https://$VERWALTUNG_HOST with this password: choose your
+     own password, set up the second factor. Until then the account is locked
+     in the chat. Afterwards this password no longer works - delete this file.
   2. Log in at https://$EINLADUNG_HOST and send invitations.
   3. App: FluffyChat or Element X, enter server "$DOMAIN".
   3b. The customer guide is in $ANLEITUNG - open in a browser, Ctrl+P, save as PDF.

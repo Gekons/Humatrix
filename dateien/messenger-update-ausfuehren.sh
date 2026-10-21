@@ -28,7 +28,7 @@ export DEBIAN_FRONTEND=noninteractive
 # könnten sich sonst in apt verkeilen. Der zweite geht leer aus und sagt es.
 exec 9>"$SPERRE"
 if ! flock -n 9; then
-  echo "Eine Aktualisierung laeuft bereits - dieser Aufruf tut nichts." >&2
+  echo "Eine Aktualisierung läuft bereits - dieser Aufruf tut nichts." >&2
   exit 0
 fi
 
@@ -114,7 +114,7 @@ if [ -n "$synapse_nachher" ] && [ "$synapse_vorher" != "$synapse_nachher" ]; the
     FEHLER="$FEHLER Synapse-Neustart"
   fi
 else
-  sag "Synapse unveraendert (${synapse_nachher:-nicht installiert}), kein Neustart."
+  sag "Synapse unverändert (${synapse_nachher:-nicht installiert}), kein Neustart."
 fi
 
 # 3. Element
@@ -145,6 +145,6 @@ REGULAER_BEENDET=true       # ab hier schreibt der EXIT-Trap nichts mehr
 # Zum Schluss den Befund erneuern, damit die Verwaltung nicht weiter
 # "3 Pakete ausstehend" zeigt, obwohl sie gerade eingespielt wurden.
 if [ -x "$HIER/messenger-update-pruefen.sh" ]; then
-  "$HIER/messenger-update-pruefen.sh" || echo "Warnung: erneute Pruefung fehlgeschlagen." >&2
+  "$HIER/messenger-update-pruefen.sh" || echo "Warnung: erneute Prüfung fehlgeschlagen." >&2
 fi
 [ "$STATUS" = ok ]

@@ -164,9 +164,9 @@ FRITZ!Box click path, DynDNS, the six DNS records, the five proxy entries, the p
 firewall), then a check of the six DNS names that only continues when the installer
 would accept them, then the first admin account and who looks after the server, then a
 summary where every line can be changed. Then it runs the installer, shows each step
-and the log, and ends with the addresses, the account, the initial password, the backup
-key reminder, the customer guide and the operator guide. "Finish setup" turns the page
-off and closes its port.
+and the log, and ends with the initial password and the backup key, each with a copy
+button, on the encrypted version of the page. "Finish setup" turns the page off, closes
+its port and leads to the admin page for the first sign-in.
 
 What to know about the page:
 
@@ -295,6 +295,11 @@ system and no second password.
 <p align="center">
   <img src="dateien/bilder/en/06-zweitfaktor.png" width="380" alt="Second factor">
 </p>
+
+First sign-in: the installer creates the first admin account locked in Synapse. The
+initial password only works on the admin page, which asks for an own password first and
+then offers the second factor. It can be declined, but only after ticking "I understand
+that this is a risk". Only then is the account unlocked for the chat.
 
 TOTP, two-step login, secret stored encrypted, throttling after five failed attempts.
 It only becomes active after a valid code, so you cannot lock yourself out while

@@ -184,8 +184,9 @@ wiederherstellbar. Ins Passwortdepot, bevor du den Server das erste Mal vergisst
 
 Zeig ihm drei Dinge:
 
-1. Anmelden und Passwort ändern.
-2. Zweiten Faktor einrichten. Sein Konto kann Leute löschen.
+1. In der Verwaltung mit dem Startpasswort anmelden. Sie verlangt zuerst ein eigenes
+   Passwort; bis dahin ist das Konto im Chat gesperrt.
+2. Den zweiten Faktor einrichten, wenn die Seite ihn anbietet. Sein Konto kann Leute löschen.
 3. Eine Einladung verschicken, am besten an dich, damit er sieht, wie sie ankommt.
 
 Sag ihm außerdem, was du sehen kannst: dass jemand geschrieben hat, wann und mit wem,

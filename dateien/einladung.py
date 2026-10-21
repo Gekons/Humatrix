@@ -129,6 +129,12 @@ def ablage_vorbereiten():
         CREATE TABLE IF NOT EXISTS von_hand (
             kennung TEXT PRIMARY KEY       -- ueber die Verwaltung angelegt, gehoert zu keiner Einladung
         );
+        CREATE TABLE IF NOT EXISTS erstanmeldung (
+            nutzer TEXT PRIMARY KEY,
+            hash   TEXT NOT NULL,          -- scrypt des Start- bzw. neuen Passworts, nie Klartext
+            pw_neu INTEGER NOT NULL DEFAULT 0,
+            seit   INTEGER NOT NULL
+        );
         """)
         # Nachrüsten: bestehende Ablagen kennen die Spalte noch nicht
         spalten = {z[1] for z in v.execute('PRAGMA table_info(einladung)')}
@@ -530,6 +536,88 @@ def passwort_neu(kennung):
                   {'new_password': pw, 'logout_devices': True}, token=admin_token())
     sitzung_sperren(kennung)      # logout_devices trifft nur Matrix, nicht den Keks hier
     return pw
+
+
+# Erstanmeldung
+# Das erste Verwalterkonto legt der Installer in Synapse gesperrt an. In den Chat
+# kommt es erst, wenn hier ein eigenes Passwort und der zweite Faktor stehen.
+# Bis dahin prüft dieser Dienst das Passwort selbst gegen einen Hash, denn
+# Synapse lässt ein gesperrtes Konto nicht anmelden.
+
+def pw_hash(passwort):
+    salz = secrets.token_bytes(16)
+    h = hashlib.scrypt(passwort.encode(), salt=salz, n=2 ** 14, r=8, p=1)
+    return salz.hex() + ':' + h.hex()
+
+
+def pw_passt(passwort, gespeichert):
+    try:
+        salz, h = gespeichert.split(':')
+        soll = hashlib.scrypt(passwort.encode(), salt=bytes.fromhex(salz), n=2 ** 14, r=8, p=1)
+        return hmac.compare_digest(soll.hex(), h)
+    except Exception:
+        return False
+
+
+def passwort_stark(pw):
+    """Mindestens 12 Zeichen aus drei Zeichenarten - oder eine lange Passphrase ab 16."""
+    arten = sum(bool(re.search(m, pw)) for m in (r'[a-z]', r'[A-Z]', r'[0-9]', r'[^A-Za-z0-9]'))
+    return len(pw) >= 16 or (len(pw) >= 12 and arten >= 3)
+
+
+def erst_eintrag(nutzer):
+    with db() as v:
+        return v.execute('SELECT * FROM erstanmeldung WHERE nutzer=?', (nutzer,)).fetchone()
+
+
+def erst_kennung(eingabe):
+    """Kennung zu 'name' oder '@name:server', aber nur bei offener Erstanmeldung."""
+    kurz = (eingabe or '').strip().split(':')[0].lstrip('@').lower()
+    with db() as v:
+        for z in v.execute('SELECT nutzer FROM erstanmeldung'):
+            if z['nutzer'].split(':')[0].lstrip('@').lower() == kurz:
+                return z['nutzer']
+    return None
+
+
+def erst_passwort_setzen(nutzer, passwort):
+    matrix_aufruf('/_synapse/admin/v1/reset_password/' + urllib.parse.quote(nutzer),
+                  {'new_password': passwort, 'logout_devices': True}, token=admin_token())
+    with db() as v:
+        v.execute('UPDATE erstanmeldung SET hash=?, pw_neu=1 WHERE nutzer=?',
+                  (pw_hash(passwort), nutzer))
+    sitzung_sperren(nutzer)
+    protokoll('erst_passwort', nutzer)
+
+
+def erst_abschliessen(nutzer):
+    """Passwort und zweiter Faktor stehen: Sperre in Synapse aufheben, Eintrag weg."""
+    matrix_aufruf('/_synapse/admin/v2/users/' + urllib.parse.quote(nutzer),
+                  {'locked': False}, token=admin_token(), methode='PUT')
+    with db() as v:
+        v.execute('DELETE FROM erstanmeldung WHERE nutzer=?', (nutzer,))
+    protokoll('erst_fertig', nutzer)
+
+
+def pflicht_schritt(nutzer):
+    """Was ein Konto erledigen muss, bevor es irgendetwas anderes darf.
+
+    'passwort'    - Erstanmeldung, das Startpasswort gilt noch
+    'zweitfaktor' - Erstanmeldung, zweiter Faktor angeboten (einrichten oder ablehnen)
+    None          - nichts offen
+    """
+    e = erst_eintrag(nutzer)
+    if e and not e['pw_neu']:
+        return 'passwort'
+    if zf_stand(nutzer)[1]:
+        if e:
+            # Abbruch zwischen Einschalten und Entsperren: hier nachholen.
+            try:
+                erst_abschliessen(nutzer)
+            except Exception as f:
+                protokoll('erst_entsperren_fehlgeschlagen', nutzer, str(f)[:120])
+        return None
+    return 'zweitfaktor' if e else None
 
 
 def konto_sperren(kennung):
@@ -1062,6 +1150,37 @@ TEXTE = {
     'kein_verwalter_mehr': '{kurz} ist kein Verwalter mehr.',
     'server_abgelehnt': 'Der Server hat abgelehnt (HTTP {code}).',
     'nochmal': 'Das hat nicht geklappt. Bitte nochmal.',
+    # Erstanmeldung und Pflicht zum zweiten Faktor
+    'erst_titel': 'Erstanmeldung',
+    'erst_kopf': 'Eigenes Passwort festlegen',
+    'erst_schritt1': 'Schritt 1 von 2',
+    'erst_schritt2': 'Schritt 2 von 2',
+    'erst_unter': 'Das Startpasswort aus der Einrichtung gilt nur für diese erste Anmeldung. '
+                  'Danach folgt der zweite Faktor, erst dann ist das Konto im Chat nutzbar.',
+    'pw_neu_feld': 'Neues Passwort',
+    'pw_nochmal_feld': 'Neues Passwort wiederholen',
+    'pw_regel': 'Mindestens 12 Zeichen mit Groß- und Kleinbuchstaben, Ziffern oder Sonderzeichen '
+                '— oder eine Passphrase ab 16 Zeichen.',
+    'pw_ungleich': 'Die beiden Eingaben stimmen nicht überein.',
+    'pw_zu_schwach': 'Das Passwort ist zu schwach.',
+    'pw_wie_vorher': 'Bitte ein anderes Passwort als das Startpasswort wählen.',
+    'zf_angebot_text': 'Als Verwalter kannst du Konten anlegen, sperren und Passwörter ändern. '
+                       'Ein zweiter Faktor schützt das, falls dein Passwort einmal in falsche Hände gerät.',
+    'zf_ablehnen_kopf': 'Ohne zweiten Faktor weiter',
+    'zf_ablehnen_text': 'Dann schützt nur dein Passwort die Verwaltung. Einrichten kannst du den zweiten '
+                        'Faktor später jederzeit unter Verwaltung → Zweiter Faktor.',
+    'zf_risiko_ok': 'Ich habe verstanden, dass das ein Risiko ist.',
+    'zf_ablehnen': 'Ohne zweiten Faktor fortfahren',
+    'erst_fertig_ohne_zf': 'Dein Passwort steht, und dein Konto ist jetzt auch im Chat freigeschaltet. '
+                           'Ein zweiter Faktor ist nicht eingerichtet; die Verwaltung erinnert dich daran.',
+    'erst_fertig_kopf': 'Fertig eingerichtet',
+    'erst_fertig_text': 'Passwort und zweiter Faktor stehen. Dein Konto ist jetzt auch im Chat freigeschaltet. '
+                        'Melde dich dort mit deinem neuen Passwort an.',
+    'erst_zum_chat': 'Weiter zum Chat',
+    'erst_zur_verwaltung': 'Zur Verwaltung',
+    'erst_entsperren_fehler': 'Der zweite Faktor ist eingerichtet, aber der Chat-Server hat das Konto '
+                              'nicht freigeschaltet. Bitte gleich nochmal versuchen.',
+    'nochmal_versuchen': 'Nochmal versuchen',
     # Kommandozeile (Notausgang für den Betreiber)
     'cli_kein_zf': '{nutzer}: kein zweiter Faktor hinterlegt.',
     'cli_zf_entfernt': '{nutzer}: zweiter Faktor entfernt. Beim nächsten Anmelden reicht das Passwort.',
@@ -1330,6 +1449,37 @@ TEXTE = {
     'kein_verwalter_mehr': '{kurz} is no longer an admin.',
     'server_abgelehnt': 'The server refused (HTTP {code}).',
     'nochmal': "That didn't work. Please try again.",
+    # Erstanmeldung und Pflicht zum zweiten Faktor
+    'erst_titel': 'First sign-in',
+    'erst_kopf': 'Choose your own password',
+    'erst_schritt1': 'Step 1 of 2',
+    'erst_schritt2': 'Step 2 of 2',
+    'erst_unter': 'The initial password from the setup only works for this first sign-in. '
+                  'The second factor comes next; only then can the account be used in the chat.',
+    'pw_neu_feld': 'New password',
+    'pw_nochmal_feld': 'Repeat new password',
+    'pw_regel': 'At least 12 characters with upper and lower case, digits or symbols '
+                '— or a passphrase of 16 characters or more.',
+    'pw_ungleich': 'The two entries do not match.',
+    'pw_zu_schwach': 'The password is too weak.',
+    'pw_wie_vorher': 'Please choose a password other than the initial one.',
+    'zf_angebot_text': 'As an admin you can create and block accounts and change passwords. '
+                       'A second factor protects that in case your password ever ends up in the wrong hands.',
+    'zf_ablehnen_kopf': 'Continue without a second factor',
+    'zf_ablehnen_text': 'Then only your password protects the admin page. You can set up the second '
+                        'factor at any time later under Admin → Second factor.',
+    'zf_risiko_ok': 'I understand that this is a risk.',
+    'zf_ablehnen': 'Continue without second factor',
+    'erst_fertig_ohne_zf': 'Your password is set and your account is now enabled in the chat as well. '
+                           'No second factor is set up; the admin page will remind you.',
+    'erst_fertig_kopf': 'All set',
+    'erst_fertig_text': 'Password and second factor are in place. Your account is now enabled in the chat as well. '
+                        'Sign in there with your new password.',
+    'erst_zum_chat': 'Continue to the chat',
+    'erst_zur_verwaltung': 'Go to the admin page',
+    'erst_entsperren_fehler': 'The second factor is set up, but the chat server did not enable the account. '
+                              'Please try again in a moment.',
+    'nochmal_versuchen': 'Try again',
     # Kommandozeile (Notausgang für den Betreiber)
     'cli_kein_zf': '{nutzer}: no second factor stored.',
     'cli_zf_entfernt': '{nutzer}: second factor removed. The password alone is enough at the next login.',
@@ -1477,6 +1627,10 @@ button.gefahrgross{background:var(--warn)}
 .marke{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--eigen);
        border:1px solid var(--eigen);border-radius:20px;padding:1px 8px;margin-left:6px}
 .ok{color:var(--eigen);font-weight:600}
+.staerke{display:flex;gap:4px;margin-top:8px}
+.staerke i{flex:1;height:4px;border-radius:2px;background:var(--linie)}
+.staerke i.an1,.staerke i.an2{background:var(--warn)}
+.staerke i.an3,.staerke i.an4{background:var(--eigen)}
 """
 
 # Tab-Symbol: weiße Sprechblase auf der Akzentfarbe, als data:-URI, damit die
@@ -1535,7 +1689,7 @@ def seite_code(sprache, hinweis=''):
       <a class="knopf still" href="/abmelden">{t('abbrechen', sprache)}</a>""", sprache)
 
 
-def seite_zweitfaktor(nutzer, sprache, hinweis='', fehler=''):
+def seite_zweitfaktor(nutzer, sprache, hinweis='', fehler='', pflicht=False):
     eingerichtet, aktiv = zf_stand(nutzer)
     meldung = f'<p class="fehler">{html.escape(fehler)}</p>' if fehler else ''
     if hinweis:
@@ -1563,8 +1717,29 @@ def seite_zweitfaktor(nutzer, sprache, hinweis='', fehler=''):
     uri = zf_uri(nutzer, g)
     lesbar = ' '.join(g[i:i + 4] for i in range(0, len(g), 4))
 
+    if pflicht:
+        schritt = t('erst_schritt2', sprache) if erst_eintrag(nutzer) else ''
+        oben = (f'<p class="leise">{schritt}</p>' if schritt else '') + \
+            f'<p class="leise">{t("zf_angebot_text", sprache)}</p>'
+        unten = f"""
+      <details class="karte">
+        <summary>{t('zf_ablehnen_kopf', sprache)}</summary>
+        <p class="leise" style="margin-top:10px">{t('zf_ablehnen_text', sprache)}</p>
+        <form method="post" action="/zweitfaktor">
+          <input type="hidden" name="tat" value="ablehnen">
+          <label style="display:flex;gap:8px;align-items:flex-start;margin:10px 0">
+            <input type="checkbox" name="risiko" value="ja" required style="width:auto;margin-top:3px">
+            <span>{t('zf_risiko_ok', sprache)}</span></label>
+          <button type="submit" class="gefahrgross">{t('zf_ablehnen', sprache)}</button>
+        </form>
+      </details>
+      <a class="knopf still" href="/abmelden">{t('abmelden', sprache)}</a>"""
+    else:
+        oben = ''
+        unten = f'<a class="knopf still" href="/">{t("spaeter", sprache)}</a>'
     return seite(t('zf_titel', sprache), f"""
       <h1>{t('zf_einrichten_kopf', sprache)}</h1>
+      {oben}
       {meldung}
       <div class="karte">
         <p>{t('zf_scannen', sprache)}</p>
@@ -1579,7 +1754,50 @@ def seite_zweitfaktor(nutzer, sprache, hinweis='', fehler=''):
         <button type="submit">{t('einschalten', sprache)}</button>
       </form>
       <p class="leise">{t('zf_scharf', sprache)}</p>
-      <a class="knopf still" href="/">{t('spaeter', sprache)}</a>""", sprache)
+      {unten}""", sprache)
+
+
+def seite_erstpasswort(sprache, fehler=''):
+    meldung = f'<p class="fehler">{html.escape(fehler)}</p>' if fehler else ''
+    return seite(t('erst_titel', sprache), f"""
+      <h1>{t('erst_kopf', sprache)}</h1>
+      <p class="leise">{t('erst_schritt1', sprache)}</p>
+      <p class="leise">{t('erst_unter', sprache)}</p>
+      {meldung}
+      <form method="post" action="/erstpasswort" class="karte">
+        <label for="n1">{t('pw_neu_feld', sprache)}</label>
+        <input id="n1" name="neu" type="password" autocomplete="new-password" minlength="12" required autofocus>
+        <div class="staerke"><i></i><i></i><i></i><i></i></div>
+        <p class="leise" style="margin:6px 0 14px">{t('pw_regel', sprache)}</p>
+        <label for="n2">{t('pw_nochmal_feld', sprache)}</label>
+        <input id="n2" name="nochmal" type="password" autocomplete="new-password" minlength="12" required>
+        <button type="submit">{t('weiter', sprache)}</button>
+      </form>
+      <a class="knopf still" href="/abmelden">{t('abmelden', sprache)}</a>
+      <script>
+      (function(){{
+        var f=document.getElementById('n1'), b=document.querySelectorAll('.staerke i');
+        f.addEventListener('input',function(){{
+          var w=f.value, n=0;
+          if(w.length>=12) n++;
+          if(/[a-z]/.test(w)&&/[A-Z]/.test(w)) n++;
+          if(/[0-9]/.test(w)) n++;
+          if(/[^A-Za-z0-9]/.test(w)||w.length>=16) n++;
+          for(var i=0;i<b.length;i++) b[i].className=i<n?'an'+n:'';
+        }});
+      }})();
+      </script>""", sprache)
+
+
+def seite_erst_fertig(sprache, ohne_zf=False):
+    text = t('erst_fertig_ohne_zf' if ohne_zf else 'erst_fertig_text', sprache)
+    return seite(t('erst_titel', sprache), f"""
+      <h1>{t('erst_fertig_kopf', sprache)}</h1>
+      <div class="karte">
+        <p>{text}</p>
+        <a class="knopf" href="{html.escape(ELEMENT)}">{t('erst_zum_chat', sprache)}</a>
+      </div>
+      <a class="knopf still" href="/">{t('erst_zur_verwaltung', sprache)}</a>""", sprache)
 
 
 def restlaufzeit(sekunden, sprache):
@@ -2321,14 +2539,28 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             if nutzer:
                 sitzung_sperren(nutzer)
             return self.weiter('/', {'Set-Cookie': 'sitzung=; Path=/; Max-Age=0'})
+        if pfad == '/einrichten':
+            nutzer = self.wer()
+            if not nutzer:
+                return self.weiter('/')
+            schritt = pflicht_schritt(nutzer)
+            if schritt == 'passwort':
+                return self.antwort(seite_erstpasswort(sprache))
+            if schritt == 'zweitfaktor':
+                return self.antwort(seite_zweitfaktor(nutzer, sprache, pflicht=True))
+            return self.weiter('/')
         if pfad == '/zweitfaktor':
             nutzer = self.wer()
+            if nutzer and pflicht_schritt(nutzer):
+                return self.weiter('/einrichten')
             return self.antwort(seite_zweitfaktor(nutzer, sprache)) if nutzer else self.weiter('/')
         if pfad == '/verwaltungsanleitung':
             # Nur für Verwalter; die Datei schreibt der Installer (root), ohne Passwoerter.
             nutzer = self.wer()
             if not nutzer:
                 return self.weiter('/')
+            if pflicht_schritt(nutzer):
+                return self.weiter('/einrichten')
             if not ist_verwalter(nutzer):
                 return self.kein_zugriff(sprache, mit_knopf=True)
             try:
@@ -2343,6 +2575,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
         nutzer = self.wer()
         if not nutzer:
             return self.antwort(seite_anmelden(sprache, verwaltung=self.unter_verwaltung()))
+        if pflicht_schritt(nutzer):
+            return self.weiter('/einrichten')
 
         # Unter dem Verwaltungsnamen zeigt die Startseite direkt die Verwaltung.
         # Dieselbe Anwendung, zwei Gesichter - getrennt nach Zuständigkeit,
@@ -2368,6 +2602,12 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.code_pruefen(sprache)
         if pfad == '/zweitfaktor':
             return self.zweitfaktor(sprache)
+        if pfad == '/erstpasswort':
+            return self.erstpasswort(sprache)
+        # Offene Pflichtschritte sperren jede andere Handlung, nicht nur die Seiten.
+        nutzer = self.wer()
+        if nutzer and pflicht_schritt(nutzer):
+            return self.weiter('/einrichten')
         if pfad == '/zurueckziehen':
             return self.zurueckziehen(sprache)
         if pfad == '/erzeugen':
@@ -2396,6 +2636,21 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
 
     def anmelden(self, sprache):
         f = self.formular()
+        erst = erst_kennung(f.get('benutzer', ''))
+        if erst:
+            # Synapse kennt das Konto nur gesperrt - das Passwort prüft der Hash hier.
+            if gebremst(erst):
+                return self.antwort(seite_anmelden(
+                    sprache, t('anmeldung_gebremst', sprache), self.unter_verwaltung()), 429)
+            if not pw_passt(f.get('passwort', ''), erst_eintrag(erst)['hash']):
+                fehlversuch(erst)
+                time.sleep(1.5)
+                protokoll('anmeldung_falsch', erst)
+                return self.antwort(seite_anmelden(
+                    sprache, t('anmeldung_falsch', sprache), self.unter_verwaltung()), 401)
+            versuche_loeschen(erst)
+            protokoll('angemeldet_erst', erst)
+            return self.weiter('/einrichten', self.keks_setzen(erst))
         zustand, nutzer = anmeldung_pruefen(f.get('benutzer', '').strip(),
                                             f.get('passwort', ''))
         if zustand != 'ok':
@@ -2435,6 +2690,20 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.weiter('/')
         f = self.formular()
         tat = f.get('tat', '')
+        if tat == 'ablehnen':
+            # Nur in der Erstanmeldung und nur mit bestätigtem Risiko.
+            if pflicht_schritt(nutzer) != 'zweitfaktor' or f.get('risiko') != 'ja':
+                return self.weiter('/einrichten')
+            try:
+                erst_abschliessen(nutzer)
+            except Exception as e:
+                protokoll('erst_entsperren_fehlgeschlagen', nutzer, str(e)[:120])
+                return self.antwort(seite_kurz(
+                    t('titel_verwaltung', sprache), t('nicht_geklappt', sprache),
+                    t('erst_entsperren_fehler', sprache), sprache, '/einrichten',
+                    t('nochmal_versuchen', sprache)), 502)
+            protokoll('2fa_abgelehnt', nutzer)
+            return self.antwort(seite_erst_fertig(sprache, ohne_zf=True))
         if gebremst(nutzer):
             return self.antwort(seite_zweitfaktor(
                 nutzer, sprache, fehler=t('code_zu_viele', sprache)), 429)
@@ -2451,8 +2720,41 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.antwort(seite_zweitfaktor(nutzer, sprache, hinweis=t('zf_ist_aus', sprache)),
                                 200, self.keks_setzen(nutzer))
         zf_einschalten(nutzer)
+        if erst_eintrag(nutzer):
+            try:
+                erst_abschliessen(nutzer)
+            except Exception as f:
+                protokoll('erst_entsperren_fehlgeschlagen', nutzer, str(f)[:120])
+                return self.antwort(seite_kurz(
+                    t('titel_verwaltung', sprache), t('nicht_geklappt', sprache),
+                    t('erst_entsperren_fehler', sprache), sprache, '/einrichten',
+                    t('nochmal_versuchen', sprache)), 502, self.keks_setzen(nutzer))
+            return self.antwort(seite_erst_fertig(sprache), 200, self.keks_setzen(nutzer))
         return self.antwort(seite_zweitfaktor(nutzer, sprache, hinweis=t('zf_ist_an', sprache)),
                             200, self.keks_setzen(nutzer))
+
+    def erstpasswort(self, sprache):
+        nutzer = self.wer()
+        if not nutzer or pflicht_schritt(nutzer) != 'passwort':
+            return self.weiter('/einrichten' if nutzer else '/')
+        f = self.formular()
+        neu, nochmal = f.get('neu', ''), f.get('nochmal', '')
+        fehler = None
+        if neu != nochmal:
+            fehler = 'pw_ungleich'
+        elif not passwort_stark(neu):
+            fehler = 'pw_zu_schwach'
+        elif pw_passt(neu, erst_eintrag(nutzer)['hash']):
+            fehler = 'pw_wie_vorher'
+        if fehler:
+            return self.antwort(seite_erstpasswort(sprache, t(fehler, sprache)), 400)
+        try:
+            erst_passwort_setzen(nutzer, neu)
+        except Exception as e:
+            protokoll('erst_passwort_fehlgeschlagen', nutzer, str(e)[:120])
+            return self.antwort(seite_erstpasswort(sprache, t('nochmal', sprache)), 502)
+        # erst_passwort_setzen beendet alle Sitzungen - frischer Keks für diese.
+        self.weiter('/einrichten', self.keks_setzen(nutzer))
 
     def zurueckziehen(self, sprache):
         """Eine offene Einladung ungueltig machen - nur die eigene, Verwalter jede."""
@@ -2731,6 +3033,17 @@ def kommandozeile(argumente):
         zf_entfernen(nutzer)
         versuche_loeschen(nutzer)
         print(t('cli_zf_entfernt', sprache, nutzer=nutzer))
+        return 0
+    if argumente[:1] == ['--erstanmeldung'] and len(argumente) == 2:
+        # Nur die Ablage; das Sperren in Synapse macht der Installer selbst.
+        nutzer = argumente[1]
+        passwort = sys.stdin.readline().rstrip('\n')
+        if not nutzer.startswith('@') or ':' not in nutzer or not passwort:
+            print(t('cli_aufruf', sprache)); return 2
+        with db() as v:
+            v.execute('INSERT OR REPLACE INTO erstanmeldung (nutzer, hash, pw_neu, seit) '
+                      'VALUES (?,?,0,?)', (nutzer, pw_hash(passwort), int(time.time())))
+        protokoll('erst_eingetragen', nutzer)
         return 0
     print(t('cli_aufruf', sprache))
     return 2

@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- First sign-in: the installer creates the first admin account locked in Synapse. The
+  initial password only works on the admin page, which asks for an own password and then
+  offers the second factor (it can be declined after confirming the risk). The account is
+  unlocked for the chat after that.
+- Setup page, done: the unencrypted page has one button to the secure page, which no
+  longer asks for the code again (one-time link, 5 minutes). The secure page shows the
+  initial password and the backup key with copy buttons; addresses, guides and checks
+  are folded away. "Finish setup" leads to the admin page.
+- Setup page: no language switch once the installer runs (steps and log come from
+  install.sh in the chosen language).
+- Abort on failed package installation shows the actual apt/dpkg error instead of a
+  guess about automatic updates.
+- German texts of the installer use proper umlauts.
+- Tab icon on the setup, invitation and admin pages.
+
 ## 1.1.0 — 2026-10-15
 
 Tested end to end on a rented Debian 13 VPS (Ionos, 1 core, 1.8 GB): setup page, Let's Encrypt, federation tester, STUN.

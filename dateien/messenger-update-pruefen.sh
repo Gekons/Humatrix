@@ -87,4 +87,4 @@ jq -n \
 chmod 644 "$tmp"
 mv -f "$tmp" "$AUSGABE"
 
-echo "Geprueft: $(jq -r '.pakete.gesamt' "$AUSGABE") Paket(e) aktualisierbar, davon $(jq -r '.pakete.sicherheit' "$AUSGABE") Sicherheit; Synapse ${synapse_ist:-fehlt} -> ${synapse_neu:-?}; Element ${element_ist:-fehlt} -> $element_neu"
+echo "Geprüft: $(jq -r '.pakete.gesamt' "$AUSGABE") Paket(e) aktualisierbar, davon $(jq -r '.pakete.sicherheit' "$AUSGABE") Sicherheit; Synapse ${synapse_ist:-fehlt} -> ${synapse_neu:-?}; Element ${element_ist:-fehlt} -> $element_neu"

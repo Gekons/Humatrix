@@ -171,9 +171,9 @@ Proxy-Einträge, die Firewall des Anbieters), dann die Prüfung der sechs DNS-Na
 erst weitergeht, wenn der Installer sie annehmen würde, dann das erste Verwalterkonto
 und wer den Server betreut, dann eine Zusammenfassung, in der sich jede Zeile ändern
 lässt. Dann lässt sie den Installer laufen, zeigt jeden Schritt und das Protokoll und
-endet mit den Adressen, dem Konto, dem Startpasswort, dem Hinweis auf den
-Sicherungsschlüssel, der Kundenanleitung und der Verwaltungsanleitung. „Einrichtung
-abschließen“ schaltet die Seite ab und schließt ihren Port.
+endet mit Startpasswort und Sicherungsschlüssel, jeweils mit Kopierknopf, auf der
+verschlüsselten Fassung der Seite. „Einrichtung abschließen“ schaltet die Seite ab,
+schließt ihren Port und führt zur Erstanmeldung in der Verwaltung.
 
 Was man über die Seite wissen sollte:
 
@@ -309,6 +309,11 @@ kein zweites Passwort.
 <p align="center">
   <img src="dateien/bilder/06-zweitfaktor.png" width="380" alt="Zweiter Faktor">
 </p>
+
+Erstanmeldung: Der Installer legt das erste Verwalterkonto in Synapse gesperrt an. Das
+Startpasswort gilt nur in der Verwaltung. Dort wird zuerst ein eigenes Passwort verlangt,
+danach wird der zweite Faktor angeboten. Ablehnen geht, aber nur mit dem Häkchen „Ich
+habe verstanden, dass das ein Risiko ist“. Erst dann ist das Konto im Chat freigeschaltet.
 
 TOTP, zweistufige Anmeldung, Geheimnis verschlüsselt abgelegt, Drossel nach fünf
 Fehlversuchen. Scharf wird es erst nach einem gültigen Code, aussperren kann man sich

@@ -178,8 +178,9 @@ your password manager before you forget about the server.
 
 Show them three things:
 
-1. Log in and change the password.
-2. Set up the second factor. Their account can delete people.
+1. Sign in on the admin page with the initial password. It asks for an own password
+   first; until then the account is locked in the chat.
+2. Set up the second factor when the page offers it. Their account can delete people.
 3. Send an invitation, preferably to you, so they see how it arrives.
 
 Also tell them what you can see: that someone wrote, when and with whom, but not what.

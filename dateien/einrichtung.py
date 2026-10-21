@@ -376,6 +376,36 @@ def abschliessen():
 
 TLS = {'laeuft': False, 'host': ''}
 
+# Einmal-Tickets für den Wechsel auf die sichere Seite: Der Code wurde schon
+# unverschlüsselt eingegeben, ihn dort nochmal abzufragen schützt nichts.
+# Ein Ticket gilt einmal und TICKET_SEKUNDEN lang.
+TICKETS = {}
+TICKET_SEKUNDEN = 300
+
+
+def ticket_neu():
+    jetzt = time.time()
+    with SCHLOSS:
+        for k in [k for k, bis in TICKETS.items() if bis < jetzt]:
+            del TICKETS[k]
+        k = secrets.token_urlsafe(24)
+        TICKETS[k] = jetzt + TICKET_SEKUNDEN
+    return k
+
+
+def ticket_einloesen(k):
+    with SCHLOSS:
+        bis = TICKETS.pop(k, 0)
+    return bis > time.time()
+
+
+def sicherungsschluessel():
+    try:
+        with open('/root/.sicherung_passwort', encoding='utf-8') as d:
+            return d.read().strip()
+    except OSError:
+        return ''
+
 
 def tls_starten(a):
     """Nach 'Fertig' mit eigenem Zertifikat: dieselbe Seite zusaetzlich verschluesselt
@@ -550,12 +580,12 @@ TEXTE = {
     'f_vanleitung_knopf': 'Verwaltungsanleitung öffnen',
     'f_erinnerung': 'Falls noch nicht erledigt',
     'f_tls_kopf': 'Noch ein Schritt: die sichere Seite',
-    'f_tls_text': 'Diese Seite kommt unverschlüsselt an. Das Passwort zeigt deshalb nur die '
-                  'verschlüsselte Fassung, mit dem frischen Zertifikat deines Servers. Dort gilt derselbe Code.',
+    'f_tls_text': 'Diese Seite kommt unverschlüsselt an. Das Startpasswort steht deshalb nur auf der '
+                  'verschlüsselten Fassung, mit dem frischen Zertifikat deines Servers.',
     'f_tls_knopf': 'Weiter zur sicheren Seite',
-    'f_tls_fallback': 'Lädt die sichere Seite nicht (zum Beispiel, weil die DNS-Namen bei dir noch nicht angekommen '
-                      'sind): Das Passwort steht auf dem Server in <code>/root/zugangsdaten-messenger.txt</code>, im '
-                      'Terminal <code>cat /root/zugangsdaten-messenger.txt</code>.',
+    'f_tls_fallback': 'Ist der Server gerade erst eingerichtet, kennt dein Netz die neuen Namen manchmal noch '
+                      'nicht. Ein paar Minuten warten und neu laden. Sonst steht das Startpasswort auf dem '
+                      'Server in <code>/root/zugangsdaten-messenger.txt</code>.',
     'f_passwort_verborgen': 'nur auf der sicheren Seite',
     # Lauf
     'lauf_kopf': 'Einrichtung läuft',
@@ -577,7 +607,7 @@ TEXTE = {
                           'sind durchgegangen:',
     # Fertig
     'fertig_kopf': 'Fertig',
-    'fertig_unter': 'Alle Prüfungen bestanden. Das hier ist der Moment, Passwort und Schlüssel ins Passwortdepot zu legen.',
+    'fertig_unter': 'Alle Prüfungen bestanden.',
     'f_adressen': 'Adressen',
     'f_chat': 'Chat im Browser',
     'f_einladungen': 'Einladungen',
@@ -586,16 +616,11 @@ TEXTE = {
     'f_konto': 'Dein Konto',
     'f_kennung': 'Kennung',
     'f_passwort': 'Startpasswort',
-    'f_passwort_hinweis': 'Nach der ersten Anmeldung ändern. Es steht bis dahin auch in '
-                          '<code>/root/zugangsdaten-messenger.txt</code>; lösche die Datei danach.',
+    'f_passwort_hinweis': 'Gilt nur für die erste Anmeldung in der Verwaltung. Dort legst du dein eigenes '
+                          'Passwort fest; bis dahin ist das Konto im Chat gesperrt.',
     'f_sicherung': 'Schlüssel der Sicherung',
-    'f_sicherung_text': 'Die tägliche Sicherung ist verschlüsselt. Der Schlüssel liegt in '
-                        '<code>/root/.sicherung_passwort</code>. Ohne ihn lässt sich keine Sicherung '
-                        'zurückspielen, also kopiere ihn jetzt ins Passwortdepot:',
-    'f_sicherung_befehl': 'cat /root/.sicherung_passwort',
-    'f_zweitfaktor': 'Als Nächstes: zweiter Faktor',
-    'f_zweitfaktor_text': 'Die Verwaltung kann Konten löschen. Richte unter <b>Verwaltung → Zweiter Faktor</b> '
-                          'eine Authenticator-App ein, bevor du Einladungen verschickst.',
+    'f_sicherung_text': 'Die tägliche Sicherung ist verschlüsselt. Ohne diesen Schlüssel lässt sich keine '
+                        'Sicherung zurückspielen.',
     'f_proxy': 'Jetzt der Proxy',
     'f_proxy_text': 'Dieser Server liefert Klartext auf Port 80. Lege im Proxy für diese fünf Namen je einen '
                     'Eintrag auf <b>http://{ip}:80</b> an. Das Zertifikat gehört dorthin, nicht hierher.',
@@ -607,9 +632,16 @@ TEXTE = {
     'f_anleitung_text': 'Eine Seite für deine Leute mit Adresse, Kontonamen und den ersten Schritten. Im Browser '
                         'öffnen, drucken oder als PDF sichern.',
     'f_anleitung_knopf': 'Kundenanleitung öffnen',
-    'f_abschliessen': 'Einrichtung abschließen',
-    'f_abschliessen_hinweis': 'Schaltet diese Seite ab. Alles Weitere geht über die Verwaltung.',
+    'f_abschliessen': 'Einrichtung abschließen und zur Verwaltung',
+    'f_abschliessen_hinweis': 'Schaltet diese Seite ab. In der Verwaltung meldest du dich mit dem Startpasswort an.',
     'f_pruefungen': 'Prüfungen am Ende',
+    'f_tls_klemmt': 'Die sichere Seite lädt nicht?',
+    'f_sicher_unter': 'Alle Prüfungen bestanden. Lege jetzt Startpasswort und Sicherungsschlüssel in deinem '
+                      'Passwortdepot ab.',
+    'f_details': 'Weitere Angaben: Adressen, Anleitungen, Prüfungen',
+    'f_gespeichert': 'Ich habe Startpasswort und Sicherungsschlüssel gespeichert.',
+    'kopieren': 'Kopieren',
+    'kopiert': 'Kopiert',
     # Abgeschaltet / schon eingerichtet
     'aus_kopf': 'Die Einrichtungsseite ist abgeschaltet',
     'aus_text': 'Ab jetzt läuft alles über die Verwaltung unter <b>https://service.{domain}</b>.',
@@ -757,12 +789,12 @@ TEXTE = {
     'f_vanleitung_knopf': 'Open operator guide',
     'f_erinnerung': 'If not done yet',
     'f_tls_kopf': 'One more step: the secure page',
-    'f_tls_text': 'This page arrives unencrypted. The password is therefore shown only on the '
-                  'encrypted version, using your server’s fresh certificate. The same code applies there.',
+    'f_tls_text': 'This page arrives unencrypted. The initial password is therefore only on the '
+                  'encrypted version, using your server’s fresh certificate.',
     'f_tls_knopf': 'Continue to the secure page',
-    'f_tls_fallback': 'If the secure page does not load (for example because the DNS names have not reached you '
-                      'yet): the password is on the server in <code>/root/zugangsdaten-messenger.txt</code>; in the '
-                      'terminal <code>cat /root/zugangsdaten-messenger.txt</code>.',
+    'f_tls_fallback': 'Right after setup your network sometimes does not know the new names yet. Wait a few '
+                      'minutes and reload. Otherwise the initial password is on the server in '
+                      '<code>/root/zugangsdaten-messenger.txt</code>.',
     'f_passwort_verborgen': 'only on the secure page',
     'lauf_kopf': 'Setting up',
     'lauf_unter': 'Packages, database, Matrix, web server, calls, chat, invitations, backup, updates, hardening.',
@@ -779,7 +811,7 @@ TEXTE = {
     'fehler_teils_kopf': 'Done, with reservations',
     'fehler_teils_unter': 'The server is up and the account exists, but not all final checks passed:',
     'fertig_kopf': 'Done',
-    'fertig_unter': 'All checks passed. This is the moment to put the password and the key into your password manager.',
+    'fertig_unter': 'All checks passed.',
     'f_adressen': 'Addresses',
     'f_chat': 'Chat in the browser',
     'f_einladungen': 'Invitations',
@@ -788,15 +820,10 @@ TEXTE = {
     'f_konto': 'Your account',
     'f_kennung': 'User ID',
     'f_passwort': 'Initial password',
-    'f_passwort_hinweis': 'Change it after the first login. Until then it is also in '
-                          '<code>/root/zugangsdaten-messenger.txt</code>; delete that file afterwards.',
+    'f_passwort_hinweis': 'Only valid for the first sign-in on the admin page. There you choose your own '
+                          'password; until then the account is locked in the chat.',
     'f_sicherung': 'Backup key',
-    'f_sicherung_text': 'The daily backup is encrypted. The key is in <code>/root/.sicherung_passwort</code>. '
-                        'Without it no backup can be restored, so copy it into your password manager now:',
-    'f_sicherung_befehl': 'cat /root/.sicherung_passwort',
-    'f_zweitfaktor': 'Next: second factor',
-    'f_zweitfaktor_text': 'The admin page can delete accounts. Set up an authenticator app under '
-                          '<b>Administration → Second factor</b> before you send invitations.',
+    'f_sicherung_text': 'The daily backup is encrypted. Without this key no backup can be restored.',
     'f_proxy': 'Now the proxy',
     'f_proxy_text': 'This server serves plain HTTP on port 80. In the proxy, create one entry per name for '
                     'these five names, pointing to <b>http://{ip}:80</b>. The certificate belongs there, not here.',
@@ -808,9 +835,15 @@ TEXTE = {
     'f_anleitung_text': 'A page for your people with the address, the account name and the first steps. Open it '
                         'in the browser, print it or save it as PDF.',
     'f_anleitung_knopf': 'Open customer guide',
-    'f_abschliessen': 'Finish setup',
-    'f_abschliessen_hinweis': 'Turns this page off. Everything else happens in the admin page.',
+    'f_abschliessen': 'Finish setup and go to the admin page',
+    'f_abschliessen_hinweis': 'Turns this page off. On the admin page you sign in with the initial password.',
     'f_pruefungen': 'Final checks',
+    'f_tls_klemmt': 'The secure page does not load?',
+    'f_sicher_unter': 'All checks passed. Put the initial password and the backup key into your password manager now.',
+    'f_details': 'More: addresses, guides, checks',
+    'f_gespeichert': 'I have saved the initial password and the backup key.',
+    'kopieren': 'Copy',
+    'kopiert': 'Copied',
     'aus_kopf': 'The setup page is off',
     'aus_text': 'From now on everything happens in the admin page at <b>https://service.{domain}</b>.',
     'schon_kopf': 'This server is already set up',
@@ -895,6 +928,11 @@ code{font-family:ui-monospace,monospace;font-size:14px;background:var(--grund);p
 table.ports td:first-child{width:28%;color:var(--schrift);font-family:ui-monospace,monospace}
 .erkannt{font-size:14px;color:var(--leise);background:var(--grund);border-radius:9px;padding:10px 12px;margin-bottom:14px}
 .aendern{font-size:13px;color:var(--eigen);text-decoration:none;margin-left:8px;white-space:nowrap}
+.kopierbar{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.kopierbar span{word-break:break-all}
+button.kopieren{width:auto;margin:0;padding:6px 12px;font-size:13px;flex:none}
+button:disabled{opacity:.45;cursor:not-allowed}
+details summary{cursor:pointer;margin:14px 0}
 """
 
 
@@ -1222,45 +1260,37 @@ def seite_fehler(sprache, stand, a):
       <a class="knopf still" href="/server">{t('aendern', sprache)}</a>""", sprache)
 
 
-def block_zugang(sprache, a, sicher=True):
-    """sicher=False: Verbindung unverschluesselt, obwohl es eine verschluesselte gibt -
-    dann bleiben Passwort und Kundenanleitung (enthaelt es auch) der sicheren Seite vorbehalten."""
+def block_adressen(sprache, a):
     d = a['domain']
-    z = zugangsdaten()
-    if not sicher:
-        pw = f'<span class="leise">{t("f_passwort_verborgen", sprache)}</span>'
-    elif z['passwort']:
-        pw = html.escape(z['passwort'])
-    else:
-        pw = '<span class="leise">/root/zugangsdaten-messenger.txt</span>'
-    anleitung = ''
-    if sicher and z['anleitung'] and os.path.exists(z['anleitung']):
-        anleitung = f"""
-      <div class="karte">
-        <h2>{t('f_anleitung', sprache)}</h2>
-        <p class="leise">{t('f_anleitung_text', sprache)}</p>
-        <a class="knopf still" href="/anleitung" target="_blank">{t('f_anleitung_knopf', sprache)}</a>
-      </div>"""
     return f"""
-      <div class="karte">
         <h2>{t('f_adressen', sprache)}</h2>
         <table>
           <tr><td>{t('f_chat', sprache)}</td><td><a href="https://chat.{d}">https://chat.{d}</a></td></tr>
           <tr><td>{t('f_einladungen', sprache)}</td><td><a href="https://invite.{d}">https://invite.{d}</a></td></tr>
           <tr><td>{t('f_verwaltung', sprache)}</td><td><a href="https://service.{d}">https://service.{d}</a></td></tr>
           <tr><td>{t('f_app', sprache)}</td><td>{d}</td></tr>
-        </table>
-      </div>
-      <div class="karte">
-        <h2>{t('f_konto', sprache)}</h2>
-        <label>{t('f_kennung', sprache)}</label>
-        <div class="wert">@{html.escape(a['verwalter'])}:{d}</div>
-        <div style="height:12px"></div>
-        <label>{t('f_passwort', sprache)}</label>
-        <div class="wert">{pw}</div>
-        <p class="hilfe" style="margin:10px 0 0">{t('f_passwort_hinweis', sprache)}</p>
-      </div>
-      {anleitung}"""
+        </table>"""
+
+
+def wert_kopierbar(wert, sprache):
+    return (f'<div class="wert kopierbar"><span>{html.escape(wert)}</span>'
+            f'<button type="button" class="kopieren" data-fertig="{t("kopiert", sprache)}">'
+            f'{t("kopieren", sprache)}</button></div>')
+
+
+SKRIPT_FERTIG = """<script>
+(function(){
+  document.querySelectorAll('.kopieren').forEach(function(k){
+    k.addEventListener('click',function(){
+      var w=k.parentNode.querySelector('span').textContent, alt=k.textContent;
+      navigator.clipboard.writeText(w).then(function(){k.textContent=k.dataset.fertig;
+        setTimeout(function(){k.textContent=alt},1500)});
+    });
+  });
+  var h=document.getElementById('gespeichert'), b=document.getElementById('abschliessen');
+  if(h&&b){ b.disabled=!h.checked; h.addEventListener('change',function(){b.disabled=!h.checked}); }
+})();
+</script>"""
 
 
 def seite_fertig(sprache, stand, a, sicher=True):
@@ -1268,63 +1298,98 @@ def seite_fertig(sprache, stand, a, sicher=True):
     gut, schlecht = nachkontrolle(stand['zeilen'])
     proxy = a.get('situation') == 'proxy'
     innen, aussen = lokale_ip(), oeffentliche_ip()
-    bloecke = []
-    if not sicher:
-        bloecke.append(f"""
-      <div class="karte" style="border-color:var(--eigen)">
-        <h2>{t('f_tls_kopf', sprache)}</h2>
-        <p class="leise">{t('f_tls_text', sprache)}</p>
-        <a class="knopf" href="https://{html.escape(TLS['host'])}:{TLS_PORT}/fertig">{t('f_tls_knopf', sprache)}</a>
-        <p class="hilfe" style="margin:10px 0 0">{t('f_tls_fallback', sprache)}</p>
-      </div>""")
-    bloecke.append(block_zugang(sprache, a, sicher))
-    if os.path.exists(f'/root/verwaltungsanleitung-{d}.html'):
-        bloecke.append(f"""
-      <div class="karte">
-        <h2>{t('f_vanleitung', sprache)}</h2>
-        <p class="leise">{t('f_vanleitung_text', sprache)}</p>
-        <a class="knopf" href="/verwaltungsanleitung" target="_blank">{t('f_vanleitung_knopf', sprache)}</a>
-      </div>""")
-    bloecke.append(f"""
-      <div class="karte">
-        <h2>{t('f_sicherung', sprache)}</h2>
-        <p class="leise">{t('f_sicherung_text', sprache)}</p>
-        <div class="wert">{t('f_sicherung_befehl', sprache)}</div>
-      </div>
-      <div class="karte">
-        <h2>{t('f_zweitfaktor', sprache)}</h2>
-        <p class="leise">{t('f_zweitfaktor_text', sprache)}</p>
-      </div>""")
+
+    # Erinnerungen, die außerhalb des Servers zu erledigen sind, bleiben sichtbar.
+    erinnerungen = ''
     if proxy:
         namen = ''.join(f'<li>{p}{d}</li>' for p in PRAEFIXE[:5])
-        bloecke.append(f"""
+        erinnerungen += f"""
       <div class="karte">
         <h2>{t('f_proxy', sprache)} <span class="leise" style="font-weight:400">· {t('f_erinnerung', sprache)}</span></h2>
         <p class="leise">{t('f_proxy_text', sprache, ip=html.escape(innen or '?'))}</p>
         <ul>{namen}</ul>
-      </div>""")
+      </div>"""
     if innen and aussen and innen != aussen and not proxy:
-        bloecke.append(f"""
+        erinnerungen += f"""
       <div class="karte">
         <h2>{t('f_router', sprache)} <span class="leise" style="font-weight:400">· {t('f_erinnerung', sprache)}</span></h2>
         <p class="leise">{t('f_router_text', sprache, aussen=html.escape(aussen), innen=html.escape(innen))}</p>
         <p style="margin-top:8px"><b>{t('f_router_ports', sprache)}</b></p>
-      </div>""")
-    pruefungen = ''.join(f'<li class="ok">{html.escape(s)}</li>' for s in gut)
-    bloecke.append(f"""
-      <div class="karte">
-        <h2>{t('f_pruefungen', sprache)}</h2>
-        <ul class="schritte">{pruefungen}</ul>
-      </div>
-      <form method="post" action="/beenden">
-        <button type="submit">{t('f_abschliessen', sprache)}</button>
-        <p class="hilfe" style="margin:8px 0 0">{t('f_abschliessen_hinweis', sprache)}</p>
-      </form>""")
-    return seite(t('titel', sprache), f"""
+      </div>"""
+
+    if not sicher:
+        ziel = f"https://{html.escape(TLS['host'])}:{TLS_PORT}/uebergabe?k={ticket_neu()}"
+        return seite(t('titel', sprache), f"""
       {kopfzeile(sprache, '/fertig', umschalten=False)}
       <h1>{t('fertig_kopf', sprache)}</h1>
       <p class="leise">{t('fertig_unter', sprache)}</p>
-      {''.join(bloecke)}""", sprache)
+      <div class="karte" style="border-color:var(--eigen)">
+        <h2>{t('f_tls_kopf', sprache)}</h2>
+        <p class="leise">{t('f_tls_text', sprache)}</p>
+        <a class="knopf" href="{ziel}">{t('f_tls_knopf', sprache)}</a>
+        <details style="margin-top:12px"><summary class="leise">{t('f_tls_klemmt', sprache)}</summary>
+          <p class="hilfe" style="margin:8px 0 0">{t('f_tls_fallback', sprache)}</p></details>
+      </div>
+      {erinnerungen}""", sprache)
+
+    z = zugangsdaten()
+    pw = wert_kopierbar(z['passwort'], sprache) if z['passwort'] else \
+        '<div class="wert"><span class="leise">/root/zugangsdaten-messenger.txt</span></div>'
+    sk = sicherungsschluessel()
+    schluessel = wert_kopierbar(sk, sprache) if sk else \
+        '<div class="wert"><span class="leise">/root/.sicherung_passwort</span></div>'
+
+    details = f'<div class="karte">{block_adressen(sprache, a)}</div>'
+    if z['anleitung'] and os.path.exists(z['anleitung']):
+        details += f"""
+      <div class="karte">
+        <h2>{t('f_anleitung', sprache)}</h2>
+        <p class="leise">{t('f_anleitung_text', sprache)}</p>
+        <a class="knopf still" href="/anleitung" target="_blank">{t('f_anleitung_knopf', sprache)}</a>
+      </div>"""
+    if os.path.exists(f'/root/verwaltungsanleitung-{d}.html'):
+        details += f"""
+      <div class="karte">
+        <h2>{t('f_vanleitung', sprache)}</h2>
+        <p class="leise">{t('f_vanleitung_text', sprache)}</p>
+        <a class="knopf still" href="/verwaltungsanleitung" target="_blank">{t('f_vanleitung_knopf', sprache)}</a>
+      </div>"""
+    pruefungen = ''.join(f'<li class="ok">{html.escape(s)}</li>' for s in gut)
+    details += f"""
+      <div class="karte">
+        <h2>{t('f_pruefungen', sprache)}</h2>
+        <ul class="schritte">{pruefungen}</ul>
+      </div>"""
+
+    return seite(t('titel', sprache), f"""
+      {kopfzeile(sprache, '/fertig', umschalten=False)}
+      <h1>{t('fertig_kopf', sprache)}</h1>
+      <p class="leise">{t('f_sicher_unter', sprache)}</p>
+      <div class="karte">
+        <h2>{t('f_konto', sprache)}</h2>
+        <label>{t('f_kennung', sprache)}</label>
+        <div class="wert">@{html.escape(a['verwalter'])}:{d}</div>
+        <div style="height:12px"></div>
+        <label>{t('f_passwort', sprache)}</label>
+        {pw}
+        <p class="hilfe" style="margin:10px 0 0">{t('f_passwort_hinweis', sprache)}</p>
+      </div>
+      <div class="karte">
+        <h2>{t('f_sicherung', sprache)}</h2>
+        <p class="leise">{t('f_sicherung_text', sprache)}</p>
+        {schluessel}
+      </div>
+      {erinnerungen}
+      <form method="post" action="/beenden" class="karte" style="border-color:var(--eigen)">
+        <input type="hidden" name="weiter" value="verwaltung">
+        <label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:12px">
+          <input type="checkbox" id="gespeichert" required style="width:auto;margin-top:3px">
+          <span>{t('f_gespeichert', sprache)}</span></label>
+        <button type="submit" id="abschliessen">{t('f_abschliessen', sprache)}</button>
+        <p class="hilfe" style="margin:8px 0 0">{t('f_abschliessen_hinweis', sprache)}</p>
+      </form>
+      <details><summary class="leise">{t('f_details', sprache)}</summary>{details}</details>
+      {SKRIPT_FERTIG}""", sprache)
 
 
 def seite_kurz(sprache, kopf, text, knoepfe=''):
@@ -1418,6 +1483,12 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.weiter(dann if dann in SEITEN else '/')
         if not antworten().get('sprache'):
             return self.antwort(seite_sprache())
+        if pfad == '/uebergabe' and ist_tls(self):
+            if ticket_einloesen(frage.get('k', [''])[0]):
+                keks = (f'einrichtung={sitzung_bauen()}; Path=/; HttpOnly; Secure; SameSite=Lax; '
+                        f'Max-Age={SITZUNG_STUNDEN * 3600}')
+                return self.weiter('/fertig', {'Set-Cookie': keks})
+            return self.weiter('/')           # abgelaufen oder benutzt: dann eben der Code
         if not self.angemeldet():
             return self.antwort(seite_code(sprache), 401 if pfad != '/' else 200)
         a = antworten()
@@ -1518,6 +1589,8 @@ class Bedienung(http.server.BaseHTTPRequestHandler):
             return self.weiter('/lauf')
         if pfad == '/beenden':
             abschliessen()
+            if f.get('weiter') == 'verwaltung' and a.get('domain'):
+                return self.weiter(f"https://service.{a['domain']}/")
             text = t('aus_text', sprache, domain=html.escape(a['domain'])) if a.get('domain') else t('aus_kopf', sprache) + '.'
             return self.antwort(seite_kurz(sprache, t('aus_kopf', sprache), text))
         if schon_eingerichtet() and stand['zustand'] == 'keiner':
