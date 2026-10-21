@@ -165,7 +165,8 @@ Fetch the guide from the admin page ("Guides" card) or by hand:
 scp root@<IP>:/root/kundenanleitung-<domain>.html .
 ```
 
-Open it in the browser, Ctrl+P, "Save as PDF". There is no PDF generator on the server
+In the admin page "Save as PDF" opens it with the print dialog; by hand: open it in the
+browser, Ctrl+P, "Save as PDF". There is no PDF generator on the server
 on purpose; it would pull in about a hundred packages a messenger does not need.
 
 Then send separately:

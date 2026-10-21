@@ -194,7 +194,8 @@ What to know about the page:
 - It writes an operator guide (`/root/verwaltungsanleitung-<domain>.html`) with the
   addresses, ports, proxy entries, backup, update and troubleshooting commands for this
   server, and the customer guide. Neither contains a password. The terminal way writes
-  them too; the admin page offers both for download.
+  them too; the admin page offers both to open or to save as PDF, with clean page breaks
+  for A4.
 - Port 8088 must be reachable from your browser. On a rented server it usually is. In
   a home network open the page from the same network. The hardening step opens the port
   in the firewall for the duration of the setup; "Finish setup" closes it again.

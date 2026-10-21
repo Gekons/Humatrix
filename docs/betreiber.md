@@ -169,7 +169,8 @@ Die Anleitung aus der Verwaltung holen (Karte „Anleitungen“) oder von Hand:
 scp root@<IP>:/root/kundenanleitung-<domain>.html .
 ```
 
-Im Browser öffnen, Strg+P, „Als PDF sichern“. Auf dem Server gibt es absichtlich
+In der Verwaltung öffnet „Als PDF speichern“ sie gleich mit dem Druckdialog; von Hand:
+im Browser öffnen, Strg+P, „Als PDF sichern“. Auf dem Server gibt es absichtlich
 keinen PDF-Erzeuger; der zöge rund hundert Pakete nach, die ein Messenger nicht braucht.
 
 Dann getrennt verschicken:

@@ -204,7 +204,7 @@ Was man über die Seite wissen sollte:
   mit Adressen, Ports, Proxy-Einträgen, Sicherung, Aktualisieren und den Befehlen für
   den Fall, dass etwas klemmt, für genau diesen Server, und die Kundenanleitung. Beide
   enthalten kein Passwort. Der Terminal-Weg schreibt sie ebenfalls; die Verwaltung bietet
-  beide zum Herunterladen an.
+  beide zum Öffnen oder als PDF an, mit sauberen Seitenumbrüchen für A4.
 - Port 8088 muss vom Browser aus erreichbar sein. Auf einem gemieteten Server ist er das
   meist. Im Heimnetz öffnet man die Seite aus demselben Netz. Die Härtung öffnet den Port
   in der Firewall für die Dauer der Einrichtung, „Abschließen“ schließt ihn wieder.

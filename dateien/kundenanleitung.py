@@ -65,7 +65,19 @@ STIL = """
   figure img { width:100%; max-width:120mm; display:block; margin:0 auto;
         border:1px solid var(--linie); border-radius:6px; }
   figcaption { font-size:9.5pt; color:var(--leise); text-align:center; margin-top:6px; }
-  @media print { .blatt { padding:0; max-width:none; } a { color:inherit; text-decoration:none; } }
+  .druckleiste { display:flex; justify-content:flex-end; margin-bottom:10px; }
+  .druckleiste button { font:inherit; font-size:10pt; padding:6px 14px; border-radius:6px;
+        border:1px solid var(--eigen); background:#fff; color:var(--eigen); cursor:pointer; }
+  @page { @bottom-center { content: counter(page) " / " counter(pages); font: 9pt system-ui, sans-serif; color: #5d6b65; } }
+  @media print {
+    .blatt { padding:0; max-width:none; }
+    a { color:inherit; text-decoration:none; }
+    .nur-bildschirm { display:none; }
+    h2, h3, h2 + p, h3 + p { break-after:avoid; }
+    li, tr, .kasten, figure { break-inside:avoid; }
+    p { orphans:3; widows:3; }
+    figure img { width:auto; max-width:110mm; max-height:92mm; }
+  }
 """
 
 # Die Vorlagen je Sprache. Platzhalter in geschweiften Klammern; der Stil kommt
@@ -79,6 +91,7 @@ VORLAGEN['de'] = """<!doctype html>
 <title>Euer eigener Chat — {domain}</title>
 <style>{stil}</style></head>
 <body><div class="blatt">
+<div class="druckleiste nur-bildschirm"><button type="button" onclick="print()">Drucken / als PDF speichern</button></div>
 
 <div class="deckel">
   <h1>Euer eigener Chat</h1>
@@ -252,7 +265,8 @@ VORLAGEN['de'] = """<!doctype html>
   Diese Anleitung enthält keine Passwörter.
 </div>
 
-</div></body></html>
+</div><script>if (/[?&]drucken=1/.test(location.search)) addEventListener('load', function () {{ setTimeout(print, 300); }});</script>
+</body></html>
 """
 
 VORLAGEN['en'] = """<!doctype html>
@@ -262,6 +276,7 @@ VORLAGEN['en'] = """<!doctype html>
 <title>Your own chat — {domain}</title>
 <style>{stil}</style></head>
 <body><div class="blatt">
+<div class="druckleiste nur-bildschirm"><button type="button" onclick="print()">Print / save as PDF</button></div>
 
 <div class="deckel">
   <h1>Your own chat</h1>
@@ -435,7 +450,8 @@ VORLAGEN['en'] = """<!doctype html>
   This guide contains no passwords.
 </div>
 
-</div></body></html>
+</div><script>if (/[?&]drucken=1/.test(location.search)) addEventListener('load', function () {{ setTimeout(print, 300); }});</script>
+</body></html>
 """
 
 # Bildunterschriften und Kleintexte je Sprache. Die Bilder selbst sind deutsch.

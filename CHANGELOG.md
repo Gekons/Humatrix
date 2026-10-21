@@ -26,6 +26,9 @@
   records existed. Final checks pin the names to the server's own address.
 - Abort on a failed certificate names the reason; for the Let's Encrypt weekly limit
   (5 certificates for the same names) it says from when it works again.
+- Both guides: "Save as PDF" in the admin page (browser print dialog, no PDF generator
+  on the server), print layout with page numbers and without split headings, images or
+  boxes. The operator guide describes the first sign-in.
 - Documentation: screenshots of the setup page and the first sign-in in English and
   German; all screenshots and the sample customer guides renewed.
 

@@ -62,7 +62,19 @@ STIL = """
   .deckel { border-bottom:3px solid var(--eigen); padding-bottom:14px; margin-bottom:8px; }
   .fuss { margin-top:30px; padding-top:12px; border-top:1px solid var(--linie);
         font-size:9.5pt; color:var(--leise); }
-  @media print { .blatt { padding:0; max-width:none; } a { color:inherit; text-decoration:none; } }
+  .druckleiste { display:flex; justify-content:flex-end; margin-bottom:10px; }
+  .druckleiste button { font:inherit; font-size:10pt; padding:6px 14px; border-radius:6px;
+        border:1px solid var(--eigen); background:#fff; color:var(--eigen); cursor:pointer; }
+  @page { @bottom-center { content: counter(page) " / " counter(pages); font: 9pt system-ui, sans-serif; color: #5d6b65; } }
+  @media print {
+    .blatt { padding:0; max-width:none; }
+    a { color:inherit; text-decoration:none; }
+    .nur-bildschirm { display:none; }
+    h2, h3, h2 + p, h3 + p { break-after:avoid; }
+    li, tr, .kasten, figure { break-inside:avoid; }
+    p { orphans:3; widows:3; }
+    figure img { width:auto; max-width:110mm; max-height:92mm; }
+  }
 """
 
 
@@ -114,8 +126,9 @@ def seite(a):
             api='Matrix-Schnittstelle (für Apps und andere Server)',
             konto='Dein Konto',
             konto_text=f'Kennung <span class="wert">@{e(a.verwalter)}:{e(d)}</span>. Das Startpasswort steht in '
-                       f'<code>/root/zugangsdaten-messenger.txt</code> auf dem Server. Ändere es nach der ersten '
-                       f'Anmeldung in der Verwaltung („Passwort neu“ an deinem Konto) und lösche die Datei.',
+                       f'<code>/root/zugangsdaten-messenger.txt</code> auf dem Server und gilt nur für die '
+                       f'Erstanmeldung in der Verwaltung; dort legst du dein eigenes Passwort fest. Danach die '
+                       f'Datei löschen.',
             zf='Zweiter Faktor', zf_text='Die Verwaltung kann Konten löschen. Richte unter <b>Verwaltung → Zweiter Faktor</b> '
                'eine Authenticator-App ein. Notausgang, wenn das Telefon weg ist (als root auf dem Server):',
             netz='Netz: was außerhalb des Servers eingerichtet sein muss',
@@ -192,8 +205,8 @@ def seite(a):
             api='Matrix API (for apps and other servers)',
             konto='Your account',
             konto_text=f'User ID <span class="wert">@{e(a.verwalter)}:{e(d)}</span>. The initial password is in '
-                       f'<code>/root/zugangsdaten-messenger.txt</code> on the server. Change it after the first login '
-                       f'in the admin page ("New password" on your account) and delete the file.',
+                       f'<code>/root/zugangsdaten-messenger.txt</code> on the server and only works for the first '
+                       f'sign-in on the admin page, where you choose your own password. Then delete the file.',
             zf='Second factor', zf_text='The admin page can delete accounts. Set up an authenticator app under '
                '<b>Admin page → Second factor</b>. Emergency exit if the phone is gone (as root on the server):',
             netz='Network: what must be set up outside the server',
@@ -332,7 +345,11 @@ def seite(a):
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="{ICON}">
 <title>{e(T['titel'])}</title><style>{STIL}</style></head>
-<body><div class="blatt">{koerper}</div></body></html>"""
+<body><div class="blatt">
+<div class="druckleiste nur-bildschirm"><button type="button" onclick="print()">{'Drucken / als PDF speichern' if a.language == 'de' else 'Print / save as PDF'}</button></div>
+{koerper}</div>
+<script>if (/[?&]drucken=1/.test(location.search)) addEventListener('load', function () {{ setTimeout(print, 300); }});</script>
+</body></html>"""
 
 
 def main():
