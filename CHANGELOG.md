@@ -21,6 +21,13 @@
   logout (`logout_redirect_url`), so the login works on the first try.
 - Customer guide without the initial password; both guides are downloadable from the
   admin page.
+- DNS check asks the zone's own name servers. The provider's resolver kept an early
+  "no such name" for up to an hour, so the setup page said "no record yet" although the
+  records existed. Final checks pin the names to the server's own address.
+- Abort on a failed certificate names the reason; for the Let's Encrypt weekly limit
+  (5 certificates for the same names) it says from when it works again.
+- Documentation: screenshots of the setup page and the first sign-in in English and
+  German; all screenshots and the sample customer guides renewed.
 
 ## 1.1.0 — 2026-10-15
 

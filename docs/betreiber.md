@@ -87,10 +87,16 @@ sudo bash setup.sh
 
 ausführen und die ausgegebene Adresse mit dem Einmalcode im Browser öffnen. Die Seite
 fragt Domain, Proxy oder nicht, E-Mail, den Benutzernamen des Kunden und deinen Namen als
-Betreiber ab, prüft die DNS-Namen, lässt den Installer laufen und zeigt das Ergebnis. Ein
-Feld für `--sicherung` hat sie nicht; für eine entfernte Sicherung danach aus
-`/opt/humatrix` heraus `./install.sh … --nur sicherung` mit den Schaltern unten
-aufrufen. Die README beschreibt die Seite.
+Betreiber ab, prüft die DNS-Namen, lässt den Installer laufen und zeigt das Ergebnis:
+Startpasswort und Sicherungsschlüssel, jeweils mit Kopierknopf, auf der verschlüsselten
+Fassung der Seite. Ein Feld für `--sicherung` hat sie nicht; für eine entfernte
+Sicherung danach aus `/opt/humatrix` heraus `./install.sh … --nur sicherung` mit den
+Schaltern unten aufrufen. Die README beschreibt die Seite.
+
+<p align="center">
+  <img src="../dateien/bilder/einrichtung/03-server.png" width="260" alt="Einrichtungsseite: wo der Server steht">
+  <img src="../dateien/bilder/einrichtung/10-fertig-sicher.png" width="260" alt="Sichere Seite: Startpasswort und Sicherungsschlüssel">
+</p>
 
 Der lange Weg, mit allen Schaltern in einer Zeile:
 
@@ -149,14 +155,15 @@ Sicherungsziel erreichbar ist. Sind alle grün, ist der Server fertig.
 |---|---|
 | `/root/zugangsdaten-messenger.txt` | alle Zugänge und der Verweis auf den Sicherungsschlüssel; für dich |
 | `/root/.sicherung_passwort` | Schlüssel der verschlüsselten Sicherung; ins Passwortdepot |
-| `/root/kundenanleitung-<domain>.html` | fertig befüllte Anleitung; für den Kunden |
+| `/root/kundenanleitung-<domain>.html` | fertig befüllte Anleitung für den Kunden, ohne Passwort; auch in der Verwaltung |
+| `/root/verwaltungsanleitung-<domain>.html` | Verwaltungsanleitung für diesen Server, ohne Passwort; auch in der Verwaltung |
 | `/var/log/messenger-installer.log` | Protokoll, falls etwas schiefging |
 | `/var/lib/messenger/updates.json` | Befund der täglichen Update-Prüfung (zeigt die Verwaltung an) |
 | `/var/log/messenger-update.log` | Protokoll jedes eingespielten Updates |
 
 ## Schritt 6: Übergabe
 
-Die Anleitung holen:
+Die Anleitung aus der Verwaltung holen (Karte „Anleitungen“) oder von Hand:
 
 ```bash
 scp root@<IP>:/root/kundenanleitung-<domain>.html .
@@ -172,15 +179,18 @@ Dann getrennt verschicken:
 | Die Anleitung (PDF) | Mail ist in Ordnung |
 | Das erste Passwort | nicht in derselben Mail. Telefon, Signal, persönlich. |
 
-Das Passwort steht in der Anleitung. Also entweder die Anleitung sicher schicken (nicht
-per einfacher Mail) oder die Passwortzeile vor dem Versand löschen und das Passwort am
-Telefon sagen.
+In der Anleitung steht kein Passwort. Das Startpasswort gilt nur für die erste
+Anmeldung in der Verwaltung, die es durch ein eigenes des Kunden ersetzt.
 
 Sicherungsschlüssel sichern: `cat /root/.sicherung_passwort` ist der Schlüssel der
 Sicherung (die Zugangsdatei verweist nur darauf). Ohne ihn ist keine Sicherung
 wiederherstellbar. Ins Passwortdepot, bevor du den Server das erste Mal vergisst.
 
 ## Schritt 7: Erstes Gespräch mit dem Kunden
+
+<p align="center">
+  <img src="../dateien/bilder/einrichtung/12-erstpasswort.png" width="300" alt="Erstanmeldung: eigenes Passwort festlegen">
+</p>
 
 Zeig ihm drei Dinge:
 

@@ -87,7 +87,14 @@ sudo bash setup.sh
 
 and open the printed address with the one-time code in a browser. The page asks for
 domain, proxy or not, e-mail, the customer's username and your name as operator, checks
-the DNS names, runs the installer and shows the result. It has no field for `--backup`;
+the DNS names, runs the installer and shows the result: the initial password and the
+backup key, each with a copy button, on the encrypted version of the page.
+
+<p align="center">
+  <img src="../dateien/bilder/en/einrichtung/03-server.png" width="260" alt="Setup page: where the server stands">
+  <img src="../dateien/bilder/en/einrichtung/10-fertig-sicher.png" width="260" alt="Secure page: initial password and backup key">
+</p>
+ It has no field for `--backup`;
 for a remote backup run `./install.sh … --only sicherung` from `/opt/humatrix`
 afterwards, with the switches below. The README describes the page.
 
@@ -144,14 +151,15 @@ backup target is reachable. If all are green, the server is done.
 |---|---|
 | `/root/zugangsdaten-messenger.txt` | all credentials and the pointer to the backup key; for you |
 | `/root/.sicherung_passwort` | key of the encrypted backup; into your password manager |
-| `/root/kundenanleitung-<domain>.html` | filled-in guide; for the customer |
+| `/root/kundenanleitung-<domain>.html` | filled-in guide for the customer, without password; also in the admin page |
+| `/root/verwaltungsanleitung-<domain>.html` | operator guide for this server, without password; also in the admin page |
 | `/var/log/messenger-installer.log` | log, in case something went wrong |
 | `/var/lib/messenger/updates.json` | result of the daily update check (shown by the admin page) |
 | `/var/log/messenger-update.log` | log of every update that was installed |
 
 ## Step 6: Handover
 
-Fetch the guide:
+Fetch the guide from the admin page ("Guides" card) or by hand:
 
 ```bash
 scp root@<IP>:/root/kundenanleitung-<domain>.html .
@@ -167,14 +175,18 @@ Then send separately:
 | The guide (PDF) | mail is fine |
 | The initial password | not in the same mail. Phone, Signal, in person. |
 
-The password is printed in the guide. So either send the guide securely (not by plain
-mail), or delete the password line before sending and say it over the phone.
+The guide contains no password. The initial password only works for the first
+sign-in on the admin page, which replaces it with the customer's own.
 
 Secure the backup key: `cat /root/.sicherung_passwort` is the key of the backup (the
 credentials file only points to it). Without it no backup can be restored. Put it in
 your password manager before you forget about the server.
 
 ## Step 7: First conversation with the customer
+
+<p align="center">
+  <img src="../dateien/bilder/en/einrichtung/12-erstpasswort.png" width="300" alt="First sign-in: choose your own password">
+</p>
 
 Show them three things:
 

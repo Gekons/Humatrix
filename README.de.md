@@ -106,8 +106,8 @@ ergänzt genau dieses Stück.
   Sprachkarte in der Verwaltung, und jede Einladung kann ihre eigene Sprache tragen;
   ohne eine folgt die Einladungsseite dem Browser des Besuchers. Dokumentation und
   Kundenanleitung gibt es in beiden Sprachen.
-- **Eine Kundenanleitung**, am Ende der Installation erzeugt, mit der echten Adresse,
-  dem Kontonamen und dem Startpasswort
+- **Eine Kundenanleitung**, am Ende der Installation erzeugt, mit der echten Adresse
+  und dem Kontonamen, ohne Passwort
 
 ## Was es nicht ist
 
@@ -159,6 +159,12 @@ curl -fsSLo setup.sh https://raw.githubusercontent.com/Gekons/Humatrix/main/setu
 sudo bash setup.sh
 ```
 
+<p align="center">
+  <img src="dateien/bilder/einrichtung/03-server.png" width="260" alt="Einrichtungsseite: wo der Server steht">
+  <img src="dateien/bilder/einrichtung/05-dns.png" width="260" alt="Einrichtungsseite: DNS-Prüfung">
+  <img src="dateien/bilder/einrichtung/08-lauf.png" width="260" alt="Einrichtungsseite: Installer läuft">
+</p>
+
 Das Skript prüft, dass es Debian 12 oder 13 auf amd64 ist, installiert `python3` und
 `curl`, holt den Installer nach `/opt/humatrix` und gibt eine Adresse wie
 `http://203.0.113.5:8088/` samt Einmalcode aus. Adresse öffnen, Sprache wählen, Code
@@ -175,6 +181,11 @@ endet mit Startpasswort und Sicherungsschlüssel, jeweils mit Kopierknopf, auf d
 verschlüsselten Fassung der Seite. „Einrichtung abschließen“ schaltet die Seite ab,
 schließt ihren Port und führt zur Erstanmeldung in der Verwaltung.
 
+<p align="center">
+  <img src="dateien/bilder/einrichtung/09-fertig.png" width="300" alt="Fertig: ein Knopf zur sicheren Seite">
+  <img src="dateien/bilder/einrichtung/10-fertig-sicher.png" width="300" alt="Sichere Seite: Startpasswort und Sicherungsschlüssel">
+</p>
+
 Was man über die Seite wissen sollte:
 
 - Sie läuft als root, weil sie Pakete installiert. Der Code schützt sie; nach zehn
@@ -185,13 +196,15 @@ Was man über die Seite wissen sollte:
 - Sie ist Klartext-HTTP auf Port 8088. Mit eigenem Zertifikat (gemieteter Server oder
   zuhause) zeigt die Endseite das Passwort deshalb nur auf einer verschlüsselten Kopie
   ihrer selbst: Sobald das Zertifikat da ist, lauscht die Seite damit zusätzlich auf Port
-  8089 unter `https://service.<domain>:8089/`, und die Klartextseite verweist dorthin.
-  Hinter einem Proxy liegt kein Zertifikat auf dem Rechner, dort zeigt die Klartextseite
-  alles.
-- Sie schreibt eine Verwaltungsanleitung (`/root/verwaltungsanleitung-<domain>.html`,
-  ohne Passwörter) mit Adressen, Ports, Proxy-Einträgen, Sicherung, Aktualisieren und
-  den Befehlen für den Fall, dass etwas klemmt, für genau diesen Server. Der Terminal-Weg
-  schreibt sie ebenfalls; die Verwaltung bietet sie zum Herunterladen an.
+  8089 unter `https://service.<domain>:8089/`, und die Klartextseite hat dafür einen
+  Knopf. Er trägt einen Einmal-Link, der fünf Minuten gilt; der Code wird dort also nicht
+  noch einmal abgefragt. Hinter einem Proxy liegt kein Zertifikat auf dem Rechner, dort
+  zeigt die Klartextseite alles.
+- Sie schreibt eine Verwaltungsanleitung (`/root/verwaltungsanleitung-<domain>.html`)
+  mit Adressen, Ports, Proxy-Einträgen, Sicherung, Aktualisieren und den Befehlen für
+  den Fall, dass etwas klemmt, für genau diesen Server, und die Kundenanleitung. Beide
+  enthalten kein Passwort. Der Terminal-Weg schreibt sie ebenfalls; die Verwaltung bietet
+  beide zum Herunterladen an.
 - Port 8088 muss vom Browser aus erreichbar sein. Auf einem gemieteten Server ist er das
   meist. Im Heimnetz öffnet man die Seite aus demselben Netz. Die Härtung öffnet den Port
   in der Firewall für die Dauer der Einrichtung, „Abschließen“ schließt ihn wieder.
@@ -304,16 +317,23 @@ eine Rückfrage, die sagt, was passiert und dass der Chat kurz pausiert.
 Verwalter ist, wer es am Matrix-Server ist. Es gibt keine zweite Rechteverwaltung und
 kein zweites Passwort.
 
+### Erstanmeldung
+
+<p align="center">
+  <img src="dateien/bilder/einrichtung/12-erstpasswort.png" width="300" alt="Erstanmeldung: eigenes Passwort festlegen">
+  <img src="dateien/bilder/einrichtung/15-erst-fertig.png" width="300" alt="Erstanmeldung abgeschlossen">
+</p>
+
+Der Installer legt das erste Verwalterkonto in Synapse gesperrt an. Das Startpasswort
+gilt nur in der Verwaltung. Dort wird zuerst ein eigenes Passwort verlangt, danach wird
+der zweite Faktor angeboten. Ablehnen geht, aber nur mit dem Häkchen „Ich habe
+verstanden, dass das ein Risiko ist“. Erst dann ist das Konto im Chat freigeschaltet.
+
 ### Zweiter Faktor
 
 <p align="center">
   <img src="dateien/bilder/06-zweitfaktor.png" width="380" alt="Zweiter Faktor">
 </p>
-
-Erstanmeldung: Der Installer legt das erste Verwalterkonto in Synapse gesperrt an. Das
-Startpasswort gilt nur in der Verwaltung. Dort wird zuerst ein eigenes Passwort verlangt,
-danach wird der zweite Faktor angeboten. Ablehnen geht, aber nur mit dem Häkchen „Ich
-habe verstanden, dass das ein Risiko ist“. Erst dann ist das Konto im Chat freigeschaltet.
 
 TOTP, zweistufige Anmeldung, Geheimnis verschlüsselt abgelegt, Drossel nach fünf
 Fehlversuchen. Scharf wird es erst nach einem gültigen Code, aussperren kann man sich
@@ -375,9 +395,11 @@ dort. Das eingebettete Element behält die Schlüssel im Browser.
 
 ## Die Anleitung, die deine Leute bekommen
 
-Am Ende schreibt der Installer eine Anleitung mit der echten Adresse, dem Kontonamen
-und dem Startpasswort, mit Bildern, in der mit `--language` gewählten Sprache. Zum
-Ausdrucken oder als PDF weitergeben. Muster mit Platzhaltern:
+Am Ende schreibt der Installer eine Anleitung mit der echten Adresse und dem
+Kontonamen, mit Bildern, in der mit `--language` gewählten Sprache. Sie enthält kein
+Passwort: Das Startpasswort bekommt der Kunde getrennt, und die Erstanmeldung ersetzt
+es ohnehin. Die Verwaltung bietet die Anleitung zum Herunterladen an. Zum Ausdrucken
+oder als PDF weitergeben. Muster mit Platzhaltern:
 
 **[docs/muster-kundenanleitung.html](docs/muster-kundenanleitung.html)** (deutsch) ·
 **[docs/sample-customer-guide.html](docs/sample-customer-guide.html)** (englisch)

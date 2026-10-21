@@ -102,7 +102,7 @@ to go through the one person who knows the server. Humatrix adds that missing pi
   without one, the invitation page follows the visitor's browser. Documentation and the
   customer guide exist in both languages.
 - **A customer guide**, generated at the end of the installation with the real
-  address, account name and initial password
+  address and account name, without password
 
 ## What it is not
 
@@ -153,6 +153,12 @@ curl -fsSLo setup.sh https://raw.githubusercontent.com/Gekons/Humatrix/main/setu
 sudo bash setup.sh
 ```
 
+<p align="center">
+  <img src="dateien/bilder/en/einrichtung/03-server.png" width="260" alt="Setup page: where the server stands">
+  <img src="dateien/bilder/en/einrichtung/05-dns.png" width="260" alt="Setup page: DNS check">
+  <img src="dateien/bilder/en/einrichtung/08-lauf.png" width="260" alt="Setup page: installer running">
+</p>
+
 The script checks that this is Debian 12 or 13 on amd64, installs `python3` and `curl`,
 fetches the installer into `/opt/humatrix` and prints an address like
 `http://203.0.113.5:8088/` together with a one-time code. Open the address, choose the
@@ -168,6 +174,11 @@ and the log, and ends with the initial password and the backup key, each with a 
 button, on the encrypted version of the page. "Finish setup" turns the page off, closes
 its port and leads to the admin page for the first sign-in.
 
+<p align="center">
+  <img src="dateien/bilder/en/einrichtung/09-fertig.png" width="300" alt="Done: one button to the secure page">
+  <img src="dateien/bilder/en/einrichtung/10-fertig-sicher.png" width="300" alt="Secure page: initial password and backup key">
+</p>
+
 What to know about the page:
 
 - It runs as root, because it installs packages. The code guards it; after ten wrong
@@ -177,11 +188,13 @@ What to know about the page:
 - It is plain HTTP on port 8088. With its own certificate (rented server or at home) the
   final page therefore shows the password only on an encrypted copy of itself: once the
   certificate exists, the page also listens on port 8089 with it, under
-  `https://service.<domain>:8089/`, and the plain page links there. Behind a proxy there
-  is no certificate on the machine and the plain page shows everything.
-- It writes an operator guide (`/root/verwaltungsanleitung-<domain>.html`, no passwords)
-  with the addresses, ports, proxy entries, backup, update and troubleshooting commands
-  for this server. The terminal way writes it too; the admin page offers it for download.
+  `https://service.<domain>:8089/`, and the plain page has one button there. It carries a
+  one-time link valid for five minutes, so the code is not asked for again. Behind a proxy
+  there is no certificate on the machine and the plain page shows everything.
+- It writes an operator guide (`/root/verwaltungsanleitung-<domain>.html`) with the
+  addresses, ports, proxy entries, backup, update and troubleshooting commands for this
+  server, and the customer guide. Neither contains a password. The terminal way writes
+  them too; the admin page offers both for download.
 - Port 8088 must be reachable from your browser. On a rented server it usually is. In
   a home network open the page from the same network. The hardening step opens the port
   in the firewall for the duration of the setup; "Finish setup" closes it again.
@@ -290,16 +303,23 @@ confirmation that says what will happen and that the chat pauses briefly.
 An admin is whoever is an admin on the Matrix server. There is no second permission
 system and no second password.
 
+### First sign-in
+
+<p align="center">
+  <img src="dateien/bilder/en/einrichtung/12-erstpasswort.png" width="300" alt="First sign-in: choose your own password">
+  <img src="dateien/bilder/en/einrichtung/15-erst-fertig.png" width="300" alt="First sign-in done">
+</p>
+
+The installer creates the first admin account locked in Synapse. The initial password
+only works on the admin page, which asks for an own password first and then offers the
+second factor. It can be declined, but only after ticking "I understand that this is a
+risk". Only then is the account unlocked for the chat.
+
 ### Second factor
 
 <p align="center">
   <img src="dateien/bilder/en/06-zweitfaktor.png" width="380" alt="Second factor">
 </p>
-
-First sign-in: the installer creates the first admin account locked in Synapse. The
-initial password only works on the admin page, which asks for an own password first and
-then offers the second factor. It can be declined, but only after ticking "I understand
-that this is a risk". Only then is the account unlocked for the chat.
 
 TOTP, two-step login, secret stored encrypted, throttling after five failed attempts.
 It only becomes active after a valid code, so you cannot lock yourself out while
@@ -360,9 +380,11 @@ keeps the keys in the browser.
 
 ## The guide your people get
 
-At the end the installer writes a guide with the real address, the account name and
-the initial password, with pictures, in the language chosen with `--language`. Print it
-or pass it on as a PDF. Samples with placeholders:
+At the end the installer writes a guide with the real address and the account name,
+with pictures, in the language chosen with `--language`. It contains no password: the
+initial password goes to the customer separately, and the first sign-in replaces it
+anyway. The admin page offers the guide for download. Print it or pass it on as a PDF.
+Samples with placeholders:
 
 **[docs/sample-customer-guide.html](docs/sample-customer-guide.html)** (English) ·
 **[docs/muster-kundenanleitung.html](docs/muster-kundenanleitung.html)** (German)
