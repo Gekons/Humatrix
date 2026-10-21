@@ -70,14 +70,21 @@ STIL = """
         border:1px solid var(--eigen); background:#fff; color:var(--eigen); cursor:pointer; }
   @page { @bottom-center { content: counter(page) " / " counter(pages); font: 9pt system-ui, sans-serif; color: #5d6b65; } }
   @media print {
+    body { font-size:10.5pt; }
     .blatt { padding:0; max-width:none; }
     a { color:inherit; text-decoration:none; }
     .nur-bildschirm { display:none; }
     h2, h3, h2 + p, h3 + p { break-after:avoid; }
     .kapitelanfang, table.ganz { break-inside:avoid; }
+    ol > li:first-child, ul > li:first-child { break-after:avoid; }
+    .fuss { break-before:avoid; break-inside:avoid; margin-top:16px; }
+    ol > li:last-child, ul > li:last-child, tr:last-child { break-before:avoid; }
+    tr:first-child { break-after:avoid; }
     li, tr, .kasten, figure { break-inside:avoid; }
     p { orphans:3; widows:3; }
-    figure img { width:auto; max-width:110mm; max-height:92mm; }
+    figure img { width:auto; max-width:100%; max-height:78mm; }
+    .bildpaar { display:flex; gap:8mm; align-items:flex-start; break-inside:avoid; }
+    .bildpaar figure { flex:1; margin:8px 0 12px; }
   }
 """
 
@@ -158,7 +165,7 @@ VORLAGEN['de'] = """<!doctype html>
      Melde dich bei {betreiber_kurz} — der kann den zweiten Faktor auf dem Server zurücksetzen.</p>
 </div>
 
-<h2 class="neu">4. Die App auf dem Telefon</h2>
+<h2>4. Die App auf dem Telefon</h2>
 <p>Du brauchst keine App von uns — ihr nehmt eine fertige, die es in den Stores gibt.
    Das ist Absicht: So hat niemand die App selbst gebaut, der auch den Server betreibt.</p>
 <ol class="schritte">
@@ -202,7 +209,7 @@ VORLAGEN['de'] = """<!doctype html>
      nachvollziehbar, über wen jemand dazugekommen ist.</p>
 </div>
 
-<h2 class="neu">6. Verwaltung — was du dort noch kannst</h2>
+<h2>6. Verwaltung — was du dort noch kannst</h2>
 
 {bild_verwaltung}
 <table class="zugang">
@@ -277,12 +284,26 @@ document.querySelectorAll('.blatt h2, .blatt h3').forEach(function (h) {{
   anfang.appendChild(h);
   // Folgt direkt eine Unterüberschrift, gehört sie samt ihrem ersten Abschnitt dazu.
   if (n === 2 && anfang.nextElementSibling && anfang.nextElementSibling.tagName === 'H3') n = 3;
-  while (n-- > 0 && anfang.nextElementSibling && !/^H2$/.test(anfang.nextElementSibling.tagName))
+  // Bilder gehören nicht dazu: ein hohes Bild schöbe sonst das ganze Kapitel weiter
+  // und ließe eine halbe Seite leer. Ein Bild darf allein umbrechen.
+  // Lange Tabellen ebenso wenig: sie dürfen ohnehin über die Seite laufen.
+  function passt(el) {{
+    return el && !/^(H2|FIGURE)$/.test(el.tagName) && !(el.tagName === 'TABLE' && el.rows.length > 6);
+  }}
+  while (n-- > 0 && passt(anfang.nextElementSibling))
     anfang.appendChild(anfang.nextElementSibling);
+}});
+// Zwei Bilder direkt hintereinander nebeneinander setzen (spart im Druck eine halbe Seite).
+document.querySelectorAll('.blatt figure + figure').forEach(function (f) {{
+  var vorher = f.previousElementSibling, paar = document.createElement('div');
+  if (vorher.parentNode.classList.contains('bildpaar')) return;
+  paar.className = 'bildpaar';
+  vorher.parentNode.insertBefore(paar, vorher);
+  paar.appendChild(vorher); paar.appendChild(f);
 }});
 // Kurze Tabellen nicht teilen.
 document.querySelectorAll('.blatt table').forEach(function (t) {{
-  if (t.rows.length <= 8) t.classList.add('ganz');
+  if (t.rows.length <= 6) t.classList.add('ganz');
 }});
 </script>
 <script>if (/[?&]drucken=1/.test(location.search)) addEventListener('load', function () {{ setTimeout(print, 300); }});</script>
@@ -362,7 +383,7 @@ VORLAGEN['en'] = """<!doctype html>
      Get in touch with {betreiber_kurz} — they can reset the second factor on the server.</p>
 </div>
 
-<h2 class="neu">4. The app on the phone</h2>
+<h2>4. The app on the phone</h2>
 <p>You don't need an app from us — you use a ready-made one from the stores.
    That is deliberate: this way the person who built the app is not the one who runs the server.</p>
 <ol class="schritte">
@@ -406,7 +427,7 @@ VORLAGEN['en'] = """<!doctype html>
      traceable through whom someone joined.</p>
 </div>
 
-<h2 class="neu">6. Admin page — what else you can do there</h2>
+<h2>6. Admin page — what else you can do there</h2>
 
 {bild_verwaltung}
 <table class="zugang">
@@ -481,12 +502,26 @@ document.querySelectorAll('.blatt h2, .blatt h3').forEach(function (h) {{
   anfang.appendChild(h);
   // Folgt direkt eine Unterüberschrift, gehört sie samt ihrem ersten Abschnitt dazu.
   if (n === 2 && anfang.nextElementSibling && anfang.nextElementSibling.tagName === 'H3') n = 3;
-  while (n-- > 0 && anfang.nextElementSibling && !/^H2$/.test(anfang.nextElementSibling.tagName))
+  // Bilder gehören nicht dazu: ein hohes Bild schöbe sonst das ganze Kapitel weiter
+  // und ließe eine halbe Seite leer. Ein Bild darf allein umbrechen.
+  // Lange Tabellen ebenso wenig: sie dürfen ohnehin über die Seite laufen.
+  function passt(el) {{
+    return el && !/^(H2|FIGURE)$/.test(el.tagName) && !(el.tagName === 'TABLE' && el.rows.length > 6);
+  }}
+  while (n-- > 0 && passt(anfang.nextElementSibling))
     anfang.appendChild(anfang.nextElementSibling);
+}});
+// Zwei Bilder direkt hintereinander nebeneinander setzen (spart im Druck eine halbe Seite).
+document.querySelectorAll('.blatt figure + figure').forEach(function (f) {{
+  var vorher = f.previousElementSibling, paar = document.createElement('div');
+  if (vorher.parentNode.classList.contains('bildpaar')) return;
+  paar.className = 'bildpaar';
+  vorher.parentNode.insertBefore(paar, vorher);
+  paar.appendChild(vorher); paar.appendChild(f);
 }});
 // Kurze Tabellen nicht teilen.
 document.querySelectorAll('.blatt table').forEach(function (t) {{
-  if (t.rows.length <= 8) t.classList.add('ganz');
+  if (t.rows.length <= 6) t.classList.add('ganz');
 }});
 </script>
 <script>if (/[?&]drucken=1/.test(location.search)) addEventListener('load', function () {{ setTimeout(print, 300); }});</script>
