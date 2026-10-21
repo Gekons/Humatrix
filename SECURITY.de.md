@@ -12,7 +12,7 @@ Erwartung mehr wert als ein großes Versprechen.
 
 **Bitte nicht als öffentliches Ticket.** Stattdessen:
 
-- **E-Mail:** `humatrix@gekons.de`
+- **E-Mail:** `info@gekons.de`
 - oder über die private Meldefunktion von GitHub: „Report a vulnerability" im Reiter
   „Security" dieses Repositories. Fehlt der Knopf: bitte die E-Mail, kein Ticket.
 
